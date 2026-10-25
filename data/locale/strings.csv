@@ -1,0 +1,19 @@
+keys,en,zh_TW
+ITEM_fish,Tuna,鮪魚
+ITEM_fillet,Fillet,魚片
+ITEM_cash,Cash,現金
+STATION_cutting_table,Cutting table,切魚台
+SHOP_hire_fisher,Hire a fisher,僱用漁夫
+SHOP_capacity,Bigger backpack,擴充背包
+SHOP_expand_table,Second cutting table,增建切魚台
+PAD_INPUT,Drop here,放這裡
+PAD_OUTPUT,Take here,從這裡拿
+PAD_COUNTER,Stock the counter,上架
+PAD_MONEY,Cash,現金
+CUSTOMER_WANT,Fillet x%d,魚片 ×%d
+NOTICE_HIRED,A fisher joined you!,漁夫加入了!
+NOTICE_PURCHASED,%s unlocked!,%s 完成!
+HUD_CARRY,Carrying: %s x%d / %d,背上:%s ×%d / %d
+HUD_EMPTY,Carrying: nothing,背上:空
+HUD_STATS,Earned $%d | fish %d | sold %d | fishers %d,累計收入 $%d|抓魚 %d|賣出 %d|漁夫 %d
+HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch them; stand on pads to drop / take / sell / pay.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、付錢。

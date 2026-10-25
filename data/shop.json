@@ -1,0 +1,7 @@
+{
+  "purchases": [
+    {"id": "hire_fisher", "name": "SHOP_hire_fisher", "cost": 10, "effect": {"type": "hire", "role": "fisher"}},
+    {"id": "capacity_1", "name": "SHOP_capacity", "cost": 25, "effect": {"type": "capacity", "add": 4}},
+    {"id": "expand_table", "name": "SHOP_expand_table", "cost": 50, "effect": {"type": "unlock", "target": "station_2"}, "buildSpot": true}
+  ]
+}

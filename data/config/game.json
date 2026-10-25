@@ -1,0 +1,27 @@
+{
+  "playerSpeed": 6.5,
+  "playerAccel": 40.0,
+  "carryCapacity": 8,
+  "helperSpeed": 4.5,
+  "helperCapacity": 6,
+  "transferPerSec": 8,
+  "cashPickupPerSec": 20,
+  "payPerSec": 12,
+  "fish": {
+    "maxInWater": 18,
+    "spawnIntervalSec": 0.5,
+    "swimSpeed": 1.6,
+    "catchRadius": 1.1
+  },
+  "customers": {
+    "max": 6,
+    "spawnIntervalSec": 2.0,
+    "serveIntervalSec": 0.35,
+    "speed": 3.5
+  },
+  "counter": {
+    "item": "fillet",
+    "stockCap": 30,
+    "pricePerItem": 2
+  }
+}
