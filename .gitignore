@@ -1,0 +1,7 @@
+# Godot 4 cache / imported resources
+.godot/
+# Local editor overrides
+override.cfg
+# OS
+Thumbs.db
+desktop.ini
