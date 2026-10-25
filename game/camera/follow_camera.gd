@@ -3,7 +3,7 @@ extends Camera3D
 ## 跟隨相機:固定偏移(等角俯視,從 +Z 側往 -Z 看,所以螢幕上 = 世界 -Z),平滑跟著目標。
 
 var target: Node3D = null
-var offset := Vector3(0, 13.0, 9.5)
+var offset := Vector3(0, 15.0, 10.5)
 var smoothing := 6.0
 
 

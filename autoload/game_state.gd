@@ -1,14 +1,17 @@
 extends Node
-## 遊戲進行狀態(Autoload:GameState):購買 / 升級 / 僱用的結果與統計。里程碑 1 不存檔,之後再加。
+## 遊戲進行狀態(Autoload:GameState):購買 / 升級 / 僱用的結果與統計;to_dict / from_dict 給存檔用。
+## 效果型別:capacity 擴充背包、hire 僱用幫手(角色計數)、unlock 解鎖目標(關卡聽 purchased 生東西)、upgrade 升級等級。
 
 signal changed
 
-var capacity_bonus := 0        # 背包容量加成(擴充背包)
+var capacity_bonus := 0        # 背包容量加成
 var unlocked := {}             # 購買 id 或解鎖目標 -> true
 var hired := {}                # 幫手角色 -> 人數
-var cash_earned := 0           # 累計賣出所得
+var upgrades := {}             # 升級鍵(worker_speed / pile_cap)-> 等級
+var cash_earned := 0
 var fish_caught := 0
 var items_sold := 0
+var items_trashed := 0
 
 
 func _ready() -> void:
@@ -22,13 +25,14 @@ func reset() -> void:
     capacity_bonus = 0
     unlocked = {}
     hired = {}
+    upgrades = {}
     cash_earned = 0
     fish_caught = 0
     items_sold = 0
+    items_trashed = 0
     changed.emit()
 
 
-## 價格牌付清後套用效果:capacity 擴充背包、hire 僱用幫手、unlock 解鎖目標(關卡聽 purchased 生東西)
 func apply_purchase(id: String, effect: Dictionary) -> void:
     unlocked[id] = true
     match str(effect.get("type", "")):
@@ -39,6 +43,10 @@ func apply_purchase(id: String, effect: Dictionary) -> void:
             hired[role] = int(hired.get(role, 0)) + 1
         "unlock":
             unlocked[str(effect.get("target", id))] = true
+        "upgrade":
+            var key := str(effect.get("key", ""))
+            if key != "":
+                upgrades[key] = upgrade_level(key) + 1
     changed.emit()
     EventBus.purchased.emit(id, effect)
 
@@ -49,3 +57,61 @@ func is_unlocked(id: String) -> bool:
 
 func hired_count(role: String) -> int:
     return int(hired.get(role, 0))
+
+
+func hired_total() -> int:
+    var n := 0
+    for role in hired:
+        n += int(hired[role])
+    return n
+
+
+func upgrade_level(key: String) -> int:
+    return int(upgrades.get(key, 0))
+
+
+## 升級倍率 = 1 + 每級加成(game.json upgrades.<key>.perLevel)× 等級
+func upgrade_mult(key: String) -> float:
+    var spec = GameData.section("upgrades").get(key, {})
+    var per := float(spec.get("perLevel", 0.5)) if typeof(spec) == TYPE_DICTIONARY else 0.5
+    return 1.0 + per * float(upgrade_level(key))
+
+
+func add_trashed(n: int) -> void:
+    if n > 0:
+        items_trashed += n
+
+
+## --- 存檔 ---
+
+func to_dict() -> Dictionary:
+    return {
+        "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
+        "upgrades": upgrades.duplicate(), "cash_earned": cash_earned, "fish_caught": fish_caught,
+        "items_sold": items_sold, "items_trashed": items_trashed,
+    }
+
+
+## 不發 purchased(關卡自己依 unlocked / hired 重建),只在最後發一次 changed
+func from_dict(d: Dictionary) -> void:
+    capacity_bonus = int(d.get("capacity_bonus", 0))
+    unlocked = {}
+    var u = d.get("unlocked", {})
+    if typeof(u) == TYPE_DICTIONARY:
+        for k in u:
+            unlocked[str(k)] = bool(u[k])
+    hired = {}
+    var h = d.get("hired", {})
+    if typeof(h) == TYPE_DICTIONARY:
+        for k in h:
+            hired[str(k)] = maxi(int(h[k]), 0)
+    upgrades = {}
+    var g = d.get("upgrades", {})
+    if typeof(g) == TYPE_DICTIONARY:
+        for k in g:
+            upgrades[str(k)] = maxi(int(g[k]), 0)
+    cash_earned = int(d.get("cash_earned", 0))
+    fish_caught = int(d.get("fish_caught", 0))
+    items_sold = int(d.get("items_sold", 0))
+    items_trashed = int(d.get("items_trashed", 0))
+    changed.emit()

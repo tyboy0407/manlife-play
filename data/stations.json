@@ -1,6 +1,24 @@
 {
   "stations": [
-    {"id": "cutting_table", "name": "STATION_cutting_table", "input": "fish", "output": "fillet",
-     "inputCap": 12, "outputCap": 24, "processSec": 1.0, "yield": 2}
+    {
+      "id": "cutting_table",
+      "name": "STATION_cutting_table",
+      "input": "fish",
+      "output": "fillet",
+      "inputCap": 12,
+      "outputCap": 24,
+      "processSec": 1.0,
+      "yield": 2
+    },
+    {
+      "id": "grill",
+      "name": "STATION_grill",
+      "input": "fillet",
+      "output": "grilled",
+      "inputCap": 12,
+      "outputCap": 18,
+      "processSec": 1.5,
+      "yield": 1
+    }
   ]
 }

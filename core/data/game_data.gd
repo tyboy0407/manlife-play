@@ -1,16 +1,18 @@
 class_name GameData
 extends RefCounted
 ## 資料載入(靜態快取):data/config/game.json(數值)、data/items.json(物品外觀)、data/stations.json(工作站)、
-## data/shop.json(價格牌)。改資料不用動程式。
+## data/counters.json(櫃台)、data/shop.json(價格牌)。改資料不用動程式。
 
 const CONFIG_PATH := "res://data/config/game.json"
 const ITEMS_PATH := "res://data/items.json"
 const STATIONS_PATH := "res://data/stations.json"
+const COUNTERS_PATH := "res://data/counters.json"
 const SHOP_PATH := "res://data/shop.json"
 
 static var _config := {}
 static var _items := {}
 static var _stations := {}
+static var _counters := {}
 static var _shop: Array = []
 static var _loaded := false
 
@@ -22,12 +24,8 @@ static func reload() -> void:
     if typeof(items) == TYPE_DICTIONARY:
         for id in items:
             _items[str(id)] = items[id]
-    _stations = {}
-    var stations = _load(STATIONS_PATH).get("stations", [])
-    if typeof(stations) == TYPE_ARRAY:
-        for s in stations:
-            if typeof(s) == TYPE_DICTIONARY and s.has("id"):
-                _stations[str(s["id"])] = s
+    _stations = _index(_load(STATIONS_PATH).get("stations", []))
+    _counters = _index(_load(COUNTERS_PATH).get("counters", []))
     _shop = []
     var shop = _load(SHOP_PATH).get("purchases", [])
     if typeof(shop) == TYPE_ARRAY:
@@ -35,6 +33,15 @@ static func reload() -> void:
             if typeof(p) == TYPE_DICTIONARY and p.has("id"):
                 _shop.append(p)
     _loaded = true
+
+
+static func _index(raw) -> Dictionary:
+    var out := {}
+    if typeof(raw) == TYPE_ARRAY:
+        for e in raw:
+            if typeof(e) == TYPE_DICTIONARY and e.has("id"):
+                out[str(e["id"])] = e
+    return out
 
 
 static func _load(path: String) -> Dictionary:
@@ -56,9 +63,15 @@ static func config() -> Dictionary:
     return _config
 
 
-## config 的子區塊(例如 "fish"、"customers"),沒有就空字典
+## config 的子區塊(例如 "fish"、"customers"、"helpers"),沒有就空字典
 static func section(key: String) -> Dictionary:
     var v = config().get(key, {})
+    return v if typeof(v) == TYPE_DICTIONARY else {}
+
+
+## 幫手角色設定(helpers.<role>)
+static func helper(role: String) -> Dictionary:
+    var v = section("helpers").get(role, {})
     return v if typeof(v) == TYPE_DICTIONARY else {}
 
 
@@ -99,6 +112,16 @@ static func stations() -> Array:
 static func station(id: String) -> Dictionary:
     _ensure()
     return _stations.get(id, {})
+
+
+static func counters() -> Array:
+    _ensure()
+    return _counters.values()
+
+
+static func counter(id: String) -> Dictionary:
+    _ensure()
+    return _counters.get(id, {})
 
 
 static func shop() -> Array:

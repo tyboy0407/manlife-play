@@ -10,6 +10,8 @@ func _ready() -> void:
     color = Color(0.35, 0.55, 0.95)
     super()
     add_to_group("player")
+    can_serve = true
+    can_use_trash = true
     speed = float(GameData.config().get("playerSpeed", 6.0))
     accel = float(GameData.config().get("playerAccel", 40.0))
     _refresh_capacity()

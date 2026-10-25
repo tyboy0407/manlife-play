@@ -4,16 +4,31 @@ ITEM_fillet,Fillet,魚片
 ITEM_cash,Cash,現金
 STATION_cutting_table,Cutting table,切魚台
 SHOP_hire_fisher,Hire a fisher,僱用漁夫
-SHOP_capacity,Bigger backpack,擴充背包
 SHOP_expand_table,Second cutting table,增建切魚台
 PAD_INPUT,Drop here,放這裡
 PAD_OUTPUT,Take here,從這裡拿
 PAD_COUNTER,Stock the counter,上架
 PAD_MONEY,Cash,現金
-CUSTOMER_WANT,Fillet x%d,魚片 ×%d
-NOTICE_HIRED,A fisher joined you!,漁夫加入了!
 NOTICE_PURCHASED,%s unlocked!,%s 完成!
 HUD_CARRY,Carrying: %s x%d / %d,背上:%s ×%d / %d
 HUD_EMPTY,Carrying: nothing,背上:空
-HUD_STATS,Earned $%d | fish %d | sold %d | fishers %d,累計收入 $%d|抓魚 %d|賣出 %d|漁夫 %d
-HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch them; stand on pads to drop / take / sell / pay.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、付錢。
+ITEM_grilled,Grilled fish,烤魚
+STATION_grill,Grill,烤魚攤
+COUNTER_fillet,Fillet counter,魚片櫃台
+COUNTER_grill,Grilled fish counter,烤魚櫃台
+SHOP_capacity,Bigger backpack,擴充背包
+SHOP_hire_porter,Hire a porter,僱用搬運工
+SHOP_hire_cashier,Hire a cashier,僱用收銀員
+SHOP_upgrade_worker_speed,Worker speed,工人速度
+SHOP_upgrade_pile_cap,Pile capacity,堆疊上限
+SHOP_unlock_grill,Build a grill stand,增建烤魚攤
+PAD_SERVICE,Serve here,收銀(站這裡才賣)
+PAD_TRASH,Trash,垃圾桶
+CUSTOMER_WANT,%s x%d,%s ×%d
+NOTICE_HIRED_fisher,A fisher joined you!,漁夫加入了!
+NOTICE_HIRED_porter,A porter joined you!,搬運工加入了!
+NOTICE_HIRED_cashier,A cashier joined you!,收銀員加入了!
+NOTICE_SAVED,Game saved,已存檔
+NOTICE_NEW_GAME,New game started,已重新開始
+HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d
+HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / pay / trash. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、付錢、丟棄。每 10 秒自動存檔;F9 重新開始。

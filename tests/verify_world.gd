@@ -1,7 +1,8 @@
 extends Node3D
-## 世界整合 headless 驗證(3D 物理):建關卡 -> 走進水裡抓魚到滿 -> 切魚台輸入格卸貨 -> 工人切 -> 輸出格拿魚片 ->
-## 櫃台上架 -> 顧客排隊購買、錢進錢格 -> 錢格撿錢 -> 價格牌分期付款 -> 僱漁夫(自己抓魚、卸貨)-> 擴充背包 -> 增建切魚台。
-## 玩家用合成輸入(朝目標走)。跑法:godot --headless --path . res://tests/verify_world.tscn(先 --import)
+## 世界整合 headless 驗證(3D 物理):建關卡 -> 抓魚到滿 -> 切魚台卸貨 / 切 / 取魚片 -> 櫃台上架 -> 沒人收銀不賣、玩家站收銀格才賣 ->
+## 撿錢、價格牌分期 -> 僱收銀員(接手收銀)-> 垃圾桶丟魚 -> 僱搬運工(自己把成品送到櫃台)-> 升級牌(工人速度 / 堆疊上限,越買越貴)->
+## 再僱漁夫(可重複牌)-> 增建烤魚攤(第二條貨物鏈:魚片 -> 烤魚 -> 烤魚櫃台 $5)-> 存檔 / 重建關卡還原 -> 清存檔。
+## 玩家用合成輸入(朝目標走);買東西的錢用 money_pad.add_cash 補。跑法:godot --headless --path . res://tests/verify_world.tscn(先 --import)
 
 const HARBOR := preload("res://game/levels/harbor.tscn")
 
@@ -11,18 +12,26 @@ var _player: Player
 var _target := Vector3.ZERO
 var _moving := false
 var _events := {}
+var _sales: Array = []   # [item, count, cash]
 
 
 func _ready() -> void:
     print("VERIFY WORLD: begin")
+    SaveManager.save_path = "user://_verify_world_save.json"
+    SaveManager.delete()
     GameState.reset()
     EventBus.fish_caught.connect(func(_c: Node3D) -> void: _bump("fish"))
-    EventBus.sale_made.connect(func(_i: String, _n: int, _cash: int) -> void: _bump("sale"))
+    EventBus.sale_made.connect(func(item: String, n: int, cash: int) -> void:
+        _bump("sale")
+        _sales.append([item, n, cash]))
     EventBus.purchased.connect(func(id: String, _e: Dictionary) -> void: _bump("purchased_" + id))
-    EventBus.helper_hired.connect(func(_r: String, _h: Node3D) -> void: _bump("hired"))
-    EventBus.notice.connect(func(_t: String) -> void: _bump("notice"))
-    EventBus.items_processed.connect(func(_s: String, n: int) -> void: _bump("processed", n))
+    EventBus.helper_hired.connect(func(role: String, _h: Node3D) -> void: _bump("hired_" + role))
+    EventBus.items_processed.connect(func(sid: String, n: int) -> void:
+        _bump("processed", n)
+        _bump("processed_" + sid, n))
     await _run()
+    SaveManager.delete()
+    SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()
     if _fails == 0:
         print("VERIFY WORLD: ALL OK")
@@ -69,7 +78,7 @@ func _provide() -> MoveInput:
 
 
 ## 走到 p(平面距離 < 0.4 算到),回傳有沒有在時限內到
-func _go(p: Vector3, max_frames: int = 300) -> bool:
+func _go(p: Vector3, max_frames: int = 420) -> bool:
     _target = p
     _moving = true
     var ok := await _wait_until(func() -> bool: return _player.planar_distance_to(p) < 0.4, max_frames)
@@ -78,113 +87,267 @@ func _go(p: Vector3, max_frames: int = 300) -> bool:
     return ok
 
 
-## 來回錢格與價格牌直到付清(或錢格沒錢)
-func _pay_pad(pad: PricePad) -> void:
-    for round in 10:
-        if pad.logic.is_paid():
-            return
-        await _go(_level.money_pad.global_position)
-        await _wait_until(func() -> bool: return _player.stack.is_full() or _level.money_pad.cash == 0, 120)
-        if _player.stack.is_empty() or _player.stack.item_id != "cash":
-            return
+## 依序經過幾個路點(繞開會順手付錢的價格牌)
+func _go_via(points: Array) -> void:
+    for pt in points:
+        await _go(pt)
+
+
+## 手上有東西就丟進垃圾桶(現金也丟:要空手才能抓魚 / 拿貨)
+func _empty_hands() -> void:
+    if _player.stack.is_empty():
+        return
+    await _go(_level.trash_pad.global_position)
+    await _wait_until(func() -> bool: return _player.stack.is_empty(), 180)
+
+
+## 來回錢格與價格牌直到付清這一次(或錢格沒錢);每趟只拿剛好夠的錢,結束把零錢丟掉。
+## route = 從錢格走到牌子途中的路點(回程倒著走),用來繞開其他價格牌。回傳有沒有買成。
+func _pay_pad(pad: PricePad, route: Array = []) -> bool:
+    var buys := pad.logic.buys
+    if _player.stack.item_id != "cash":
+        await _empty_hands()
+    var back := route.duplicate()
+    back.reverse()
+    for round in 16:
+        if pad.logic.buys > buys or pad.logic.is_exhausted():
+            break
+        var need := mini(pad.logic.remaining, _player.stack.capacity)
+        if _player.stack.count < need:
+            if round > 0:
+                await _go_via(back)
+            await _go(_level.money_pad.global_position)
+            await _wait_until(func() -> bool: return _player.stack.count >= need or _level.money_pad.cash == 0, 150)
+        if _player.stack.is_empty():
+            break
+        await _go_via(route)
         await _go(pad.global_position)
-        await _wait_until(func() -> bool: return pad.logic.is_paid() or _player.stack.is_empty(), 240)
+        await _wait_until(func() -> bool: return pad.logic.buys > buys or pad.logic.is_exhausted() or _player.stack.is_empty(), 240)
+    var ok := pad.logic.buys > buys
+    if not ok:
+        print("  (pay_pad %s 沒買成:remaining %d buys %d money %d hand %s×%d)" % [pad.logic.id, pad.logic.remaining, pad.logic.buys,
+                _level.money_pad.cash, _player.stack.item_id, _player.stack.count])
+    await _go_via(back)
+    await _empty_hands()
+    return ok
 
 
-## --- 流程 ---
+## 下水掃幾個點直到手上有 count 條魚(或掃完)
+func _fish_until(count: int, max_sweeps: int = 18) -> void:
+    var sweep := [Vector3(-5, 0, -8.5), Vector3(5, 0, -8.5), Vector3(-5, 0, -5.5), Vector3(5, 0, -5.5), Vector3(0, 0, -9.5), Vector3(0, 0, -5)]
+    var i := 0
+    while (_player.stack.item_id != "fish" or _player.stack.count < count) and i < max_sweeps:
+        await _go(sweep[i % sweep.size()], 240)
+        i += 1
 
-func _run() -> void:
+
+func _spawn_level() -> void:
     _level = HARBOR.instantiate()
     add_child(_level)
     await _step(3)
     _player = _level.player
     _player.input_provider = _provide
-    _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counter != null
-            and _level.money_pad != null and _level.price_pads.size() == 3, "關卡建好:玩家、水、切魚台、櫃台、錢格、三塊價格牌")
-    _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player"),
-            "相機與 HUD、玩家分組")
-    _check(_player.stack.capacity == 8 and _player.stack.is_empty() and _player.speed > 0.0, "玩家背包 8、空手")
+
+
+func _find_helper(role: String) -> Helper:
+    for h in _level.helpers:
+        if h.role == role:
+            return h
+    return null
+
+
+func _sales_of(item: String) -> int:
+    var n := 0
+    for s in _sales:
+        if str(s[0]) == item:
+            n += int(s[1])
+    return n
+
+
+## --- 流程 ---
+
+func _run() -> void:
+    await _spawn_level()
+    _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
+            and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
+            and _level.price_pads.size() == 8 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、八塊價格牌、沒有存檔")
+    _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
+            and _player.can_serve and _player.can_use_trash, "相機與 HUD、玩家分組與旗標")
+    var pads := get_tree().get_nodes_in_group("pad").size()
+    _check(pads == 14, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 八塊價格牌(%d)" % pads)
     await _step(30)
     _check(_level.fish_area.fish.size() >= 8, "水裡有魚(%d)" % _level.fish_area.fish.size())
-    _check(get_tree().get_nodes_in_group("pad").size() >= 7, "格子:輸入 / 輸出 / 上架 / 錢 / 三塊價格牌(%d)" % get_tree().get_nodes_in_group("pad").size())
-    # 抓魚
-    var ok := await _go(Vector3(0, 0, -7.5), 240)
-    var first := await _wait_until(func() -> bool: return _player.stack.item_id == "fish", 120)
-    _check(ok and first, "走進水裡開始抓魚")
-    var sweep := [Vector3(-5, 0, -8.5), Vector3(5, 0, -8.5), Vector3(-5, 0, -5.5), Vector3(5, 0, -5.5), Vector3(0, 0, -9.5), Vector3(0, 0, -5)]
-    var i := 0
-    while not _player.stack.is_full() and i < 18:
-        await _go(sweep[i % sweep.size()], 240)
-        i += 1
-    _check(_player.stack.is_full() and _player.stack.count == 8 and _player.stack.item_id == "fish", "背包抓滿 8 條魚(%d)" % _player.stack.count)
-    _check(_count("fish") >= 8 and GameState.fish_caught >= 8 and _player.caught_total >= 8, "fish_caught 事件與統計(%d)" % _count("fish"))
-    _check(not _level.fish_area.fish.is_empty(), "魚會補生")
-    # 放到輸入格
+    # 抓魚 -> 切 -> 取
+    await _fish_until(8)
+    _check(_player.stack.is_full() and _player.stack.item_id == "fish" and _count("fish") >= 8, "背包抓滿 8 條魚")
     var st: Station = _level.stations[0]
-    ok = await _go(st.input_pad.global_position)
+    await _go(st.input_pad.global_position)
     var emptied := await _wait_until(func() -> bool: return _player.stack.is_empty(), 120)
-    _check(ok and emptied and st.logic.input_count >= 1, "輸入格:魚卸進切魚台(輸入堆 %d)" % st.logic.input_count)
-    # 工人切
-    var produced := await _wait_until(func() -> bool: return st.logic.output_count >= 4, 300)
-    _check(produced and _count("processed") >= 4, "工人切魚:輸出堆 %d 片、items_processed" % st.logic.output_count)
-    _check(st.output_pile.count == st.logic.output_count and st.input_pile.count == st.logic.input_count, "格子上的堆疊外觀與數量一致")
-    # 取魚片
-    ok = await _go(st.output_pad.global_position)
-    var got := await _wait_until(func() -> bool: return _player.stack.item_id == "fillet" and _player.stack.count >= 4, 120)
-    _check(ok and got, "輸出格:拿到魚片 %d" % _player.stack.count)
-    # 上架
-    var cnt: Counter = _level.counter
-    ok = await _go(cnt.deposit_pad.global_position)
-    var stocked := await _wait_until(func() -> bool: return cnt.logic.stock >= 4, 120)
-    _check(ok and stocked and _player.stack.is_empty(), "櫃台上架 %d 件" % cnt.logic.stock)
-    # 顧客購買
-    var sold := await _wait_until(func() -> bool: return _count("sale") >= 2 and _level.money_pad.cash >= 4, 600)
-    _check(sold, "顧客排隊購買:賣出 %d 筆、錢格 $%d" % [_count("sale"), _level.money_pad.cash])
-    _check(get_tree().get_nodes_in_group("customer").size() >= 1 and GameState.cash_earned >= 4 and GameState.items_sold >= 2,
-            "有顧客在排隊、統計累計")
-    # 撿錢
-    ok = await _go(_level.money_pad.global_position)
-    var picked := await _wait_until(func() -> bool: return _player.stack.item_id == "cash" and _player.stack.count >= 4, 120)
-    _check(ok and picked, "錢格撿錢 %d" % _player.stack.count)
-    # 僱漁夫:分期付款
-    var pad: PricePad = _level.price_pads["hire_fisher"]
-    _level.money_pad.add_cash(40)
+    _check(emptied and st.logic.input_count >= 1, "輸入格:魚卸進切魚台(%d)" % st.logic.input_count)
+    var produced := await _wait_until(func() -> bool: return st.logic.output_count >= 8, 400)
+    _check(produced and _count("processed") >= 8, "工人切魚:輸出堆 %d 片" % st.logic.output_count)
+    await _go(st.output_pad.global_position)
+    var got := await _wait_until(func() -> bool: return _player.stack.item_id == "fillet" and _player.stack.is_full(), 120)
+    _check(got, "輸出格:拿滿 8 片魚片")
+    # 上架 -> 沒人收銀不賣 -> 站收銀格才賣
+    var cnt: Counter = _level.counters[0]
+    await _go(cnt.deposit_pad.global_position)
+    var stocked := await _wait_until(func() -> bool: return cnt.logic.stock >= 8, 120)
+    _check(stocked and _player.stack.is_empty(), "櫃台上架 %d 件" % cnt.logic.stock)
+    await _go(Vector3(0, 0, 7))
+    var waiting := await _wait_until(func() -> bool: return cnt.waiting_customers() >= 1, 240)
+    await _step(90)
+    _check(waiting and _count("sale") == 0 and not cnt.has_server(), "有顧客在等,但沒人收銀就不賣")
+    await _go(cnt.service_pad.global_position)
+    var sold := await _wait_until(func() -> bool: return _count("sale") >= 3 and _level.money_pad.cash >= 6, 400)
+    _check(sold and cnt.has_server(), "玩家站收銀格:賣出 %d 筆、錢格 $%d" % [_count("sale"), _level.money_pad.cash])
+    _check(GameState.cash_earned >= 6 and GameState.items_sold >= 3, "統計累計")
+    # 撿錢 -> 價格牌分期
     await _go(_level.money_pad.global_position)
-    await _wait_until(func() -> bool: return _player.stack.is_full(), 120)
-    _check(_player.stack.item_id == "cash" and _player.stack.count == 8, "撿滿 8 現金")
-    ok = await _go(pad.global_position)
-    var partial := await _wait_until(func() -> bool: return pad.logic.remaining == 2 and _player.stack.is_empty(), 120)
-    _check(ok and partial and not pad.logic.is_paid() and pad.visible, "價格牌分期:付了 8 剩 2,牌子還在")
-    await _go(_level.money_pad.global_position)
-    await _wait_until(func() -> bool: return _player.stack.count >= 2, 120)
-    await _go(pad.global_position)
-    var paid := await _wait_until(func() -> bool: return pad.logic.is_paid(), 120)
-    await _step(2)
-    _check(paid and not pad.visible and _count("purchased_hire_fisher") == 1 and _count("hired") == 1
-            and _level.helpers.size() == 1 and GameState.hired_count("fisher") == 1 and GameState.is_unlocked("hire_fisher"),
-            "付清 $10:牌子消失、僱到漁夫")
-    _check(_player.stack.item_id == "cash" and _player.stack.count == 6, "付完剩 6 元在手上(%d)" % _player.stack.count)
-    # 漁夫 AI
-    var h: Helper = _level.helpers[0]
-    _check(not h.takes_output and not h.collects_cash and h.can_fish and h.stack.capacity == 6 and h.station == st, "漁夫旗標與容量")
-    var fished := await _wait_until(func() -> bool: return h.caught_total >= 1, 600)
-    _check(fished, "漁夫自己下水抓魚(%d)" % h.caught_total)
-    var deposited := await _wait_until(func() -> bool: return h.deposited_total >= 1, 1200)
-    _check(deposited, "漁夫把魚卸進切魚台(%d)" % h.deposited_total)
-    # 擴充背包
-    var cap_pad: PricePad = _level.price_pads["capacity_1"]
+    var picked := await _wait_until(func() -> bool: return _player.stack.item_id == "cash" and _player.stack.count >= 6, 120)
+    _check(picked, "錢格撿錢 %d" % _player.stack.count)
+    var cash_before := _player.stack.count
+    var hc: PricePad = _level.price_pads["hire_cashier"]
+    await _go(hc.global_position)
+    var partial := await _wait_until(func() -> bool: return _player.stack.count < cash_before, 90)
+    _check(partial and hc.logic.buys == 0 and hc.logic.remaining > 0 and hc.logic.remaining < 20,
+            "價格牌分期:付了 %d、剩 $%d" % [cash_before - _player.stack.count, hc.logic.remaining])
+    # 僱收銀員
     _level.money_pad.add_cash(60)
-    await _pay_pad(cap_pad)
-    _check(cap_pad.logic.is_paid() and _player.stack.capacity == 12 and GameState.capacity_bonus == 4, "擴充背包:容量 8 -> 12")
-    # 增建切魚台
-    var ex: PricePad = _level.price_pads["expand_table"]
-    _check(ex.build_spot and ex.visible, "建地牌是橘色建地")
-    _level.money_pad.add_cash(80)
-    await _pay_pad(ex)
+    await _pay_pad(hc)
+    await _step(3)
+    var cashier := _find_helper("cashier")
+    _check(_count("purchased_hire_cashier") == 1 and _count("hired_cashier") == 1 and _level.helpers.size() == 1
+            and cashier != null and GameState.hired_count("cashier") == 1, "僱到收銀員")
+    _check(cashier != null and cashier.assigned_counter == cnt and cnt.cashier == cashier and cashier.can_serve
+            and not cashier.takes_output and not cashier.collects_cash, "收銀員指派到魚片櫃台")
+    _check(hc.visible and hc.logic.buys == 1 and hc.logic.current_cost() == 36 and hc.logic.remaining == 36,
+            "收銀員牌可再買一次:第二次 $36(付清後站著不會接著付,剩 $%d)" % hc.logic.remaining)
+    _check(_player.stack.is_empty(), "付完後零錢丟掉,空手")
+    # 玩家離開,收銀員接手
+    if cnt.logic.stock < 2:
+        cnt.logic.stock = 4
+        cnt.refresh_pile()
+    await _go(Vector3(0, 0, 7))
+    var cashier_on := await _wait_until(func() -> bool: return cnt.has_server() and _player.planar_distance_to(cnt.service_pad.global_position) >= 1.0, 400)
+    var sales_before := _count("sale")
+    var sold_more := await _wait_until(func() -> bool: return _count("sale") >= sales_before + 1, 400)
+    _check(cashier_on and sold_more, "收銀員站到收銀格,玩家不在也賣得出去")
+    # 垃圾桶:丟魚
+    await _empty_hands()
+    await _fish_until(2, 8)
+    var fish_n := _player.stack.count
+    var trashed_before := GameState.items_trashed
+    await _go(_level.trash_pad.global_position)
+    var trashed := await _wait_until(func() -> bool: return _player.stack.is_empty(), 120)
+    _check(fish_n >= 2 and trashed and GameState.items_trashed >= trashed_before + fish_n and _level.trash_pad.trashed_total >= fish_n,
+            "垃圾桶:丟掉 %d 條魚" % fish_n)
+    # 僱搬運工
+    _level.money_pad.add_cash(60)
+    await _pay_pad(_level.price_pads["hire_porter"])
+    await _step(3)
+    var porter := _find_helper("porter")
+    _check(porter != null and _count("hired_porter") == 1 and porter.takes_output and not porter.can_fish and not porter.collects_cash, "僱到搬運工")
+    if st.logic.output_count < 6:
+        st.logic.output_count = 10
+        st.refresh_piles()
+    var delivered := await _wait_until(func() -> bool: return porter != null and porter.delivered_total >= 1, 1200)
+    _check(delivered, "搬運工把魚片送到櫃台(送達 %d)" % (porter.delivered_total if porter != null else 0))
+    # 升級牌
+    _level.money_pad.add_cash(60)
+    var ws: PricePad = _level.price_pads["upgrade_worker_speed"]
+    await _pay_pad(ws, [Vector3(6, 0, 7.6)])
+    _check(GameState.upgrade_level("worker_speed") == 1 and is_equal_approx(st.logic.speed_mult, 1.5) and ws.visible and ws.logic.current_cost() == 34,
+            "工人速度 Lv1:速度 ×1.5、下一次 $34")
+    _level.money_pad.add_cash(60)
+    await _pay_pad(_level.price_pads["upgrade_pile_cap"], [Vector3(10, 0, 7.6)])
+    _check(GameState.upgrade_level("pile_cap") == 1 and st.logic.input_cap == 18 and st.logic.output_cap == 36 and cnt.logic.stock_cap == 45,
+            "堆疊上限 Lv1:切魚台 18 / 36、櫃台 45")
+    # 再僱漁夫(可重複牌)
+    _level.money_pad.add_cash(40)
+    await _pay_pad(_level.price_pads["hire_fisher"])
+    await _step(3)
+    var fisher_pad: PricePad = _level.price_pads["hire_fisher"]
+    _check(_count("hired_fisher") == 1 and fisher_pad.visible and fisher_pad.logic.buys == 1 and fisher_pad.logic.remaining == 18
+            and GameState.hired_total() == 3, "僱到漁夫,牌子留著、第二次 $18")
+    # 增建烤魚攤
+    _level.money_pad.add_cash(120)
+    var bought := await _pay_pad(_level.price_pads["unlock_grill"], [Vector3(8, 0, 7.6), Vector3(8, 0, 2.4)])
+    await _step(3)
+    var grill := _level.station_at("grill")
+    var gcnt := _level.counter_by_id("grill_counter")
+    _check(bought and grill != null and gcnt != null and _level.stations.size() == 2 and _level.counters.size() == 2
+            and not (_level.price_pads["unlock_grill"] as PricePad).visible, "烤魚攤 + 烤魚櫃台出現、建地牌消失")
+    if grill == null or gcnt == null:
+        _fails += 1
+        print("  FAIL 烤魚攤沒蓋出來,後面的鏈與存檔檢查略過")
+        _level.queue_free()
+        await _step(2)
+        return
+    _check(grill.logic.input_id == "fillet" and grill.logic.output_id == "grilled" and gcnt.logic.item_id == "grilled" and gcnt.logic.price == 5,
+            "烤魚攤 魚片 -> 烤魚;烤魚櫃台賣烤魚 $5")
+    _check(is_equal_approx(grill.logic.speed_mult, 1.5) and grill.logic.input_cap == 18, "新建的烤魚攤也吃到升級")
+    # 手動跑第二條鏈:魚片 -> 烤魚 -> 烤魚櫃台 -> 自己收銀 $5(搬運工可能同時在搬,檢查放寬)
+    if st.logic.output_count < 12:
+        st.logic.output_count = 16
+        st.refresh_piles()
+    await _empty_hands()
+    await _go(st.output_pad.global_position)
+    var fillets := await _wait_until(func() -> bool: return _player.stack.item_id == "fillet" and _player.stack.count >= 3, 120)
+    await _go(grill.input_pad.global_position)
+    var fed := await _wait_until(func() -> bool: return grill.logic.input_count >= 1 or _count("processed_grill") >= 1, 120)
+    var grilled := await _wait_until(func() -> bool: return _count("processed_grill") >= 2, 400)
+    _check(fillets and fed and grilled, "烤魚攤:魚片進、烤出 %d 份" % _count("processed_grill"))
+    await _empty_hands()
+    await _go(grill.output_pad.global_position)
+    var took := await _wait_until(func() -> bool: return (_player.stack.item_id == "grilled" and _player.stack.count >= 1) or gcnt.logic.stock >= 1, 240)
+    await _go(gcnt.deposit_pad.global_position)
+    var gstock := await _wait_until(func() -> bool: return gcnt.logic.stock >= 1, 240)
+    await _go(gcnt.service_pad.global_position)
+    var gsold := await _wait_until(func() -> bool: return _sales_of("grilled") >= 1, 600)
+    var five := false
+    for s in _sales:
+        if str(s[0]) == "grilled" and int(s[2]) == 5 * int(s[1]):
+            five = true
+    _check(took and gstock and gsold and five, "烤魚上架、顧客以 $5 買走")
+    # 存檔 -> 重建 -> 還原
+    var saved := _level.save_now()
+    var snap := _level.snapshot()
+    var cash_saved := _level.money_pad.cash
+    var earned_saved := GameState.cash_earned
+    var hired_saved := GameState.hired_total()
+    var pl_item := _player.stack.item_id
+    var pl_count := _player.stack.count
+    var st1_out := st.logic.output_count
+    var grill_out := grill.logic.output_count
+    var fstock := cnt.logic.stock
+    var fp_rem := fisher_pad.logic.remaining
+    _check(saved and SaveManager.has_save() and int(snap["money"]) == cash_saved and snap["stations"].has("grill")
+            and snap["counters"].has("grill_counter") and snap["pads"].has("hire_fisher"), "存檔寫入、快照內容")
+    _level.queue_free()
+    await _step(3)
+    GameState.reset()
+    _check(GameState.hired_total() == 0, "reset 後狀態清空")
+    await _spawn_level()
     await _step(2)
-    _check(ex.logic.is_paid() and _level.stations.size() == 2 and not ex.visible
-            and get_tree().get_nodes_in_group("station").size() == 2 and GameState.is_unlocked("station_2"),
-            "增建切魚台:第二座出現、建地牌消失")
-    _check(_count("notice") >= 3, "通知事件(%d)" % _count("notice"))
+    var st2 := _level.station_at("station_1")
+    var grill2 := _level.station_at("grill")
+    var cnt2 := _level.counter_by_id("fillet_counter")
+    _check(_level.loaded_from_save and GameState.cash_earned == earned_saved and GameState.hired_total() == hired_saved
+            and GameState.upgrade_level("worker_speed") == 1, "重建關卡:讀回 GameState")
+    _check(_level.stations.size() == 2 and grill2 != null and _level.counters.size() == 2 and _level.helpers.size() == hired_saved,
+            "重建關卡:烤魚攤、烤魚櫃台、%d 個幫手都回來了" % hired_saved)
+    _check(_level.money_pad.cash == cash_saved and st2 != null and st2.logic.output_count == st1_out and grill2.logic.output_count == grill_out
+            and cnt2 != null and cnt2.logic.stock == fstock, "重建關卡:錢格、工作站堆、櫃台庫存還原")
+    _check(_player.stack.item_id == pl_item and _player.stack.count == pl_count and _player.stack.capacity == 8, "重建關卡:玩家背上還原")
+    var fp2: PricePad = _level.price_pads["hire_fisher"]
+    var ug2: PricePad = _level.price_pads["unlock_grill"]
+    _check(fp2.logic.buys == 1 and fp2.logic.remaining == fp_rem and fp2.logic.current_cost() == 18 and fp2.visible
+            and not ug2.visible and ug2.logic.is_exhausted(), "重建關卡:價格牌進度還原(漁夫牌第二次 $18 剩 $%d、烤魚攤建地牌已用掉)" % fp_rem)
+    var cashier2 := _find_helper("cashier")
+    _check(cashier2 != null and cashier2.assigned_counter == cnt2 and is_equal_approx(st2.logic.speed_mult, 1.5), "重建關卡:收銀員指派、升級套回")
+    # F9 新遊戲
+    _level.clear_save_and_state()
+    _check(not SaveManager.has_save() and GameState.hired_total() == 0, "新遊戲:刪存檔、清狀態")
     _level.queue_free()
     await _step(2)

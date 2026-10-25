@@ -1,7 +1,96 @@
 {
   "purchases": [
-    {"id": "hire_fisher", "name": "SHOP_hire_fisher", "cost": 10, "effect": {"type": "hire", "role": "fisher"}},
-    {"id": "capacity_1", "name": "SHOP_capacity", "cost": 25, "effect": {"type": "capacity", "add": 4}},
-    {"id": "expand_table", "name": "SHOP_expand_table", "cost": 50, "effect": {"type": "unlock", "target": "station_2"}, "buildSpot": true}
+    {
+      "id": "hire_fisher",
+      "name": "SHOP_hire_fisher",
+      "cost": 10,
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 1.8,
+      "effect": {
+        "type": "hire",
+        "role": "fisher"
+      }
+    },
+    {
+      "id": "hire_porter",
+      "name": "SHOP_hire_porter",
+      "cost": 30,
+      "repeatable": true,
+      "maxBuys": 2,
+      "costMult": 1.8,
+      "effect": {
+        "type": "hire",
+        "role": "porter"
+      }
+    },
+    {
+      "id": "hire_cashier",
+      "name": "SHOP_hire_cashier",
+      "cost": 20,
+      "repeatable": true,
+      "maxBuys": 2,
+      "costMult": 1.8,
+      "effect": {
+        "type": "hire",
+        "role": "cashier"
+      }
+    },
+    {
+      "id": "capacity_1",
+      "name": "SHOP_capacity",
+      "cost": 25,
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 1.6,
+      "effect": {
+        "type": "capacity",
+        "add": 4
+      }
+    },
+    {
+      "id": "upgrade_worker_speed",
+      "name": "SHOP_upgrade_worker_speed",
+      "cost": 20,
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 1.7,
+      "effect": {
+        "type": "upgrade",
+        "key": "worker_speed"
+      }
+    },
+    {
+      "id": "upgrade_pile_cap",
+      "name": "SHOP_upgrade_pile_cap",
+      "cost": 20,
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 1.7,
+      "effect": {
+        "type": "upgrade",
+        "key": "pile_cap"
+      }
+    },
+    {
+      "id": "expand_table",
+      "name": "SHOP_expand_table",
+      "cost": 50,
+      "effect": {
+        "type": "unlock",
+        "target": "station_2"
+      },
+      "buildSpot": true
+    },
+    {
+      "id": "unlock_grill",
+      "name": "SHOP_unlock_grill",
+      "cost": 60,
+      "effect": {
+        "type": "unlock",
+        "target": "grill_complex"
+      },
+      "buildSpot": true
+    }
   ]
 }

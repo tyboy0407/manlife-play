@@ -4,6 +4,7 @@ extends Node3D
 
 var speed := 3.5
 var want := 1
+var item_name := ""   # 泡泡上顯示要買什麼(由櫃台在 add_child 前設定)
 var target := Vector3.ZERO
 var arrived := false
 var leaving := false
@@ -18,7 +19,7 @@ func _ready() -> void:
     speed = float(GameData.section("customers").get("speed", 3.5))
     add_child(VisualFactory.capsule(0.35, 1.4, Color(0.95, 0.75, 0.2), Vector3(0, 0.8, 0)))
     add_child(VisualFactory.box(Vector3(0.5, 0.25, 0.5), Color(0.15, 0.12, 0.1), Vector3(0, 1.6, 0)))
-    _bubble = VisualFactory.label(tr("CUSTOMER_WANT") % want, Vector3(0, 2.3, 0), 40, Color(1.0, 0.9, 0.7))
+    _bubble = VisualFactory.label(tr("CUSTOMER_WANT") % [item_name, want], Vector3(0, 2.3, 0), 40, Color(1.0, 0.9, 0.7))
     add_child(_bubble)
 
 

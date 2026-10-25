@@ -1,7 +1,40 @@
 {
   "items": {
-    "fish":   {"name": "ITEM_fish",   "size": [0.7, 0.22, 0.3], "color": "#9cc4e8"},
-    "fillet": {"name": "ITEM_fillet", "size": [0.5, 0.12, 0.4], "color": "#f28c8c"},
-    "cash":   {"name": "ITEM_cash",   "size": [0.5, 0.08, 0.3], "color": "#4caf50"}
+    "fish": {
+      "name": "ITEM_fish",
+      "size": [
+        0.7,
+        0.22,
+        0.3
+      ],
+      "color": "#9cc4e8"
+    },
+    "fillet": {
+      "name": "ITEM_fillet",
+      "size": [
+        0.5,
+        0.12,
+        0.4
+      ],
+      "color": "#f28c8c"
+    },
+    "cash": {
+      "name": "ITEM_cash",
+      "size": [
+        0.5,
+        0.08,
+        0.3
+      ],
+      "color": "#4caf50"
+    },
+    "grilled": {
+      "name": "ITEM_grilled",
+      "size": [
+        0.5,
+        0.14,
+        0.42
+      ],
+      "color": "#c8793a"
+    }
   }
 }

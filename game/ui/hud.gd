@@ -59,4 +59,5 @@ func _process(delta: float) -> void:
     else:
         carry = "%s(%d)" % [carry, player.stack.capacity]
     _info.text = "%s\n%s" % [carry, tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
-            GameState.hired_count("fisher")]]
+            GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
+            GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap")]]

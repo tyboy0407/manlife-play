@@ -13,6 +13,8 @@ var accel := 40.0
 var can_fish := true
 var takes_output := true
 var collects_cash := true
+var can_serve := false        # 站在櫃台收銀格上能讓櫃台賣東西(玩家、收銀員)
+var can_use_trash := false    # 能用垃圾桶(玩家)
 var color := Color(0.4, 0.6, 1.0)
 var caught_total := 0
 var stack_visual: StackVisual

@@ -13,6 +13,8 @@ func _ready() -> void:
     _test_purchase()
     _test_counter()
     _test_input()
+    _test_save()
+    _test_state()
     if _fails == 0:
         print("VERIFY CORE: ALL OK")
     else:
@@ -41,8 +43,8 @@ func _test_data() -> void:
             "game.json:玩家速度、背包 8")
     _check(GameData.section("fish").has("maxInWater") and GameData.section("customers").has("max")
             and GameData.section("nope").is_empty(), "子區塊 fish / customers;不存在的回空")
-    _check(GameData.items().size() == 3 and GameData.item("fish").has("size") and GameData.item("cash").has("color"),
-            "items.json:魚 / 魚片 / 現金")
+    _check(GameData.items().size() == 4 and GameData.item("fish").has("size") and GameData.item("cash").has("color"),
+            "items.json:魚 / 魚片 / 現金 / 烤魚")
     _check(GameData.item_size("fish") == Vector3(0.7, 0.22, 0.3) and GameData.item_color("cash") != Color(0.8, 0.8, 0.8)
             and GameData.item_size("nope") == Vector3(0.5, 0.15, 0.4), "物品尺寸 / 顏色;未知物品用預設")
     _check(GameData.item_name("fish") != "fish" and GameData.item_name("fish") != "ITEM_fish", "物品名有翻譯(%s)" % GameData.item_name("fish"))
@@ -53,9 +55,16 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 3 and costs == [10, 25, 50], "shop.json:三塊牌 10 / 25 / 50 %s" % str(costs))
+    _check(shop.size() == 8 and costs == [10, 30, 20, 25, 20, 20, 50, 60], "shop.json:八塊牌 %s" % str(costs))
     _check(bool(GameData.purchase("expand_table").get("buildSpot", false)) and GameData.purchase("nope").is_empty(),
             "建地牌旗標;未知購買回空")
+    _check(GameData.counters().size() == 2 and int(GameData.counter("grill_counter").get("price", 0)) == 5
+            and str(GameData.counter("fillet_counter").get("item", "")) == "fillet", "counters.json:魚片櫃台 $2、烤魚櫃台 $5")
+    _check(str(GameData.station("grill").get("input", "")) == "fillet" and str(GameData.station("grill").get("output", "")) == "grilled"
+            and GameData.item("grilled").has("color"), "烤魚攤:魚片 -> 烤魚;烤魚物品存在")
+    _check(GameData.helper("porter").has("speed") and GameData.helper("cashier").has("capacity") and GameData.helper("nope").is_empty(),
+            "helpers 設定:搬運工 / 收銀員")
+    _check(GameData.section("upgrades").has("worker_speed") and GameData.section("upgrades").has("pile_cap"), "upgrades 設定")
 
 
 ## --- 背上的一疊 ---
@@ -109,14 +118,38 @@ func _test_station() -> void:
 ## --- 價格牌 ---
 
 func _test_purchase() -> void:
-    var p := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
-    _check(p.id == "hire_fisher" and p.cost == 10 and p.remaining == 10 and not p.is_paid()
-            and str(p.effect.get("type", "")) == "hire" and p.name_key == "SHOP_hire_fisher", "從資料建立")
-    _check(p.pay(4) == 4 and p.remaining == 6 and is_equal_approx(p.progress(), 0.4), "分期付 4")
-    _check(p.pay(10) == 6 and p.remaining == 0 and p.is_paid() and is_equal_approx(p.progress(), 1.0), "多付只收剩下的")
+    var p := PurchaseLogic.from_def(GameData.purchase("expand_table"))
+    _check(p.id == "expand_table" and p.cost == 50 and p.remaining == 50 and not p.is_paid()
+            and str(p.effect.get("type", "")) == "unlock" and p.name_key == "SHOP_expand_table", "從資料建立")
+    _check(p.pay(20) == 20 and p.remaining == 30 and is_equal_approx(p.progress(), 0.4), "分期付 20")
+    _check(p.pay(40) == 30 and p.remaining == 0 and p.is_paid() and is_equal_approx(p.progress(), 1.0), "多付只收剩下的")
     _check(p.pay(3) == 0, "付清後不再收")
     var q := PurchaseLogic.from_def({"id": "z", "cost": 0})
     _check(q.cost == 1 and q.pay(-5) == 0, "成本最少 1、負數不收")
+    _check(not p.repeatable and p.max_buys == 1 and not p.is_exhausted(), "一次性牌:付清後 complete 前還不算買滿")
+    p.complete()
+    _check(p.is_exhausted() and p.pay(5) == 0 and not p.is_paid(), "一次性牌 complete -> 買滿、不再收錢")
+    # 可重複購買
+    var r := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    _check(r.repeatable and r.max_buys == 3 and r.current_cost() == 10 and r.remaining == 10, "漁夫牌:可買 3 次、第一次 $10")
+    r.pay(10)
+    _check(r.is_paid(), "付清第一次")
+    r.complete()
+    _check(r.buys == 1 and not r.is_exhausted() and r.current_cost() == 18 and r.remaining == 18 and not r.is_paid(),
+            "complete:第二次 $18(10 × 1.8)")
+    r.pay(18)
+    r.complete()
+    _check(r.buys == 2 and r.remaining == 32 and is_equal_approx(r.progress(), 0.0), "第三次 $32(10 × 1.8²)")
+    r.pay(32)
+    r.complete()
+    _check(r.is_exhausted() and r.remaining == 0 and r.pay(1) == 0 and is_equal_approx(r.progress(), 1.0), "買滿三次:exhausted")
+    var r2 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    r2.restore(1, 5)
+    _check(r2.buys == 1 and r2.remaining == 5 and r2.current_cost() == 18, "存檔還原:買過 1 次、這次剩 5")
+    r2.restore(3, 0)
+    _check(r2.is_exhausted() and r2.remaining == 0, "存檔還原:買滿")
+    r2.restore(0, 0)
+    _check(r2.buys == 0 and r2.remaining == 10, "存檔還原:剩 0 但沒買滿 -> 重設成整價")
 
 
 ## --- 櫃台 ---
@@ -145,3 +178,61 @@ func _test_input() -> void:
     var big := MoveInput.new()
     big.dir = Vector2(3, 4)
     _check(is_equal_approx(big.world_dir().length(), 1.0), "world_dir 長度夾在 1")
+
+
+## --- 存檔 IO ---
+
+func _test_save() -> void:
+    var default_path := SaveManager.save_path
+    SaveManager.save_path = "user://_verify_core_save.json"
+    SaveManager.delete()
+    _check(not SaveManager.has_save() and SaveManager.read().is_empty(), "沒存檔:has_save false、read 空")
+    _check(SaveManager.write({"a": 1, "nested": {"b": [1, 2]}}) and SaveManager.has_save(), "寫入存檔")
+    var d := SaveManager.read()
+    _check(int(d.get("a", 0)) == 1 and int(d.get("version", 0)) == SaveManager.VERSION and int(d.get("savedAt", 0)) > 0
+            and typeof(d.get("nested")) == TYPE_DICTIONARY, "讀回:內容、版本、時間")
+    var f := FileAccess.open(SaveManager.save_path, FileAccess.WRITE)
+    f.store_string("{not json")
+    f.close()
+    _check(SaveManager.read().is_empty(), "壞掉的存檔 -> 空(不會炸)")
+    SaveManager.write({"version": 999, "x": 1})
+    var v := SaveManager.read()
+    _check(v.has("x"), "write 會覆寫 version 成目前版本")
+    f = FileAccess.open(SaveManager.save_path, FileAccess.WRITE)
+    f.store_string(JSON.stringify({"version": 999}))
+    f.close()
+    _check(SaveManager.read().is_empty(), "版本不符 -> 空")
+    SaveManager.delete()
+    _check(not SaveManager.has_save(), "刪除存檔")
+    SaveManager.save_path = default_path
+
+
+## --- GameState 序列化 ---
+
+func _test_state() -> void:
+    GameState.reset()
+    var purchased := [0]
+    var cb := func(_id: String, _e: Dictionary) -> void: purchased[0] += 1
+    EventBus.purchased.connect(cb)
+    GameState.apply_purchase("capacity_1", {"type": "capacity", "add": 4})
+    GameState.apply_purchase("hire_fisher", {"type": "hire", "role": "fisher"})
+    GameState.apply_purchase("hire_fisher", {"type": "hire", "role": "fisher"})
+    GameState.apply_purchase("hire_cashier", {"type": "hire", "role": "cashier"})
+    GameState.apply_purchase("unlock_grill", {"type": "unlock", "target": "grill_complex"})
+    GameState.apply_purchase("upgrade_worker_speed", {"type": "upgrade", "key": "worker_speed"})
+    GameState.apply_purchase("upgrade_worker_speed", {"type": "upgrade", "key": "worker_speed"})
+    GameState.add_trashed(3)
+    EventBus.purchased.disconnect(cb)
+    _check(purchased[0] == 7 and GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2
+            and GameState.hired_count("cashier") == 1 and GameState.hired_total() == 3 and GameState.is_unlocked("grill_complex")
+            and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3, "apply_purchase:容量 / 僱用 / 解鎖 / 升級 / 丟棄")
+    _near(GameState.upgrade_mult("worker_speed"), 2.0, "升級倍率 1 + 0.5 × 2", 0.001)
+    _near(GameState.upgrade_mult("pile_cap"), 1.0, "沒升級倍率 1", 0.001)
+    var d := GameState.to_dict()
+    GameState.reset()
+    _check(GameState.hired_total() == 0 and GameState.capacity_bonus == 0 and GameState.upgrade_level("worker_speed") == 0, "reset 清空")
+    GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
+    _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2 and GameState.is_unlocked("grill_complex")
+            and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher"),
+            "to_dict -> JSON -> from_dict 往返")
+    GameState.reset()

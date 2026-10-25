@@ -1,0 +1,18 @@
+{
+  "counters": [
+    {
+      "id": "fillet_counter",
+      "name": "COUNTER_fillet",
+      "item": "fillet",
+      "price": 2,
+      "stockCap": 30
+    },
+    {
+      "id": "grill_counter",
+      "name": "COUNTER_grill",
+      "item": "grilled",
+      "price": 5,
+      "stockCap": 24
+    }
+  ]
+}

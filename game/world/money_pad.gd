@@ -25,6 +25,12 @@ func add_cash(n: int) -> void:
     _refresh()
 
 
+## 存檔還原
+func set_cash(n: int) -> void:
+    cash = maxi(n, 0)
+    _refresh()
+
+
 func _refresh() -> void:
     pile.show_items("cash", cash)
     if label != null:
