@@ -2,6 +2,9 @@ class_name VisualFactory
 extends RefCounted
 ## 占位外觀工廠:方塊 / 膠囊 / 圓柱 MeshInstance3D 與共用材質(依顏色快取)。之後換正式模型時只改這裡與呼叫端。
 
+## 內建字型沒有中文,網頁版又拿不到系統字型,所以 Label3D 一律用專案內的 Noto Sans TC(Controls 由 gui/theme/custom_font 設定)
+const CJK_FONT: Font = preload("res://assets/fonts/NotoSansTC-VF.ttf")
+
 static var _materials := {}
 
 
@@ -71,6 +74,7 @@ static func cone(radius: float, height: float, color: Color, pos: Vector3 = Vect
 static func label(text: String, pos: Vector3, font_size: int = 48, color: Color = Color.WHITE) -> Label3D:
     var l := Label3D.new()
     l.text = text
+    l.font = CJK_FONT
     l.font_size = font_size
     l.modulate = color
     l.outline_size = 8

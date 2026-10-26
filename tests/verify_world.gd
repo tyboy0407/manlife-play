@@ -164,6 +164,43 @@ func _run() -> void:
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
     _check(pads == 14, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 八塊價格牌(%d)" % pads)
+    # 直式 + 觸控:相機以寬為準;浮動搖桿按哪裡都能推;選單鈕區域不算搖桿
+    var js: TouchJoystick = _level.hud.joystick
+    _check(js != null and _level.camera.is_portrait() and _level.camera.keep_aspect == Camera3D.KEEP_WIDTH and _level.hud.menu_button != null
+            and not _level.hud.menu_open(), "直式視窗:相機以寬為準;HUD 有搖桿與選單鈕(viewport %s, keep_aspect %d)" % [
+            str(get_viewport().get_visible_rect().size), _level.camera.keep_aspect])
+    var press := InputEventScreenTouch.new()
+    press.index = 0
+    press.pressed = true
+    press.position = Vector2(300, 900)
+    var drag := InputEventScreenDrag.new()
+    drag.index = 0
+    drag.position = Vector2(372, 900)
+    var lift := InputEventScreenTouch.new()
+    lift.index = 0
+    lift.pressed = false
+    lift.position = Vector2(372, 900)
+    _check(js.handle_event(press) and js.active and js.handle_event(drag) and MoveInput.touch_dir.is_equal_approx(Vector2(0.8, 0.0)),
+            "浮動搖桿:按下的地方是中心,往右拖 72 像素 = 0.8")
+    _player.input_provider = Callable()
+    await _step(12)
+    var vx := _player.velocity.x
+    _check(vx > 2.0 and absf(_player.velocity.z) < 0.5, "搖桿往右推,玩家往 +X 走(vx %.1f)" % vx)
+    _check(js.handle_event(lift) and not js.active and MoveInput.touch_dir == Vector2.ZERO, "放開搖桿:歸零")
+    await _step(12)
+    _player.input_provider = _provide
+    var menu_center := _level.hud.menu_button.get_global_rect().get_center()
+    var press_menu := InputEventScreenTouch.new()
+    press_menu.index = 0
+    press_menu.pressed = true
+    press_menu.position = menu_center
+    _check(js.is_excluded(menu_center) and not js.handle_event(press_menu) and not js.active, "按在選單鈕上不算搖桿")
+    _level.hud.menu_action("toggle")
+    _level.hud.menu_action("new_game")
+    var confirming := _level.hud.menu_open() and _level.hud.confirming_new_game()
+    _level.hud.menu_action("close")
+    _check(confirming and not _level.hud.menu_open() and not _level.hud.confirming_new_game() and GameState.hired_total() == 0,
+            "選單:重新開始要按兩次,關閉就取消")
     var g: Guide = _level.guide
     _check(g != null and GameState.tutorial_step == 0 and g.in_tutorial and str(g.current.get("kind", "")) == "water" and g.marker.visible
             and g.head_arrow.visible and _level.hud.objective_text().begins_with(tr("HUD_OBJECTIVE").substr(0, 2)),
@@ -263,10 +300,10 @@ func _run() -> void:
     var fish_n := _player.stack.count
     await _step(8)
     _check(str(g.current.get("kind", "")) == "station_input" and g.marker.visible, "提示:背著魚 -> 指切魚台")
-    g.toggle_hints()
+    _level.hud.menu_action("hints")
     await _step(2)
     _check(not GameState.hints_on and not g.marker.visible and not g.head_arrow.visible and _level.hud.objective_text() == tr("HUD_HINTS_OFF"),
-            "H:關掉提示,箭頭都收起來")
+            "選單 / H:關掉提示,箭頭都收起來")
     g.toggle_hints()
     await _step(2)
     _check(GameState.hints_on and g.marker.visible, "H:再開")
@@ -402,6 +439,10 @@ func _run() -> void:
     _check(Fx.spawned_total >= 30 and Sfx.played_total >= 20 and Sfx.played.has("sale") and Sfx.played.has("unlock") and Sfx.played.has("hire")
             and Sfx.played.has("goal") and Sfx.played.has("catch") and Sfx.played.has("coin"), "幽靈物件飛過 %d 個、音效播了 %d 次" % [Fx.spawned_total, Sfx.played_total])
     _check(st.ring != null and st.ring.visible == st.logic.is_working(), "工作站進度環只在工作時顯示")
+    _level.hud.menu_action("sound")
+    var muted := not Sfx.enabled and not GameState.sound_on and not Sfx.play("goal")
+    _level.hud.menu_action("sound")
+    _check(muted and Sfx.enabled and GameState.sound_on, "選單:音效關掉就不播、再開回來")
     # 存檔 -> 重建 -> 還原
     var saved := _level.save_now()
     var snap := _level.snapshot()

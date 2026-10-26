@@ -185,6 +185,11 @@ func _test_input() -> void:
     var big := MoveInput.new()
     big.dir = Vector2(3, 4)
     _check(is_equal_approx(big.world_dir().length(), 1.0), "world_dir 長度夾在 1")
+    MoveInput.touch_dir = Vector2(2.0, 0.0)
+    var t := MoveInput.from_actions()
+    _check(t.dir.is_equal_approx(Vector2(1, 0)) and t.world_dir().is_equal_approx(Vector3(1, 0, 0)), "觸控搖桿方向夾到長度 1、轉成世界 +X")
+    MoveInput.touch_dir = Vector2.ZERO
+    _check(MoveInput.from_actions().dir == Vector2.ZERO, "放開搖桿、沒按鍵:不動")
 
 
 ## --- 存檔 IO ---
@@ -240,14 +245,15 @@ func _test_state() -> void:
     _check(GameState.wallet == 30 and GameState.spend(12) == 12 and GameState.wallet == 18 and GameState.spend(50) == 18
             and GameState.wallet == 0 and GameState.spend(1) == 0, "錢包:加錢 / 扣到 0 為止、負數不理")
     GameState.add_wallet(7)
+    GameState.sound_on = false
     var d := GameState.to_dict()
     GameState.reset()
     _check(GameState.hired_total() == 0 and GameState.capacity_bonus == 0 and GameState.upgrade_level("worker_speed") == 0
-            and GameState.wallet == 0, "reset 清空")
+            and GameState.wallet == 0 and GameState.sound_on, "reset 清空")
     GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
     _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2 and GameState.is_unlocked("grill_complex")
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher")
-            and GameState.wallet == 7, "to_dict -> JSON -> from_dict 往返(含錢包)")
+            and GameState.wallet == 7 and not GameState.sound_on, "to_dict -> JSON -> from_dict 往返(含錢包、音效開關)")
     GameState.reset()
 
 

@@ -5,3 +5,5 @@ override.cfg
 # OS
 Thumbs.db
 desktop.ini
+# Web export and the GitHub Pages clone
+build/

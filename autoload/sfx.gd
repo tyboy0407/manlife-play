@@ -97,6 +97,17 @@ func play(name: String, pitch_jitter := 0.08) -> bool:
     return true
 
 
+## 音效總開關(選單):關掉就全停(含環境音),打開重放環境音
+func set_enabled(on: bool) -> void:
+    if on == enabled:
+        return
+    enabled = on
+    if on:
+        _start_ambient()
+    else:
+        stop_all()
+
+
 ## 全部停掉(測試離開前呼叫:還在播的 AudioStreamPlayback 會被 Godot 當成洩漏報出來)
 func stop_all() -> void:
     for p in _players:

@@ -58,3 +58,12 @@ HINT_serve,Stock is waiting but nobody is serving. Go stand on the serve pad,櫃
 HINT_money,Cash is piling up on the money pad,錢格有錢，去收
 HINT_take,Products are ready at a station. Take them,工作站有成品，去拿
 HINT_fish,Go catch some fish,去抓魚
+HUD_HINT_TOUCH,Press anywhere and drag to walk. Stand on pads to drop / take / stock / serve / pay / trash. Menu is at the top right.,按住畫面任何地方拖動就會走。站在格子上自動放貨、拿貨、上架、收銀、付錢、丟棄。右上角是選單。
+MENU_BUTTON,Menu,選單
+MENU_HINTS_ON,Hint arrow: on,提示箭頭:開
+MENU_HINTS_OFF,Hint arrow: off,提示箭頭:關
+MENU_SOUND_ON,Sound: on,音效:開
+MENU_SOUND_OFF,Sound: off,音效:關
+MENU_NEW_GAME,New game (delete save),重新開始(刪存檔)
+MENU_NEW_GAME_CONFIRM,Tap again to confirm,再按一次確認
+MENU_CLOSE,Close,關閉

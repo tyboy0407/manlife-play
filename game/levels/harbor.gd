@@ -22,7 +22,6 @@ const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
 const HELPER_SPAWN := Vector3(0.0, 0, -3.0)
 const PLAYER_SPAWN := Vector3(0.0, 0, 7.0)
-const HUD_SCRIPT := preload("res://game/ui/hud.gd")
 
 var player: Player
 var fish_area: FishArea
@@ -33,7 +32,7 @@ var trash_pad: TrashPad
 var price_pads := {}
 var helpers: Array[Helper] = []
 var camera: FollowCamera
-var hud: CanvasLayer
+var hud: Hud
 var guide: Guide
 var world: Node3D
 var autosave_sec := 10.0
@@ -78,9 +77,10 @@ func _ready() -> void:
     camera.name = "Camera"
     camera.target = player
     add_child(camera)
-    hud = HUD_SCRIPT.new()
+    hud = Hud.new()
     hud.name = "Hud"
     hud.bind_player(player)
+    hud.action.connect(_on_hud_action)
     add_child(hud)
     autosave_sec = maxf(float(GameData.config().get("autosaveSec", 10.0)), 1.0)
     _autosave_timer = autosave_sec
@@ -385,6 +385,7 @@ func _load_save() -> void:
     var state = data.get("state", {})
     if typeof(state) == TYPE_DICTIONARY:
         GameState.from_dict(state)
+        Sfx.set_enabled(GameState.sound_on)
     for target in UNLOCKS:
         if GameState.is_unlocked(str(target)):
             _spawn_unlock(str(target))
@@ -407,6 +408,16 @@ func _physics_process(delta: float) -> void:
 func _notification(what: int) -> void:
     if what == NOTIFICATION_WM_CLOSE_REQUEST:
         save_now()
+
+
+## HUD 選單:提示箭頭開關、重新開始(手機沒有 H / F9)
+func _on_hud_action(id: String) -> void:
+    match id:
+        "hints":
+            if guide != null:
+                guide.toggle_hints()
+        "new_game":
+            new_game()
 
 
 func _unhandled_input(event: InputEvent) -> void:
