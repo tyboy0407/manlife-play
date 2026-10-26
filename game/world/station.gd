@@ -91,3 +91,12 @@ func _physics_process(delta: float) -> void:
 func refresh_piles() -> void:
     input_pile.show_items(logic.input_id, logic.input_count)
     output_pile.show_items(logic.output_id, logic.output_count)
+
+
+## 搬運工把送不出去的成品放回輸出堆;回傳收下幾個
+func take_back(n: int) -> int:
+    var accepted := mini(maxi(n, 0), logic.output_cap - logic.output_count)
+    if accepted > 0:
+        logic.output_count += accepted
+        refresh_piles()
+    return accepted

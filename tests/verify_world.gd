@@ -2,6 +2,7 @@ extends Node3D
 ## 世界整合 headless 驗證(3D 物理):建關卡 -> 抓魚到滿 -> 切魚台卸貨 / 切 / 取魚片 -> 櫃台上架 -> 沒人收銀不賣、玩家站收銀格才賣 ->
 ## 錢格收進錢包(不佔背包)、帶錢走過價格牌不付、站著才分期付 -> 僱收銀員(接手收銀)-> 垃圾桶丟魚 -> 僱搬運工(自己把成品送到櫃台)->
 ## 升級牌(工人速度 / 堆疊上限,越買越貴)-> 再僱漁夫(可重複牌)-> 增建烤魚攤(第二條貨物鏈:魚片 -> 烤魚 -> 烤魚櫃台 $5)->
+## 搬運工送不出去會放回來源、最缺貨的櫃台優先補 ->
 ## 存檔 / 重建關卡還原 -> 清存檔。玩家用合成輸入(朝目標走);買東西的錢用 money_pad.add_cash 補。
 ## 跑法:godot --headless --path . res://tests/verify_world.tscn(先 --import)
 
@@ -277,6 +278,57 @@ func _run() -> void:
             "烤魚攤 魚片 -> 烤魚;烤魚櫃台賣烤魚 $5")
     _check(is_equal_approx(grill.logic.speed_mult, 1.5) and grill.logic.input_cap == 18, "新建的烤魚攤也吃到升級")
     _check(cap1.logic.remaining == 25 and cap1.logic.buys == 0, "一路帶著錢走來走去,沒站過的擴充背包牌一毛都沒收到")
+    # 搬運工不會卡住:全部目的地都滿、沒人收銀、烤魚攤因輸出滿而停工 -> 手上的魚片沒地方去 -> 放回切魚台輸出堆
+    if cashier != null:
+        cashier.assigned_counter = null
+        cnt.cashier = null
+        cashier.global_position = Vector3(0, 0, -3)   # 搬離收銀格站著,不然櫃台還是會一直賣
+    await _step(5)   # 等收銀格「有人」的幀戳過期,之後才填滿,免得最後一筆交易又騰出空位
+    cnt.logic.stock = cnt.logic.stock_cap
+    cnt.refresh_pile()
+    gcnt.logic.stock = gcnt.logic.stock_cap
+    gcnt.refresh_pile()
+    grill.logic.input_count = grill.logic.input_cap
+    grill.logic.output_count = grill.logic.output_cap
+    grill.logic.processing = false   # 手上那一份也停掉,輸入堆才會一直是滿的
+    grill.logic.progress = 0.0
+    grill.refresh_piles()
+    st.logic.output_count = 8
+    st.refresh_piles()
+    var ret0 := 0
+    if porter != null:
+        porter.stack.clear()
+        porter.job = {}
+        porter.takes_output = true
+        porter.state = "idle"
+        ret0 = porter.returned_total
+        for i in 3:
+            porter.stack.push("fillet")
+    await _step(2)
+    _check(porter != null and _level.find_dest_for("fillet", null) == null and _level.find_porter_job(8).is_empty(),
+            "魚片沒地方去、也沒有工作可派(魚片櫃台 %d/%d、烤魚攤原料 %d/%d)" % [cnt.logic.stock, cnt.logic.stock_cap, grill.logic.input_count, grill.logic.input_cap])
+    var returned := await _wait_until(func() -> bool: return porter != null and porter.returned_total >= ret0 + 3, 900)
+    var stepped := await _wait_until(func() -> bool: return porter != null and porter.state == "idle", 300)
+    _check(returned and stepped and porter.stack.is_empty() and porter.takes_output,
+            "搬運工抱著送不出去的魚片:放回切魚台輸出堆(放回 %d)、走開後恢復收貨、回到待命" % ((porter.returned_total - ret0) if porter != null else 0))
+    if cashier != null:
+        cashier.assigned_counter = cnt
+        cnt.cashier = cashier
+    # 搬運工優先補最缺的:烤魚櫃台空、烤魚攤沒成品也沒原料,魚片櫃台還很多 -> 先送魚片去烤魚攤(玩家站在旁邊不插手)
+    cnt.logic.stock = 40
+    cnt.refresh_pile()
+    grill.logic.input_count = 0
+    grill.logic.output_count = 0
+    grill.refresh_piles()
+    gcnt.logic.stock = 0
+    gcnt.refresh_pile()
+    st.logic.output_count = 16
+    st.refresh_piles()
+    await _go(Vector3(0, 0, 7))
+    var pg0 := _count("processed_grill")
+    var grill_fed := await _wait_until(func() -> bool: return grill.logic.input_count >= 1 or _count("processed_grill") > pg0, 900)
+    _check(grill_fed and cnt.logic.stock <= 40 and (porter != null and (porter.job.get("to", null) == grill or porter.delivered_total > 0)),
+            "搬運工:烤魚櫃台空、烤魚攤沒料 -> 先把魚片送去烤魚攤,而不是補還有 40 份的魚片櫃台")
     # 手動跑第二條鏈:魚片 -> 烤魚 -> 烤魚櫃台 -> 自己收銀 $5(搬運工可能同時在搬,檢查放寬)
     if st.logic.output_count < 12:
         st.logic.output_count = 16

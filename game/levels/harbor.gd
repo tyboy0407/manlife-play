@@ -263,40 +263,48 @@ func find_station_with_input(item: String) -> Station:
     return null
 
 
-## item 該送去哪:賣它的櫃台(偏向最空的)或吃它當原料的工作站(略低優先);沒地方放回 null
-func find_dest_for(item: String, exclude: Node3D) -> Node3D:
-    var best: Node3D = null
-    var best_score := 0.0
+## 產 item 且輸出堆還有空位的工作站(搬運工把送不出去的貨放回去用)
+func find_station_with_output(item: String) -> Station:
+    for s in stations:
+        if s.logic.output_id == item and s.logic.output_count < s.logic.output_cap:
+            return s
+    return null
+
+
+## 給 PorterPlanner 的目的地清單:櫃台(賣什麼)+ 工作站原料(吃什麼、產什麼),帶 node 方便對回去
+func porter_dests() -> Array:
+    var out := []
     for c in counters:
-        if c == exclude or c.logic.item_id != item or c.logic.space() <= 0:
-            continue
-        var score := float(c.logic.space()) / float(maxi(c.logic.stock_cap, 1))
-        if score > best_score:
-            best = c
-            best_score = score
+        out.append({"id": c.get_instance_id(), "node": c, "kind": "counter", "item": c.logic.item_id, "stock": c.logic.stock, "cap": c.logic.stock_cap})
     for s in stations:
-        if s == exclude or s.logic.input_id != item or not s.logic.can_accept_input():
-            continue
-        var score := 0.9 * float(s.logic.input_space()) / float(maxi(s.logic.input_cap, 1))
-        if score > best_score:
-            best = s
-            best_score = score
-    return best
+        out.append({"id": s.get_instance_id(), "node": s, "kind": "station", "item": s.logic.input_id, "stock": s.logic.input_count,
+                "cap": s.logic.input_cap, "out": s.logic.output_id})
+    return out
 
 
-## 搬運工的工作:有成品且有地方送的工作站
-func find_porter_job() -> Dictionary:
-    var best := {}
-    var best_count := 0
+## 給 PorterPlanner 的來源清單:工作站輸出堆
+func porter_sources() -> Array:
+    var out := []
     for s in stations:
-        if s.logic.output_count <= best_count:
-            continue
-        var dest := find_dest_for(s.logic.output_id, s)
-        if dest == null:
-            continue
-        best = {"from": s, "to": dest, "item": s.logic.output_id}
-        best_count = s.logic.output_count
-    return best
+        out.append({"id": s.get_instance_id(), "node": s, "item": s.logic.output_id, "count": s.logic.output_count})
+    return out
+
+
+## 手上已經有 item 時該送去哪:收它且有空位、需求最高的櫃台或工作站;沒地方放回 null
+func find_dest_for(item: String, exclude: Node3D) -> Node3D:
+    var exclude_id = null
+    if exclude != null and is_instance_valid(exclude):
+        exclude_id = exclude.get_instance_id()
+    var d := PorterPlanner.best_dest(porter_dests(), item, exclude_id)
+    return d.get("node", null) if not d.is_empty() else null
+
+
+## 搬運工的工作:哪裡最缺貨就先補哪裡(規則在 PorterPlanner);回 {"from": Station, "to": Node3D, "item", "amount"},沒事做回空字典
+func find_porter_job(capacity: int) -> Dictionary:
+    var p := PorterPlanner.plan(porter_dests(), porter_sources(), capacity)
+    if p.is_empty():
+        return {}
+    return {"from": p["from"]["node"], "to": p["to"]["node"], "item": str(p["item"]), "amount": int(p["amount"])}
 
 
 func _on_purchased(_id: String, effect: Dictionary) -> void:

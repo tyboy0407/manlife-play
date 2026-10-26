@@ -12,6 +12,7 @@ func _ready() -> void:
     _test_station()
     _test_purchase()
     _test_counter()
+    _test_porter()
     _test_input()
     _test_save()
     _test_state()
@@ -242,3 +243,56 @@ func _test_state() -> void:
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher")
             and GameState.wallet == 7, "to_dict -> JSON -> from_dict 往返(含錢包)")
     GameState.reset()
+
+
+## --- 搬運工派工 ---
+
+func _test_porter() -> void:
+    var fc := {"id": "fc", "kind": "counter", "item": "fillet", "stock": 20, "cap": 30}
+    var gc := {"id": "gc", "kind": "counter", "item": "grilled", "stock": 0, "cap": 24}
+    var grill := {"id": "grill", "kind": "station", "item": "fillet", "stock": 0, "cap": 12, "out": "grilled"}
+    var cutter := {"id": "cutter", "kind": "station", "item": "fish", "stock": 3, "cap": 12, "out": "fillet"}
+    var dests := [fc, gc, grill, cutter]
+    _near(PorterPlanner.need_of(fc, dests), 1.0 / 3.0, "魚片櫃台 20/30:需求 1/3", 0.001)
+    _near(PorterPlanner.need_of(gc, dests), 1.0, "烤魚櫃台空:需求 1", 0.001)
+    _near(PorterPlanner.need_of(grill, dests), 0.9, "烤魚攤原料空、下游烤魚櫃台空:需求 0.9", 0.001)
+    _near(PorterPlanner.need_of(cutter, dests), 0.9 * 0.9 * 0.75, "切魚台 3/12:下游烤魚攤 0.9 × 0.9 × 空位 0.75", 0.001)
+    # 烤魚攤有成品:直接補烤魚櫃台,只拿 3
+    var plan := PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 10}, {"id": "grill", "item": "grilled", "count": 3}], 8)
+    _check(plan["to"]["id"] == "gc" and plan["from"]["id"] == "grill" and plan["item"] == "grilled" and int(plan["amount"]) == 3,
+            "烤魚櫃台最缺:搬 3 份烤魚過去")
+    # 烤魚攤沒成品:先把魚片送去烤魚攤,而不是堆到還有 20 的魚片櫃台
+    plan = PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 10}, {"id": "grill", "item": "grilled", "count": 0}], 8)
+    _check(plan["to"]["id"] == "grill" and plan["from"]["id"] == "cutter" and int(plan["amount"]) == 8, "烤魚攤沒成品:魚片先送烤魚攤(拿 8)")
+    # 魚片櫃台也空了:櫃台(1.0)比工作站原料(0.9)優先;來源只有 5 就拿 5
+    fc["stock"] = 0
+    plan = PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 5}], 8)
+    _check(plan["to"]["id"] == "fc" and int(plan["amount"]) == 5, "兩個櫃台都空:魚片櫃台優先、來源只有 5 就拿 5")
+    # 目的地只剩 2 格:只拿 2
+    fc["stock"] = 28
+    gc["stock"] = 24
+    grill["stock"] = 12
+    plan = PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 10}], 8)
+    _check(plan["to"]["id"] == "fc" and int(plan["amount"]) == 2, "魚片櫃台只剩 2 格:只拿 2")
+    # 全滿 / 沒貨:沒事做
+    fc["stock"] = 30
+    _check(PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 10}], 8).is_empty(), "收魚片的地方都滿:沒事做")
+    fc["stock"] = 0
+    _check(PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 0}, {"id": "grill", "item": "grilled", "count": 0}], 8).is_empty(),
+            "沒成品可搬:沒事做")
+    # 手上已經有貨該去哪
+    fc["stock"] = 10
+    grill["stock"] = 0
+    gc["stock"] = 0
+    _check(PorterPlanner.best_dest(dests, "fillet")["id"] == "grill", "手上有魚片:烤魚攤(0.9)比 10/30 的魚片櫃台(0.67)急")
+    _check(PorterPlanner.best_dest(dests, "fillet", "grill")["id"] == "fc", "排除烤魚攤就去魚片櫃台")
+    gc["stock"] = 24
+    _check(PorterPlanner.best_dest(dests, "fillet")["id"] == "fc" and PorterPlanner.best_dest(dests, "grilled").is_empty()
+            and PorterPlanner.best_dest(dests, "soup").is_empty(), "烤魚櫃台滿:魚片去櫃台;烤魚 / 不存在的東西沒地方去")
+    grill["stock"] = 12
+    fc["stock"] = 30
+    _check(PorterPlanner.best_dest(dests, "fillet").is_empty(), "全滿:手上的魚片沒地方放")
+    # 來源挑成品最多的
+    var src := PorterPlanner.best_source([{"id": "a", "item": "fillet", "count": 4}, {"id": "b", "item": "fillet", "count": 9},
+            {"id": "c", "item": "grilled", "count": 20}], "fillet")
+    _check(src["id"] == "b" and PorterPlanner.best_source([], "fillet").is_empty(), "來源:魚片最多的那座")
