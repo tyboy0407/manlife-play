@@ -228,11 +228,17 @@ func _test_state() -> void:
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3, "apply_purchase:容量 / 僱用 / 解鎖 / 升級 / 丟棄")
     _near(GameState.upgrade_mult("worker_speed"), 2.0, "升級倍率 1 + 0.5 × 2", 0.001)
     _near(GameState.upgrade_mult("pile_cap"), 1.0, "沒升級倍率 1", 0.001)
+    GameState.add_wallet(30)
+    GameState.add_wallet(-5)
+    _check(GameState.wallet == 30 and GameState.spend(12) == 12 and GameState.wallet == 18 and GameState.spend(50) == 18
+            and GameState.wallet == 0 and GameState.spend(1) == 0, "錢包:加錢 / 扣到 0 為止、負數不理")
+    GameState.add_wallet(7)
     var d := GameState.to_dict()
     GameState.reset()
-    _check(GameState.hired_total() == 0 and GameState.capacity_bonus == 0 and GameState.upgrade_level("worker_speed") == 0, "reset 清空")
+    _check(GameState.hired_total() == 0 and GameState.capacity_bonus == 0 and GameState.upgrade_level("worker_speed") == 0
+            and GameState.wallet == 0, "reset 清空")
     GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
     _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2 and GameState.is_unlocked("grill_complex")
-            and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher"),
-            "to_dict -> JSON -> from_dict 往返")
+            and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher")
+            and GameState.wallet == 7, "to_dict -> JSON -> from_dict 往返(含錢包)")
     GameState.reset()

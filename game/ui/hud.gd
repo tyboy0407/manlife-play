@@ -1,5 +1,5 @@
 extends CanvasLayer
-## HUD:左上角背包內容 / 現金與累計,中央通知(EventBus.notice,淡出),下方操作提示。只讀狀態,不改遊戲。
+## HUD:左上角錢包 / 背包內容 / 累計,中央通知(EventBus.notice,淡出),下方操作提示。只讀狀態,不改遊戲。
 
 var player: Player = null
 
@@ -58,6 +58,6 @@ func _process(delta: float) -> void:
         carry = tr("HUD_CARRY") % [GameData.item_name(player.stack.item_id), player.stack.count, player.stack.capacity]
     else:
         carry = "%s(%d)" % [carry, player.stack.capacity]
-    _info.text = "%s\n%s" % [carry, tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
+    _info.text = "%s\n%s\n%s" % [tr("HUD_WALLET") % GameState.wallet, carry, tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
             GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
             GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap")]]

@@ -3,7 +3,7 @@ extends Node
 ## 預設 user://manlife_save.json,測試可改 save_path。
 
 const DEFAULT_PATH := "user://manlife_save.json"
-const VERSION := 1
+const VERSION := 2   # 2:現金改錢包(GameState.wallet),舊檔忽略
 
 var save_path := DEFAULT_PATH
 var last_error := ""

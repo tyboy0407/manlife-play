@@ -1,6 +1,6 @@
 class_name TrashPad
 extends Pad
-## 垃圾桶:玩家(can_use_trash)站上來,把背上的東西一件件丟掉(含現金:零錢沒地方放時也能清掉)。
+## 垃圾桶:玩家(can_use_trash)站上來,把背上的東西一件件丟掉(錢在錢包裡,不受影響)。
 
 var trashed_total := 0
 

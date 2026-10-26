@@ -1,9 +1,11 @@
 extends Node
-## 遊戲進行狀態(Autoload:GameState):購買 / 升級 / 僱用的結果與統計;to_dict / from_dict 給存檔用。
+## 遊戲進行狀態(Autoload:GameState):錢包、購買 / 升級 / 僱用的結果與統計;to_dict / from_dict 給存檔用。
 ## 效果型別:capacity 擴充背包、hire 僱用幫手(角色計數)、unlock 解鎖目標(關卡聽 purchased 生東西)、upgrade 升級等級。
+## 錢包:錢格收進來、價格牌扣出去,不佔背包;改錢包不發 changed(HUD 每幀自己讀)。
 
 signal changed
 
+var wallet := 0                # 錢包(現金不佔背包)
 var capacity_bonus := 0        # 背包容量加成
 var unlocked := {}             # 購買 id 或解鎖目標 -> true
 var hired := {}                # 幫手角色 -> 人數
@@ -22,6 +24,7 @@ func _ready() -> void:
 
 
 func reset() -> void:
+    wallet = 0
     capacity_bonus = 0
     unlocked = {}
     hired = {}
@@ -82,11 +85,23 @@ func add_trashed(n: int) -> void:
         items_trashed += n
 
 
+func add_wallet(n: int) -> void:
+    if n > 0:
+        wallet += n
+
+
+## 從錢包扣 n(最多扣到 0),回傳實際扣掉的
+func spend(n: int) -> int:
+    var paid := clampi(n, 0, wallet)
+    wallet -= paid
+    return paid
+
+
 ## --- 存檔 ---
 
 func to_dict() -> Dictionary:
     return {
-        "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
+        "wallet": wallet, "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
         "upgrades": upgrades.duplicate(), "cash_earned": cash_earned, "fish_caught": fish_caught,
         "items_sold": items_sold, "items_trashed": items_trashed,
     }
@@ -94,6 +109,7 @@ func to_dict() -> Dictionary:
 
 ## 不發 purchased(關卡自己依 unlocked / hired 重建),只在最後發一次 changed
 func from_dict(d: Dictionary) -> void:
+    wallet = maxi(int(d.get("wallet", 0)), 0)
     capacity_bonus = int(d.get("capacity_bonus", 0))
     unlocked = {}
     var u = d.get("unlocked", {})

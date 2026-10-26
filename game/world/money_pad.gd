@@ -1,6 +1,6 @@
 class_name MoneyPad
 extends Pad
-## 錢格:賣出的現金堆在這裡(StackVisual 排 4 列);會收錢的 carrier(玩家)站上來就一疊疊搬到身上。
+## 錢格:賣出的現金堆在這裡(StackVisual 排 4 列);會收錢的 carrier(玩家)站上來就一疊疊收進錢包(GameState.wallet),不佔背包。
 
 var cash := 0
 var pile: StackVisual
@@ -38,15 +38,12 @@ func _refresh() -> void:
 
 
 func _on_carrier_stay(c: Carrier, delta: float) -> void:
-    if not c.collects_cash or cash <= 0 or not c.stack.can_push("cash"):
+    if not c.collects_cash or cash <= 0:
         return
-    var n := _budget(c, float(GameData.config().get("cashPickupPerSec", 20.0)), delta)
-    var taken := 0
-    while n > 0 and cash > 0 and c.stack.can_push("cash"):
-        cash -= 1
-        c.stack.push("cash")
-        n -= 1
-        taken += 1
-    if taken > 0:
-        _refresh()
-        EventBus.cash_collected.emit(c, taken)
+    var taken := mini(_budget(c, float(GameData.config().get("cashPickupPerSec", 40.0)), delta), cash)
+    if taken <= 0:
+        return
+    cash -= taken
+    GameState.add_wallet(taken)
+    _refresh()
+    EventBus.cash_collected.emit(c, taken)

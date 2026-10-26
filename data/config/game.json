@@ -3,8 +3,9 @@
   "playerAccel": 40.0,
   "carryCapacity": 8,
   "transferPerSec": 8,
-  "cashPickupPerSec": 20,
-  "payPerSec": 12,
+  "cashPickupPerSec": 40,
+  "payPerSec": 15,
+  "payDelaySec": 0.6,
   "fish": {
     "maxInWater": 18,
     "spawnIntervalSec": 0.5,

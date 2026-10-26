@@ -12,6 +12,7 @@ PAD_MONEY,Cash,現金
 NOTICE_PURCHASED,%s unlocked!,%s 完成!
 HUD_CARRY,Carrying: %s x%d / %d,背上:%s ×%d / %d
 HUD_EMPTY,Carrying: nothing,背上:空
+HUD_WALLET,Wallet $%d,錢包 $%d
 ITEM_grilled,Grilled fish,烤魚
 STATION_grill,Grill,烤魚攤
 COUNTER_fillet,Fillet counter,魚片櫃台
@@ -31,4 +32,4 @@ NOTICE_HIRED_cashier,A cashier joined you!,收銀員加入了!
 NOTICE_SAVED,Game saved,已存檔
 NOTICE_NEW_GAME,New game started,已重新開始
 HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d
-HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / pay / trash. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、付錢、丟棄。每 10 秒自動存檔;F9 重新開始。
+HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / trash. Cash on the money pad goes into your wallet; stand on a price pad for a moment to pay. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、丟棄。錢格的錢會收進錢包;在價格牌上站一下就開始付錢。每 10 秒自動存檔;F9 重新開始。
