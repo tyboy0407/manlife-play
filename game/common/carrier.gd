@@ -66,6 +66,11 @@ func _sway(delta: float) -> void:
     stack_visual.rotation.x = lerpf(stack_visual.rotation.x, want, minf(1.0, 10.0 * delta))
 
 
+## 背上那疊的頂端(世界座標),飛行動畫的起點 / 終點
+func stack_top() -> Vector3:
+    return stack_visual.global_position + Vector3(0.0, stack_visual.top_height(), 0.0)
+
+
 func planar_distance_to(p: Vector3) -> float:
     return Vector2(p.x - global_position.x, p.z - global_position.z).length()
 

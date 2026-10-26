@@ -34,6 +34,7 @@ var price_pads := {}
 var helpers: Array[Helper] = []
 var camera: FollowCamera
 var hud: CanvasLayer
+var guide: Guide
 var world: Node3D
 var autosave_sec := 10.0
 var loaded_from_save := false
@@ -84,6 +85,10 @@ func _ready() -> void:
     autosave_sec = maxf(float(GameData.config().get("autosaveSec", 10.0)), 1.0)
     _autosave_timer = autosave_sec
     _load_save()
+    guide = Guide.new()
+    guide.name = "Guide"
+    guide.level = self
+    add_child(guide)
     EventBus.purchased.connect(_on_purchased)
     EventBus.purchased.connect(func(_id: String, _effect: Dictionary) -> void: save_now())
 
@@ -407,6 +412,9 @@ func _notification(what: int) -> void:
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("new_game"):
         new_game()
+        get_viewport().set_input_as_handled()
+    elif event.is_action_pressed("toggle_hints") and guide != null:
+        guide.toggle_hints()
         get_viewport().set_input_as_handled()
 
 

@@ -13,6 +13,9 @@ func _ready() -> void:
     _test_purchase()
     _test_counter()
     _test_porter()
+    _test_guide()
+    _test_ring()
+    _test_sfx()
     _test_input()
     _test_save()
     _test_state()
@@ -20,6 +23,9 @@ func _ready() -> void:
         print("VERIFY CORE: ALL OK")
     else:
         print("VERIFY CORE: %d FAILURES" % _fails)
+    Sfx.stop_all()   # 還在播的音效離開時會被報成洩漏;AudioServer 要幾個 mix step 才真的放掉
+    for i in 30:
+        await get_tree().physics_frame
     get_tree().quit(1 if _fails > 0 else 0)
 
 
@@ -296,3 +302,125 @@ func _test_porter() -> void:
     var src := PorterPlanner.best_source([{"id": "a", "item": "fillet", "count": 4}, {"id": "b", "item": "fillet", "count": 9},
             {"id": "c", "item": "grilled", "count": 20}], "fillet")
     _check(src["id"] == "b" and PorterPlanner.best_source([], "fillet").is_empty(), "來源:魚片最多的那座")
+
+
+## --- 引導規則 ---
+
+func _guide_state() -> Dictionary:
+    return {"carry_item": "", "carry_count": 0, "wallet": 0, "money_on_pad": 0, "fish_caught": 0, "items_sold": 0, "purchases": 0,
+        "hired": {}, "counters": [{"id": "fillet_counter", "item": "fillet", "stock": 0, "cap": 30, "has_server": false, "has_cashier": false}],
+        "stations": [{"id": "station_1", "input": "fish", "input_count": 0, "input_cap": 12, "output": "fillet", "output_count": 0}],
+        "pads": [{"id": "hire_fisher", "name": "SHOP_hire_fisher", "remaining": 10, "visible": true},
+                {"id": "capacity_1", "name": "SHOP_capacity", "remaining": 25, "visible": true}]}
+
+
+func _test_guide() -> void:
+    var state := _guide_state()
+    _check(GuideLogic.tutorial_steps() == 7, "教學七步")
+    _check(not GuideLogic.tutorial_step_done(0, state) and GuideLogic.tutorial_hint(0, state)["kind"] == "water", "第 1 步:指水邊,還沒抓到魚")
+    state["fish_caught"] = 4
+    var h1 := GuideLogic.tutorial_hint(1, state)
+    _check(GuideLogic.tutorial_step_done(0, state) and not GuideLogic.tutorial_step_done(1, state)
+            and h1["kind"] == "station_input" and h1["target"] == "station_1", "抓到 4 條 -> 第 2 步:指切魚台輸入格")
+    state["stations"][0]["input_count"] = 3
+    _check(GuideLogic.tutorial_step_done(1, state) and GuideLogic.tutorial_hint(2, state)["kind"] == "station_output", "魚進了切魚台 -> 第 3 步:指輸出格")
+    state["carry_item"] = "fillet"
+    state["carry_count"] = 2
+    var h3 := GuideLogic.tutorial_hint(3, state)
+    _check(GuideLogic.tutorial_step_done(2, state) and h3["kind"] == "counter_deposit" and h3["target"] == "fillet_counter", "拿到魚片 -> 第 4 步:指櫃台上架格")
+    state["carry_item"] = ""
+    state["carry_count"] = 0
+    state["counters"][0]["stock"] = 2
+    _check(GuideLogic.tutorial_step_done(3, state) and not GuideLogic.tutorial_step_done(4, state)
+            and GuideLogic.tutorial_hint(4, state)["kind"] == "service", "上架了 -> 第 5 步:指收銀格")
+    state["items_sold"] = 1
+    _check(GuideLogic.tutorial_step_done(4, state) and GuideLogic.tutorial_hint(5, state)["kind"] == "money", "賣出了 -> 第 6 步:指錢格")
+    state["wallet"] = 2
+    var h6 := GuideLogic.tutorial_hint(6, state)
+    _check(GuideLogic.tutorial_step_done(5, state) and h6["kind"] == "pad" and h6["target"] == "hire_fisher" and h6["arg"] == "SHOP_hire_fisher",
+            "收了錢 -> 第 7 步:指最便宜的牌(僱漁夫)")
+    _check(not GuideLogic.tutorial_step_done(6, state), "還沒買:第 7 步未完成")
+    state["purchases"] = 1
+    _check(GuideLogic.tutorial_step_done(6, state) and GuideLogic.tutorial_hint(7, state).is_empty(), "買了 -> 教學結束")
+    var fresh := _guide_state()
+    fresh["purchases"] = 1
+    var all_done := true
+    for i in 7:
+        all_done = all_done and GuideLogic.tutorial_step_done(i, fresh)
+    _check(all_done, "有購買紀錄的存檔:七步都算完成")
+    # 提示:手上有貨
+    state = _guide_state()
+    _check(GuideLogic.hint(state)["kind"] == "water", "空手、什麼都沒有:去抓魚")
+    state["carry_item"] = "fish"
+    state["carry_count"] = 3
+    var h := GuideLogic.hint(state)
+    _check(h["kind"] == "station_input" and h["target"] == "station_1", "背著魚:指切魚台")
+    state["stations"][0]["input_count"] = 12
+    _check(GuideLogic.hint(state)["text"] == "HINT_station_full", "切魚台滿:提示等工人")
+    state["carry_item"] = "fillet"
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "counter_deposit" and h["target"] == "fillet_counter", "背著魚片:指櫃台")
+    state["counters"][0]["stock"] = 30
+    state["stations"].append({"id": "grill", "input": "fillet", "input_count": 0, "input_cap": 12, "output": "grilled", "output_count": 0})
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "station_input" and h["target"] == "grill" and h["text"] == "HINT_to_next_station", "櫃台滿、烤魚攤收魚片:指烤魚攤")
+    state["stations"][1]["input_count"] = 12
+    _check(GuideLogic.hint(state)["text"] == "HINT_counter_full", "都滿了:提示等顧客")
+    state["carry_item"] = "soup"
+    _check(GuideLogic.hint(state)["kind"] == "trash", "背著沒人收的東西:指垃圾桶")
+    # 提示:空手的優先序
+    state = _guide_state()
+    state["counters"][0]["stock"] = 5
+    state["money_on_pad"] = 8
+    state["stations"][0]["output_count"] = 6
+    state["wallet"] = 10
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "pad" and h["target"] == "hire_fisher" and h["arg"] == "SHOP_hire_fisher", "錢夠買最便宜的牌:先去買")
+    state["wallet"] = 9
+    _check(GuideLogic.hint(state)["kind"] == "service", "錢不夠:櫃台有貨沒人收銀 -> 去收銀")
+    state["counters"][0]["has_cashier"] = true
+    _check(GuideLogic.hint(state)["kind"] == "money", "有收銀員:去收錢格的錢")
+    state["money_on_pad"] = 0
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "station_output" and h["target"] == "station_1", "錢格空:工作站有成品 -> 去拿")
+    state["hired"] = {"porter": 1}
+    _check(GuideLogic.hint(state)["kind"] == "water", "有搬運工就不用自己拿 -> 去抓魚")
+    state["stations"][0]["input_count"] = 12
+    _check(GuideLogic.hint(state)["kind"] == "none", "切魚台滿、沒事可做:沒提示")
+    state = _guide_state()
+    state["wallet"] = 100
+    state["pads"][0]["visible"] = false
+    _check(GuideLogic.hint(state)["target"] == "capacity_1", "隱藏(買滿)的牌不算,挑下一個最便宜的")
+
+
+## --- 進度環 ---
+
+func _test_ring() -> void:
+    var ring := ProgressRing.new()
+    add_child(ring)
+    _check(ring.drawn_segments() == 0, "進度 0:沒畫弧")
+    ring.set_progress(0.5)
+    _check(ring.drawn_segments() == 24, "進度 0.5:畫 24 / 48 段")
+    ring.set_progress(1.0)
+    _check(ring.drawn_segments() == 48, "進度 1:畫滿")
+    ring.set_progress(1.7)
+    _check(ring.drawn_segments() == 48 and is_equal_approx(ring.progress, 1.0), "超過 1 夾住")
+    ring.set_progress(0.01)
+    _check(ring.drawn_segments() == 1, "一點點也畫 1 段")
+    ring.free()   # 測試結束就 quit,queue_free 來不及處理會被當成洩漏
+
+
+## --- 音效檔 ---
+
+func _test_sfx() -> void:
+    var missing := []
+    for n in Sfx.NAMES:
+        var s = load("res://assets/sfx/%s.wav" % n)
+        if not (s is AudioStreamWAV) or (s as AudioStreamWAV).data.size() == 0:
+            missing.append(n)
+    _check(missing.is_empty(), "音效檔都能載入(%d 個)" % Sfx.NAMES.size() if missing.is_empty() else "缺音效:%s" % str(missing))
+    _check(Sfx.has("sale") and Sfx.has("ambient_waves"), "Sfx 載入了結帳與環境音")
+    var before := Sfx.played_total
+    _check(Sfx.play("goal") and Sfx.played_total == before + 1 and int(Sfx.played.get("goal", 0)) >= 1, "Sfx.play 有播(headless 用 Dummy 音訊)")
+    _check(not Sfx.play("goal"), "同一音效太密集不重播")
+    _check(not Sfx.play("nope"), "沒有的音效不播")

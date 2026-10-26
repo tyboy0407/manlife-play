@@ -16,6 +16,9 @@
   我加的配套:價格牌要站著 payDelaySec(0.6 秒)才開始付,帶著錢走過不會付;存檔版本升到 2(舊檔忽略)。
 - 2026-10-26(使用者要求):搬運工以「當下庫存比例最低的櫃台」最優先補;規則抽成 PorterPlanner(純資料),
   缺貨櫃台的需求會往上游傳(烤魚櫃台空、烤魚攤沒成品 -> 先送魚片去烤魚攤),只拿目的地放得下的量,卸不掉就放回來源。
+- 2026-10-26(里程碑 3,手感與引導):1a 音效用程式合成占位(tools/gen_sfx.py -> assets/sfx/*.wav,同名覆蓋換正式);
+  2c 新存檔先走七步教學鏈,之後箭頭繼續當提示、H 鍵開關;3a 玩家頭上小箭頭轉向目標 + 目標上方彈跳大箭頭。
+  飛行動畫與進度環純表現層(規則瞬間完成,事件驅動)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -30,15 +33,20 @@
 - `core/data/game_data.gd`:GameData(靜態載入 game.json / items.json / stations.json / counters.json / shop.json;`section(key)`、`helper(role)`、物品尺寸 / 顏色 / 翻譯名)
 - `core/economy/`:ItemStack(一疊同種物品,有容量)、StationLogic(輸入堆 -> 處理 -> 輸出堆,輸出滿停工,speed_mult)、PurchaseLogic(價格牌分期;repeatable / max_buys / cost_mult / buys,`complete()` 漲價、`restore()` 存檔還原)、CounterLogic(庫存 / 售價 / 賣出)、PorterPlanner(搬運工派工:need_of / plan / best_dest / best_source,吃字典清單)
 - `core/input/move_input.gd`:MoveInput(螢幕方向 -> 世界 XZ;from_actions 鍵盤手把、toward 合成輸入)
-- `game/common/`:Carrier(CharacterBody3D 浮動模式、背上 ItemStack + StackVisual、旗標 can_fish / takes_output / collects_cash / can_serve / can_use_trash)、StackVisual、VisualFactory
+- `core/guidance/guide_logic.gd`:GuideLogic(教學七步的完成條件與指向、教學後的提示 hint();吃世界狀態字典,回 {kind, target, text, arg})
+- `game/common/`:Carrier(CharacterBody3D 浮動模式、背上 ItemStack + StackVisual、旗標 can_fish / takes_output / collects_cash / can_serve / can_use_trash、stack_top 給飛行動畫)、StackVisual、VisualFactory(box / capsule / cylinder / cone / label / 材質快取)、ProgressRing(平放進度環,ArrayMesh 弧,set_progress 量化重建)
 - `game/player/player.gd`:Player(input_provider 可餵合成輸入;容量 = 設定 + GameState.capacity_bonus;can_serve / can_use_trash)
 - `game/npc/helper.gd`:Helper(role 決定狀態機:fisher 水裡漫游被抓魚 -> 滿了去輸入格卸貨;porter 問 Harbor.find_porter_job(PorterPlanner)搬成品,狀態 to_pickup / picking / to_dropoff / dropping / returning / step_back;cashier 走到被指派櫃台的收銀格站著;數值 game.json helpers.<role>)、`customer.gd`(走到排隊位、等、買完離開,無物理;泡泡顯示物品名 ×數量)
 - `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad、Station(`Station.create(def)`,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品)、FishArea、Fish、Counter(`Counter.create(def)` 讀 counters.json;上架格 + 收銀格 ServicePad + 排隊位;`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付;可重複牌、付清後需離開再踏上(_blocked)、restore_state)、TrashPad(玩家站上丟掉背上所有貨物,GameState.add_trashed)
 - `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z)
-- `game/ui/hud.gd`:錢包 / 背上內容 / 統計(HUD_STATS 九個參數)/ 通知 / 操作提示(每幀讀 GameState,不靠訊號)
+- `game/ui/hud.gd`:錢包 / 背上內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示;聽 items_moved "cash" 畫 2D 的 $ 飛向錢包再彈一下
+- `game/ui/guide.gd`:Guide(Node3D,掛在關卡下):每 0.1 秒把關卡狀態餵 GuideLogic,推進教學(GameState.tutorial_step)、解析目標座標、畫玩家頭上箭頭 + 目標彈跳箭頭、餵 HUD 文字;toggle_hints(H)
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game
-- `autoload/event_bus.gd`:fish_caught / items_processed / sale_made / cash_collected / purchase_progress / purchased / helper_hired / notice
-- `autoload/game_state.gd`:wallet(add_wallet / spend)/ capacity_bonus / unlocked / hired / upgrades / 統計(含 items_trashed);apply_purchase(effect type:capacity / hire / unlock / upgrade)、upgrade_mult、to_dict / from_dict
+- `autoload/event_bus.gd`:fish_caught / items_processed / sale_made / cash_collected / purchase_progress / purchased / helper_hired / notice / items_moved(kind, item, from, to, count)/ tutorial_step_done / tutorial_finished
+- `autoload/sfx.gd`:Sfx(聽事件播 assets/sfx/<name>.wav,10 個 player 輪播、每種最短間隔、環境音執行期開 loop;played 計數給測試)
+- `autoload/fly_fx.gd`:Fx(聽 items_moved 生物品幽靈拋物線飛,掛在自己底下;kind "cash" 交給 HUD)
+- `tools/gen_sfx.py`:純 Python 合成占位音效(正弦 / 噪音 / 包絡),輸出 assets/sfx/*.wav(22050 Hz 16-bit mono)
+- `autoload/game_state.gd`:wallet(add_wallet / spend)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / 統計(含 items_trashed);apply_purchase(effect type:capacity / hire / unlock / upgrade)、upgrade_mult、to_dict / from_dict
 - `autoload/save_manager.gd`:存檔 IO(user://manlife_save.json,VERSION 2;has_save / write / read / delete;測試改 save_path)
 - `data/config/game.json`:速度、容量、搬運速率(transferPerSec / cashPickupPerSec / payPerSec / payDelaySec / trashPerSec)、魚群、顧客、autosaveSec、helpers、upgrades;`data/items.json`(fish / fillet / grilled / cash);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5);`data/shop.json`(八塊牌);`data/locale/strings.csv`
 
@@ -54,6 +62,9 @@
 - 價格牌:一次性付清就 `set_deferred("monitoring", false)` + `set_physics_process(false)` 消失;可重複牌付清後漲價留在原地、`_blocked` 記住還站著的人直到離開。monitoring 關掉後再查重疊會報錯,Pad._physics_process 有保護。
 - 存檔:`SaveManager.write({"state": GameState.to_dict(), "world": Harbor.snapshot()})`;state 含 wallet;world 含 player {item, count}、money、stations{spot_id: {input, output}}、counters{def_id: {stock}}、pads{id: {remaining, buys}}。讀檔順序:GameState.from_dict -> 依 unlocked 重建建築 -> 依 hired 靜音生幫手 -> restore_world。改存檔格式就加 VERSION(舊檔直接忽略)。
 - 新站點 / 櫃台 / 購買:加 JSON + 在 harbor.gd 的 SPOTS / UNLOCKS 給座標;效果型別新增要同時改 GameState.apply_purchase 與 Harbor._on_purchased。
+- 表現層只聽事件:格子 / 水區 / 櫃台搬了東西就 `EventBus.items_moved.emit(kind, item, from, to, count)`(from / to 世界座標,堆頂用 Carrier.stack_top / Station.pile_top / Counter.pile_top);Fx 畫幽靈、Sfx 播音、HUD 畫 $ 飛向錢包。規則層不等動畫,所以測試數值不受影響;新的搬運行為記得發事件。
+- 進度環:PricePad.ring 顯示 logic.progress()(_update_label 時更新),Station.ring 顯示 work_progress()(只在工作時顯示)。
+- 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
 
 ## 測試
 
@@ -61,7 +72,7 @@
 powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 ```
 
-先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合:建關卡 -> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期 -> 僱收銀員接手 -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> 存檔 / 重建關卡還原 -> 新遊戲,約 2.5 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
+先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡 -> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> items_moved / 幽靈 / 音效計數 -> 存檔 / 重建關卡還原 -> 新遊戲,約 2.5 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
 
 - 新增腳本或資源後要先 `--import`,否則 class_name 找不到;第一次 import 會因為 .translation 還沒產生而印錯誤,第二次就正常。
 - 測試指令一定加 timeout:測試場景若編譯失敗,headless 永遠不會結束。
@@ -75,11 +86,14 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 - `Array.filter()` 回傳無型別陣列,不能直接指派給 `Array[T]` 變數(用無型別變數或 `assign`)。
 - 用 `.new()` 建、直接加在 CanvasLayer 下的 Control 要用 `set_anchors_and_offsets_preset(PRESET_FULL_RECT)` 鋪滿。
 - 換場景會把整個舊場景 memdelete:UI 關閉回呼用 `tree_exiting`,不要用 `tree_exited`。
-- strings.csv 的欄位裡若有真的換行,Godot 會當成多列(鍵對不到翻譯);要用字面 `\n`。
+- strings.csv 的欄位裡若有真的換行,Godot 會當成多列(鍵對不到翻譯);要用字面 `\n`。中文欄位只能用全形逗號「,」,ASCII 逗號會多出一欄(補丁腳本可用 `line.count(",") == 2` 檢查)。
+- headless 離開時「ObjectDB instances leaked / resources still in use」通常是還在播的音效:AudioStreamPlayback 在 AudioServer 執行緒裡,quit 前先 `Sfx.stop_all()` 再等兩幀。測試裡自己建的節點用 `free()`(不是 queue_free)。
+- GDScript 迭代無型別陣列時元素是 Variant,`var x := CONST_STR + n` 會「無法推斷型別」;寫 `var x: String = ... + str(n)`。
 
 ## 里程碑
 
 1. 垂直切片(完成 2026-10-25):搖桿移動 + 背上堆疊、淺水區抓魚、切魚台(輸入格 / 工人 / 輸出格)、櫃台 + 排隊顧客 + 錢格、三塊價格牌(分期付款)、漁夫幫手 AI、HUD、資料驅動 JSON、兩套 headless 測試。
 2. 存檔與自動化(完成 2026-10-26):存檔(SaveManager + snapshot,自動存 / F9 重來)、第二條貨物鏈(烤魚攤 魚片 -> 烤魚,烤魚櫃台 $5,建地牌 $60)、搬運工 / 收銀員幫手(櫃台改成要有人收銀)、升級牌(工人速度 / 堆疊上限,各三級漲價)、可重複僱用牌(漁夫 ×3 / 搬運工 ×2 / 收銀員 ×2)、垃圾桶。同日追加:現金改錢包(不佔背包、價格牌站 0.6 秒才付);搬運工改成最缺貨的櫃台優先(PorterPlanner)、卸不掉放回來源。
+3. 手感與引導(完成 2026-10-26):飛行動畫(物品拋物線、賣出飛向顧客、$ 飛向錢包、付款飛向牌子)、合成占位音效 + 環境音、價格牌付款進度環 + 工作站處理進度環、七步教學鏈 + 之後的提示箭頭(頭上小箭頭 + 目標大箭頭,H 開關)、顧客買到道謝泡泡。
 
 之後候選:離線收益、更多站點與貨物鏈(魚湯)、星幣 / 聲望等長線目標、觸控虛擬搖桿與手機匯出、小地圖或箭頭指引、換皮與美術。

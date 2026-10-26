@@ -32,7 +32,14 @@ func _ready() -> void:
         _bump("processed", n)
         _bump("processed_" + sid, n))
     EventBus.cash_collected.connect(func(_c: Node3D, n: int) -> void: _bump("collected", n))
+    EventBus.items_moved.connect(func(kind: String, _i: String, _f: Vector3, _t: Vector3, n: int) -> void:
+        _bump("moved", n)
+        _bump("moved_" + kind, n))
+    EventBus.tutorial_step_done.connect(func(_s: int) -> void: _bump("tut_step"))
+    EventBus.tutorial_finished.connect(func() -> void: _bump("tut_done"))
     await _run()
+    Sfx.stop_all()   # 還在播的音效離開時會被報成洩漏
+    await _step(25)   # 讓還在飛的幽靈物件飛完、queue_free 處理掉
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()
@@ -157,15 +164,25 @@ func _run() -> void:
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
     _check(pads == 14, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 八塊價格牌(%d)" % pads)
+    var g: Guide = _level.guide
+    _check(g != null and GameState.tutorial_step == 0 and g.in_tutorial and str(g.current.get("kind", "")) == "water" and g.marker.visible
+            and g.head_arrow.visible and _level.hud.objective_text().begins_with(tr("HUD_OBJECTIVE").substr(0, 2)),
+            "教學第 1 步:指水邊,目標箭頭與頭上箭頭都亮著,HUD 顯示目標")
     await _step(30)
     _check(_level.fish_area.fish.size() >= 8, "水裡有魚(%d)" % _level.fish_area.fish.size())
     # 抓魚 -> 切 -> 取
     await _fish_until(8)
     _check(_player.stack.is_full() and _player.stack.item_id == "fish" and _count("fish") >= 8, "背包抓滿 8 條魚")
     var st: Station = _level.stations[0]
+    await _step(8)
+    _check(GameState.tutorial_step == 1 and str(g.current.get("kind", "")) == "station_input"
+            and g.target_pos.distance_to(st.input_pad.global_position) < 0.1, "教學第 2 步:指切魚台輸入格")
     await _go(st.input_pad.global_position)
     var emptied := await _wait_until(func() -> bool: return _player.stack.is_empty(), 120)
     _check(emptied and st.logic.input_count >= 1, "輸入格:魚卸進切魚台(%d)" % st.logic.input_count)
+    await _step(8)
+    _check(GameState.tutorial_step == 2 and str(g.current.get("kind", "")) == "station_output"
+            and g.target_pos.distance_to(st.output_pad.global_position) < 0.1, "教學第 3 步:指輸出格")
     var produced := await _wait_until(func() -> bool: return st.logic.output_count >= 8, 400)
     _check(produced and _count("processed") >= 8, "工人切魚:輸出堆 %d 片" % st.logic.output_count)
     await _go(st.output_pad.global_position)
@@ -173,9 +190,15 @@ func _run() -> void:
     _check(got, "輸出格:拿滿 8 片魚片")
     # 上架 -> 沒人收銀不賣 -> 站收銀格才賣
     var cnt: Counter = _level.counters[0]
+    await _step(8)
+    _check(GameState.tutorial_step == 3 and str(g.current.get("kind", "")) == "counter_deposit"
+            and g.target_pos.distance_to(cnt.deposit_pad.global_position) < 0.1, "教學第 4 步:指櫃台上架格")
     await _go(cnt.deposit_pad.global_position)
     var stocked := await _wait_until(func() -> bool: return cnt.logic.stock >= 8, 120)
     _check(stocked and _player.stack.is_empty(), "櫃台上架 %d 件" % cnt.logic.stock)
+    await _step(8)
+    _check(GameState.tutorial_step == 4 and str(g.current.get("kind", "")) == "service"
+            and g.target_pos.distance_to(cnt.service_pad.global_position) < 0.1, "教學第 5 步:指收銀格")
     await _go(Vector3(0, 0, 7))
     var waiting := await _wait_until(func() -> bool: return cnt.waiting_customers() >= 1, 240)
     await _step(90)
@@ -184,12 +207,18 @@ func _run() -> void:
     var sold := await _wait_until(func() -> bool: return _count("sale") >= 3 and _level.money_pad.cash >= 6, 400)
     _check(sold and cnt.has_server(), "玩家站收銀格:賣出 %d 筆、錢格 $%d" % [_count("sale"), _level.money_pad.cash])
     _check(GameState.cash_earned >= 6 and GameState.items_sold >= 3, "統計累計")
+    await _step(8)
+    _check(GameState.tutorial_step == 5 and str(g.current.get("kind", "")) == "money"
+            and g.target_pos.distance_to(_level.money_pad.global_position) < 0.1, "教學第 6 步:指錢格")
     # 錢格 -> 錢包(不佔背包)
-    var pad_cash := _level.money_pad.cash
     await _go(_level.money_pad.global_position)
     var picked := await _wait_until(func() -> bool: return GameState.wallet >= 6, 120)
-    _check(picked and _player.stack.is_empty() and _count("collected") == GameState.wallet and _level.money_pad.cash <= pad_cash - 6,
-            "錢格收錢進錢包 $%d,背包仍是空的" % GameState.wallet)
+    _check(picked and _player.stack.is_empty() and _count("collected") == GameState.wallet
+            and GameState.cash_earned == GameState.wallet + _level.money_pad.cash,
+            "錢格收錢進錢包 $%d,背包仍是空的,賺的錢 = 錢包 + 錢格" % GameState.wallet)
+    await _step(8)
+    _check(GameState.tutorial_step == 6 and str(g.current.get("kind", "")) == "pad" and str(g.current.get("target", "")) == "hire_fisher"
+            and g.target_pos.distance_to((_level.price_pads["hire_fisher"] as PricePad).global_position) < 0.1, "教學第 7 步:指最便宜的牌(僱漁夫)")
     # 帶著錢直直走過擴充背包牌:沒停下來就不付
     var cap1: PricePad = _level.price_pads["capacity_1"]
     var wallet0 := GameState.wallet
@@ -202,6 +231,8 @@ func _run() -> void:
     var partial := await _wait_until(func() -> bool: return hc.logic.remaining < 20, 120)
     _check(partial and hc.logic.buys == 0 and hc.logic.remaining > 0 and wallet0 - GameState.wallet == 20 - hc.logic.remaining,
             "價格牌分期:站著從錢包付了 %d、剩 $%d" % [wallet0 - GameState.wallet, hc.logic.remaining])
+    _check(hc.ring != null and hc.ring.progress > 0.0 and hc.ring.drawn_segments() >= 1 and is_equal_approx(hc.ring.progress, hc.logic.progress()),
+            "價格牌進度環跟著付款比例(%d 段)" % hc.ring.drawn_segments())
     # 僱收銀員
     _level.money_pad.add_cash(60)
     await _pay_pad(hc)
@@ -214,6 +245,9 @@ func _run() -> void:
     _check(hc.visible and hc.logic.buys == 1 and hc.logic.current_cost() == 36 and hc.logic.remaining == 36,
             "收銀員牌可再買一次:第二次 $36(付清後站著不會接著付,剩 $%d)" % hc.logic.remaining)
     _check(_player.stack.is_empty() and GameState.wallet >= 0, "錢不佔背包:買完後背包仍空、錢包 $%d" % GameState.wallet)
+    await _step(8)
+    _check(GameState.tutorial_step == 7 and not g.in_tutorial and _count("tut_done") == 1 and _count("tut_step") == 7
+            and str(g.current.get("kind", "")) != "", "買了第一樣東西 -> 教學完成,箭頭轉成提示")
     # 玩家離開,收銀員接手
     if cnt.logic.stock < 2:
         cnt.logic.stock = 4
@@ -227,6 +261,15 @@ func _run() -> void:
     await _empty_hands()
     await _fish_until(2, 8)
     var fish_n := _player.stack.count
+    await _step(8)
+    _check(str(g.current.get("kind", "")) == "station_input" and g.marker.visible, "提示:背著魚 -> 指切魚台")
+    g.toggle_hints()
+    await _step(2)
+    _check(not GameState.hints_on and not g.marker.visible and not g.head_arrow.visible and _level.hud.objective_text() == tr("HUD_HINTS_OFF"),
+            "H:關掉提示,箭頭都收起來")
+    g.toggle_hints()
+    await _step(2)
+    _check(GameState.hints_on and g.marker.visible, "H:再開")
     var trashed_before := GameState.items_trashed
     await _go(_level.trash_pad.global_position)
     var trashed := await _wait_until(func() -> bool: return _player.stack.is_empty(), 120)
@@ -352,6 +395,13 @@ func _run() -> void:
         if str(s[0]) == "grilled" and int(s[2]) == 5 * int(s[1]):
             five = true
     _check(took and gstock and gsold and five, "烤魚上架、顧客以 $5 買走")
+    # 表現層:飛行動畫事件、幽靈物件、音效
+    _check(_count("moved") >= 30 and _count("moved_catch") >= 8 and _count("moved_to_station") >= 8 and _count("moved_from_station") >= 8
+            and _count("moved_to_counter") >= 8 and _count("moved_sold") >= 3 and _count("moved_cash") >= 6 and _count("moved_pay") >= 20
+            and _count("moved_trash") >= 2 and _count("moved_return") >= 3, "items_moved:抓魚 / 卸貨 / 取貨 / 上架 / 賣出 / 收錢 / 付錢 / 丟棄 / 放回都有發")
+    _check(Fx.spawned_total >= 30 and Sfx.played_total >= 20 and Sfx.played.has("sale") and Sfx.played.has("unlock") and Sfx.played.has("hire")
+            and Sfx.played.has("goal") and Sfx.played.has("catch") and Sfx.played.has("coin"), "幽靈物件飛過 %d 個、音效播了 %d 次" % [Fx.spawned_total, Sfx.played_total])
+    _check(st.ring != null and st.ring.visible == st.logic.is_working(), "工作站進度環只在工作時顯示")
     # 存檔 -> 重建 -> 還原
     var saved := _level.save_now()
     var snap := _level.snapshot()
@@ -377,7 +427,8 @@ func _run() -> void:
     var grill2 := _level.station_at("grill")
     var cnt2 := _level.counter_by_id("fillet_counter")
     _check(_level.loaded_from_save and GameState.cash_earned == earned_saved and GameState.hired_total() == hired_saved
-            and GameState.upgrade_level("worker_speed") == 1 and GameState.wallet == wallet_saved, "重建關卡:讀回 GameState(含錢包 $%d)" % wallet_saved)
+            and GameState.upgrade_level("worker_speed") == 1 and GameState.wallet == wallet_saved and GameState.tutorial_step == 7
+            and not _level.guide.in_tutorial, "重建關卡:讀回 GameState(含錢包 $%d、教學已完成)" % wallet_saved)
     _check(_level.stations.size() == 2 and grill2 != null and _level.counters.size() == 2 and _level.helpers.size() == hired_saved,
             "重建關卡:烤魚攤、烤魚櫃台、%d 個幫手都回來了" % hired_saved)
     _check(_level.money_pad.cash == cash_saved and st2 != null and st2.logic.output_count == st1_out and grill2.logic.output_count == grill_out

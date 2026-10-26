@@ -32,4 +32,29 @@ NOTICE_HIRED_cashier,A cashier joined you!,收銀員加入了!
 NOTICE_SAVED,Game saved,已存檔
 NOTICE_NEW_GAME,New game started,已重新開始
 HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d
-HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / trash. Cash on the money pad goes into your wallet; stand on a price pad for a moment to pay. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、丟棄。錢格的錢會收進錢包;在價格牌上站一下就開始付錢。每 10 秒自動存檔;F9 重新開始。
+HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / trash. Cash on the money pad goes into your wallet; stand on a price pad for a moment to pay. H toggles the hint arrow. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、丟棄。錢格的錢會收進錢包;在價格牌上站一下就開始付錢。H 開關提示箭頭。每 10 秒自動存檔;F9 重新開始。
+CUSTOMER_THANKS,Thanks!,謝謝!
+HUD_OBJECTIVE,Goal %d/%d: %s,目標 %d/%d:%s
+HUD_HINT_PREFIX,Hint: %s,提示:%s
+HUD_HINTS_OFF,Hints off (press H to turn on),提示已關閉(按 H 開啟)
+NOTICE_TUTORIAL_DONE,Tutorial done! The arrow keeps hinting; press H to toggle it.,教學完成!之後箭頭會提示該做什麼，按 H 可開關
+NOTICE_HINTS_ON,Hints on,提示開啟
+NOTICE_HINTS_OFF,Hints off,提示關閉
+TUT_fish,Walk into the shallows up top and bump into fish (catch 4),到上方淺水區，走到魚旁邊就會抓到(抓 4 條)
+TUT_to_station,Drop the fish on the cutting table's input pad,把魚放到切魚台上方的「放這裡」格
+TUT_take,The worker made fillets. Take them from the output pad,工人切好了，到下方「從這裡拿」格拿魚片
+TUT_to_counter,Carry the fillets to the counter's shelf pad,把魚片拿到櫃台左邊的「上架」格
+TUT_serve,Stand on the serve pad so customers can buy,站到櫃台下方的「收銀」格，顧客才會買
+TUT_collect,Collect the cash from the money pad,到錢格把錢收進錢包
+TUT_buy,Stand on the %s price pad to buy your first upgrade,站到「%s」的價格牌上付錢，買第一樣東西
+HINT_to_station,Drop the fish at a cutting table,把魚放進切魚台
+HINT_to_next_station,Feed it to the next station,送去下一道工序
+HINT_station_full,That station is full. Wait for the worker,工作站滿了，等工人消化
+HINT_to_counter,Stock the counter,拿去櫃台上架
+HINT_counter_full,The counter is full. Wait for customers,櫃台滿了，等顧客買
+HINT_trash,Nowhere to put it. Use the trash,沒地方放，丟進垃圾桶
+HINT_buy,You can afford: %s,錢夠了，去買:%s
+HINT_serve,Stock is waiting but nobody is serving. Go stand on the serve pad,櫃台有貨沒人收銀，去站收銀格
+HINT_money,Cash is piling up on the money pad,錢格有錢，去收
+HINT_take,Products are ready at a station. Take them,工作站有成品，去拿
+HINT_fish,Go catch some fish,去抓魚

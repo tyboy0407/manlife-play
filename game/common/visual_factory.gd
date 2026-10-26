@@ -55,6 +55,19 @@ static func cylinder(radius: float, height: float, color: Color, pos: Vector3 = 
     return mi
 
 
+## 圓錐(尖端朝 +Y)
+static func cone(radius: float, height: float, color: Color, pos: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+    var mi := MeshInstance3D.new()
+    var mesh := CylinderMesh.new()
+    mesh.top_radius = 0.0
+    mesh.bottom_radius = radius
+    mesh.height = height
+    mi.mesh = mesh
+    mi.material_override = material(color)
+    mi.position = pos
+    return mi
+
+
 static func label(text: String, pos: Vector3, font_size: int = 48, color: Color = Color.WHITE) -> Label3D:
     var l := Label3D.new()
     l.text = text

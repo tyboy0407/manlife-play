@@ -8,6 +8,7 @@ extends Pad
 var logic: PurchaseLogic
 var build_spot := false
 var pay_delay := 0.6
+var ring: ProgressRing = null   # 付款進度環
 
 var _paying_frames := 0
 var _blocked := {}   # 剛付清時還站在格子上的 carrier id -> true(離開後解除)
@@ -28,6 +29,12 @@ func _ready() -> void:
     super()
     if build_spot:
         mesh.material_override = VisualFactory.material(color, Color.BLACK, true)
+    ring = ProgressRing.new()
+    ring.inner = 1.08
+    ring.outer = 1.3
+    ring.color = Color(1.0, 0.8, 0.25)
+    ring.position = Vector3(0, 0.12, 0)
+    add_child(ring)
     _update_label()
 
 
@@ -36,6 +43,8 @@ func _update_label() -> void:
     if logic.repeatable:
         text += "\n(%d/%d)" % [logic.buys + 1, logic.max_buys]
     set_label(text)
+    if ring != null:
+        ring.set_progress(logic.progress())
 
 
 func _on_carrier_stay(c: Carrier, delta: float) -> void:
@@ -53,6 +62,7 @@ func _on_carrier_stay(c: Carrier, delta: float) -> void:
     if paid <= 0:
         return
     GameState.spend(paid)
+    EventBus.items_moved.emit("pay", "cash", c.global_position + Vector3(0.0, 1.6, 0.0), global_position + Vector3(0.0, 0.3, 0.0), paid)
     _update_label()
     set_highlight(true)
     _paying_frames = 8

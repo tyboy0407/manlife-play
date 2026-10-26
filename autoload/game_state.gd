@@ -6,6 +6,8 @@ extends Node
 signal changed
 
 var wallet := 0                # 錢包(現金不佔背包)
+var tutorial_step := 0         # 教學進度(= GuideLogic.tutorial_steps() 表示做完)
+var hints_on := true           # 教學後的提示箭頭(H 鍵開關)
 var capacity_bonus := 0        # 背包容量加成
 var unlocked := {}             # 購買 id 或解鎖目標 -> true
 var hired := {}                # 幫手角色 -> 人數
@@ -25,6 +27,8 @@ func _ready() -> void:
 
 func reset() -> void:
     wallet = 0
+    tutorial_step = 0
+    hints_on = true
     capacity_bonus = 0
     unlocked = {}
     hired = {}
@@ -101,7 +105,8 @@ func spend(n: int) -> int:
 
 func to_dict() -> Dictionary:
     return {
-        "wallet": wallet, "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
+        "wallet": wallet, "tutorial_step": tutorial_step, "hints_on": hints_on,
+        "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
         "upgrades": upgrades.duplicate(), "cash_earned": cash_earned, "fish_caught": fish_caught,
         "items_sold": items_sold, "items_trashed": items_trashed,
     }
@@ -126,6 +131,9 @@ func from_dict(d: Dictionary) -> void:
     if typeof(g) == TYPE_DICTIONARY:
         for k in g:
             upgrades[str(k)] = maxi(int(g[k]), 0)
+    # 舊存檔沒有教學欄位:已經買過東西就當教學做完
+    tutorial_step = clampi(int(d.get("tutorial_step", GuideLogic.tutorial_steps() if not unlocked.is_empty() else 0)), 0, GuideLogic.tutorial_steps())
+    hints_on = bool(d.get("hints_on", true))
     cash_earned = int(d.get("cash_earned", 0))
     fish_caught = int(d.get("fish_caught", 0))
     items_sold = int(d.get("items_sold", 0))

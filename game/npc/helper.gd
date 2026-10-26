@@ -186,10 +186,13 @@ func _porter(delta: float) -> void:
                 state = "idle"
                 return
             if go_to(target, delta, 0.3):
+                var item := stack.item_id
                 var back := from.take_back(stack.count)
                 for i in back:
                     stack.pop()
                 returned_total += back
+                if back > 0:
+                    EventBus.items_moved.emit("return", item, stack_top(), from.pile_top(false), back)
                 target = from.output_pad.global_position + Vector3(0, 0, 2.2)
                 state = "step_back"
         "step_back":

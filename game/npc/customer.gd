@@ -28,10 +28,16 @@ func set_target(p: Vector3) -> void:
     arrived = planar_distance(p) < 0.15
 
 
+## 買到了:泡泡換成道謝、半秒後收起,走向出口
 func leave(exit_point: Vector3) -> void:
     leaving = true
     served = true
-    _bubble.visible = false
+    _bubble.text = tr("CUSTOMER_THANKS")
+    _bubble.modulate = Color(0.7, 1.0, 0.7)
+    var bubble := _bubble
+    get_tree().create_timer(0.6).timeout.connect(func() -> void:
+        if is_instance_valid(bubble):
+            bubble.visible = false)
     set_target(exit_point)
 
 

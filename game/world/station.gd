@@ -11,6 +11,7 @@ var output_pad: StationPad
 var input_pile: StackVisual
 var output_pile: StackVisual
 var worker: Node3D
+var ring: ProgressRing   # 工人頭上的處理進度環
 var _work_anim := 0.0
 
 
@@ -40,6 +41,14 @@ func _ready() -> void:
     add_child(worker)
     worker.add_child(VisualFactory.capsule(0.35, 1.4, Color(0.45, 0.3, 0.2), Vector3(0, 0.8, 0)))
     worker.add_child(VisualFactory.box(Vector3(0.55, 0.2, 0.55), Color(0.3, 0.2, 0.12), Vector3(0, 1.62, 0)))
+    ring = ProgressRing.new()
+    ring.inner = 0.28
+    ring.outer = 0.4
+    ring.color = Color(0.45, 0.9, 1.0)
+    ring.bg_color = Color(0.1, 0.1, 0.14, 0.6)
+    ring.position = Vector3(0, 2.1, 1.1)
+    ring.visible = false
+    add_child(ring)
     # 格子
     input_pad = StationPad.new()
     input_pad.station = self
@@ -81,7 +90,9 @@ func _physics_process(delta: float) -> void:
     if made > 0:
         refresh_piles()
         EventBus.items_processed.emit(logic.id, made)
+    ring.visible = logic.is_working()
     if logic.is_working():
+        ring.set_progress(logic.work_progress())
         _work_anim += delta * 12.0 * logic.speed_mult
         worker.position.y = absf(sin(_work_anim)) * 0.12
     else:
@@ -91,6 +102,12 @@ func _physics_process(delta: float) -> void:
 func refresh_piles() -> void:
     input_pile.show_items(logic.input_id, logic.input_count)
     output_pile.show_items(logic.output_id, logic.output_count)
+
+
+## 輸入 / 輸出堆的頂端(世界座標),飛行動畫用
+func pile_top(is_input: bool) -> Vector3:
+    var pile := input_pile if is_input else output_pile
+    return pile.global_position + Vector3(0.0, pile.top_height(), 0.0)
 
 
 ## 搬運工把送不出去的成品放回輸出堆;回傳收下幾個

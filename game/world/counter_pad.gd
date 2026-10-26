@@ -1,6 +1,6 @@
 class_name CounterPad
 extends Pad
-## 櫃台的上架格:把 carrier 身上的商品(櫃台賣的那種)搬進櫃台庫存。
+## 櫃台的上架格:把 carrier 身上的商品(櫃台賣的那種)搬進櫃台庫存;搬了就發 items_moved 給飛行動畫 / 音效。
 
 var counter: Counter = null
 
@@ -20,3 +20,4 @@ func _on_carrier_stay(c: Carrier, delta: float) -> void:
         moved += 1
     if moved > 0:
         counter.refresh_pile()
+        EventBus.items_moved.emit("to_counter", logic.item_id, c.stack_top(), counter.pile_top(), moved)

@@ -47,3 +47,5 @@ func _on_carrier_stay(c: Carrier, delta: float) -> void:
     GameState.add_wallet(taken)
     _refresh()
     EventBus.cash_collected.emit(c, taken)
+    EventBus.items_moved.emit("cash", "cash", pile.global_position + Vector3(0.0, pile.top_height(), 0.0),
+            c.global_position + Vector3(0.0, 2.2, 0.0), taken)

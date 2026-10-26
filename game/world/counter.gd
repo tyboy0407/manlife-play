@@ -74,6 +74,11 @@ func refresh_pile() -> void:
     stock_pile.show_items(logic.item_id, logic.stock)
 
 
+## 庫存堆頂端(世界座標),飛行動畫用
+func pile_top() -> Vector3:
+    return stock_pile.global_position + Vector3(0.0, stock_pile.top_height(), 0.0)
+
+
 ## 收銀格每幀呼叫:這幀有人在收銀
 func notify_server() -> void:
     _server_frame = Engine.get_physics_frames()
@@ -112,10 +117,12 @@ func _physics_process(delta: float) -> void:
     if sold <= 0:
         return
     served_total += sold
+    var from := pile_top()
     refresh_pile()
     if money_pad != null:
         money_pad.add_cash(int(res["cash"]))
     EventBus.sale_made.emit(logic.item_id, sold, int(res["cash"]))
+    EventBus.items_moved.emit("sold", logic.item_id, from, front.global_position + Vector3(0.0, 1.4, 0.0), sold)
     front.leave(to_global(exit_offset))
     customers.remove_at(0)
     _reassign_slots()

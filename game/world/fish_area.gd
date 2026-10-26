@@ -97,5 +97,17 @@ func _catch(c: Carrier, f: Fish) -> void:
         return
     c.caught_total += 1
     fish.erase(f)
+    var from := f.global_position
     f.queue_free()
     EventBus.fish_caught.emit(c)
+    EventBus.items_moved.emit("catch", "fish", from, c.stack_top(), 1)
+
+
+## 位置(世界 XZ)在不在水裡
+func contains(pos: Vector3) -> bool:
+    return rect.has_point(Vector2(pos.x, pos.z))
+
+
+## 離 pos 最近的魚(沒有回 null);引導箭頭用
+func nearest_fish_to(pos: Vector3) -> Fish:
+    return _nearest_fish(pos)
