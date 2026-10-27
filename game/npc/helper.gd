@@ -116,9 +116,9 @@ func _walk(p: Vector3, delta: float, stop: float) -> void:
             _stuck = 0.0
             _route = level.route(global_position, _route_dest)
             if _route.is_empty():
-                # 同一側卻卡住(貼著牆角):往門的方向滑一步
-                var gate := level.gate_point(global_position)
-                global_position += Vector3(0.0, 0.0, signf(gate.z - global_position.z)) * 0.6
+                # 沒有中途點卻卡住(貼著牆角 / 建築):往目的地的 z 方向滑一步
+                var dz := signf(_route_dest.z - global_position.z)
+                global_position += Vector3(0.0, 0.0, dz if dz != 0.0 else 1.0) * 0.6
     else:
         _stuck = 0.0
 

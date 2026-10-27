@@ -47,6 +47,8 @@
   血 120 歸零塌成廢墟,牌重現標「修復」同價 $200(rebuyMult 1,走 lose / on_lost 同一套);3 網頁版偵測到新版自動重新整理
   (export_presets html/head_include 的 JS:監看 service worker 更新,新版裝好就 postMessage('update') 讓它 skipWaiting + claim,
   controllerchange 再 reload;開頁 30 秒內或剛回到前景 10 秒內找到新版立刻換,玩到一半找到的等下次回前景再換;Harbor 失焦時先存檔)。
+- 2026-10-27(使用者:搬運工還是卡在東牆上,要求擴建時中間不要有牆):擴建後把整面東牆(三段隱形牆 + 兩段柵欄,Harbor.east_walls)全拆,
+  主村與 annex 連成一片;Harbor.route 不再給中途點(回空)、gate_point 回原點,Helper 的卡住偵測留著(改往目的地的 z 方向滑)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -74,7 +76,7 @@
 - `game/player/player.gd`:Player(input_provider 可餵合成輸入;容量 = 設定 + GameState.capacity_bonus;can_serve / can_use_trash;
   weapon_prop 腰間武器,_refresh_weapon 依 GameState.weapon_level 換 weapon.levels[].model;_attack 每 attackIntervalSec 自動打最近、在 range 內的熊,hits_total)
 - `game/npc/helper.gd`:Helper(role 決定狀態機:fisher 水裡漫游被抓魚 -> 滿了去輸入格卸貨;porter 問 Harbor.find_porter_job(PorterPlanner)搬成品,狀態 to_pickup / picking / to_dropoff / dropping / returning / step_back;cashier 走到被指派櫃台的收銀格站著;數值 game.json helpers.<role>;北極熊:set_panic 嚇呆不動 + 驚嘆號 + emote-no、
-  be_eaten 規則上立刻消失(分組 / 旗標 / 物理 / 格子)外觀縮小後釋放;go_to 覆寫:Harbor.route 的東門中途點、卡住 1 秒重算 / 往門口滑)、
+  be_eaten 規則上立刻消失(分組 / 旗標 / 物理 / 格子)外觀縮小後釋放;go_to 覆寫:向 Harbor.route 要中途點(目前沒有牆要繞,回空)、卡住 1 秒重算 / 往目的地 z 方向滑 0.6)、
   `bear.gd`(Bear:從 entry 進來,hunting 盯最近的幫手 -> 靠到 panicRadius 幫手嚇呆 -> biteRadius 內 biting 咬 biteSec 秒 -> Harbor.helper_eaten -> 找下一個;
   hp / hp_max = BearLogic.hp(play_time),take_hit 扣血閃紅、頭上血條,歸零 defeat 逃回 entry(fleeing);沒人可吃 leaving;is_king:體型 size_scale、
   連 Fish 也當獵物、_feast 回血變大、沒獵物就在村中間等;白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
@@ -93,9 +95,9 @@
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
   西牆缺口 GATE_Z、_build_outside 村外武器店院子(店屋 WEAPON_SHOP、老闆 shopkeeper、武器牌 PAD_SPOTS.weapon)、bears(BearSpawner)、
   helper_eaten 結算被吃的幫手(hire_pad_for(role).on_lost);守衛塔 TOWER_SPOTS 四角(牌 PAD_SPOTS.tower_n 同位置)、towers / _build_towers /
-  tower_by_id / tower_pad_for / alive_towers / tower_destroyed(牌 on_lost 修復價),_on_purchased "tower" 蓋 / 修;東門 east_gate / east_gate_mesh(EAST_GATE_Z)、_build_annex 擴建區
+  tower_by_id / tower_pad_for / alive_towers / tower_destroyed(牌 on_lost 修復價),_on_purchased "tower" 蓋 / 修;東牆 east_walls(三段隱形牆 + 柵欄,擴建時整面拆;east_gate / east_gate_mesh 是門那段)、_build_annex 擴建區
   (ANNEX_RECT:沙地、柵欄、隱形牆、深水池、FishArea2)、fish_areas / nearest_fish_area / pick_fish_area(漁夫挑人少的水區)、is_expanded、
-  route(from, to) 跨東牆的中途點 / gate_point、fish_eaten(王吃魚)、_physics_process 累加 GameState.play_time
+  route / gate_point(東牆拆了之後回空 / 原點,留給 Helper.go_to 以後補規則)、fish_eaten(王吃魚)、_physics_process 累加 GameState.play_time
 - `autoload/event_bus.gd`:fish_caught / items_processed / sale_made / cash_collected / purchase_progress / purchased / helper_hired / notice / items_moved(kind, item, from, to, count)/ tutorial_step_done / tutorial_finished /
   bear_appeared / bear_biting / bear_hit(bear, damage, hp_left)/ bear_defeated / bear_left(reason fled | no_prey)/ helper_eaten(role, helper)/ fish_eaten / bear_fed
 - `autoload/settings.gd`:Settings(裝置偏好,user://settings.json 與存檔分開:quality smooth / fine、show_fps;沒檔案時觸控裝置預設 smooth;is_touch_device、scaling_3d、toggle_quality、changed 訊號)
@@ -151,9 +153,10 @@
   走到村外要先到缺口(測試 _go_outside),直線會撞牆。新增武器等級只加 weapon.levels 一項並把 shop.json 的 maxBuys 加一。
   成群:BearSpawner 一次 spawn_pack(pack_size(randf())) 隻,同一入口沿 z 每 2.2 排開,Bear._retarget 先避開別隻已盯的幫手;
   每隻各自 left -> bear_left 事件,最後一隻(不含王)走了才設冷卻、才發 NOTICE_BEAR_FLED / LEFT;王走了發 NOTICE_BEAR_KING_DEAD 並排 respawn。
-- 幫手走位:Carrier.go_to 是直線;Helper.go_to 覆寫成「目的地變了就向 Harbor.route 要中途點(跨東牆 -> 門內側、門外側)」,
-  中途點 0.8 內換下一個;速度低於 20% 超過 1 秒算卡住:重算路線,同側還卡就往門口 z 方向滑 0.6。新的牆 / 門口都要在 route 裡補規則,
-  tests/verify_nav 用擴建後的搬運工 / 漁夫來回驗證。
+- 幫手走位:Carrier.go_to 是直線;Helper.go_to 覆寫成「目的地變了就向 Harbor.route 要中途點」(中途點 0.8 內換下一個),
+  速度低於 20% 超過 1 秒算卡住:重算路線,沒中途點就往目的地 z 方向滑 0.6。擴建後東牆整面拆掉,所以 route 目前永遠回空;
+  曾試過「留東門、繞門口中途點」,玩家實測搬運工還是會卡在門外的牆上(目的地貼著牆、斜向撞牆滑不進缺口),所以改成不留牆。
+  以後加新的牆就在 route 補規則,tests/verify_nav 用擴建後的搬運工 / 漁夫來回驗證。
 - 守衛塔:四座 Tower 一開始就在(state none),牌(effect tower、target 塔 id)付清 -> GameState.apply_purchase 只記 unlocked -> Harbor._on_purchased
   tower_by_id(target).build()。塔每幀自己找群組 "bear" 裡 alive() 且射程內最近的(TowerLogic.pick_target)射 Arrow,箭到了才 take_hit(傷害, tower)
   並 Bear.on_tower_hit(塔在 aggroRadius 內、沒在咬東西就改盯塔);Bear._retarget 也把 aggroRadius 內的完好塔當目標(幾隻可一起拆),
@@ -164,9 +167,9 @@
   remaining 設成下一級價。讀檔順序 _spawn_unlock(expand)在 restore_world(restore 夾在新的 max_buys 內)之前,所以不用存。
 - 買回:幫手被吃 -> Harbor.hire_pad_for(role).on_lost() -> PurchaseLogic.lose()(buys -1、lost +1、價格 × rebuy_mult、已付保留)
   -> 牌子 _enable 重新出現。complete() 時 lost -1 回正常階梯。存檔 pads 多記 lost。
-- 擴建(village_2):UNLOCKS 的 `annex: true` 讓 _spawn_unlock 先 _build_annex(拆東門、蓋 annex StaticBatch、FishArea2),再生 station_3 / grill_2 /
+- 擴建(village_2):UNLOCKS 的 `annex: true` 讓 _spawn_unlock 先 _build_annex(拆整面東牆 east_walls、蓋 annex StaticBatch、FishArea2),再生 station_3 / grill_2 /
   fillet_counter_2 / grill_counter_2(座標在 STATION_SPOTS / COUNTER_SPOTS)。多水區:Harbor.fish_areas,漁夫在 idle -> fishing 時 pick_fish_area
-  (漁夫最少、再最近),Guide 指 nearest_fish_area;熊的入口擴建後換 entriesExpanded。東門沒拆前 x > 12.6 走不過去。
+  (漁夫最少、再最近),Guide 指 nearest_fish_area;熊的入口擴建後換 entriesExpanded。東牆沒拆前 x > 12.6 走不過去。
 - 顧客數量:want 由 CounterLogic.roll_want 抽,泡泡顯示 ×N,serve(want) 賣 min(want, 庫存) 就走(不等補貨)。
 - 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
 
@@ -200,11 +203,11 @@
 powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 ```
 
-先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_nav`(擴建後幫手繞東門:搬運工送到擴建區櫃台再送回、
-漁夫去擴建區的水再回主村卸貨、route 規則,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數、盯最近的 / TowerLogic 數值、幾箭射死、射程內最近的活熊 / PurchaseLogic 買回、擴建名額、守衛塔牌修復 / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
+先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
+漁夫去擴建區的水再回主村卸貨、route 回空,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數、盯最近的 / TowerLogic 數值、幾箭射死、射程內最近的活熊 / PurchaseLogic 買回、擴建名額、守衛塔牌修復 / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
 追著熊 Lv1 每下 10 打到血條歸零才逃 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、每隻兩下打跑、冷卻照當時的間隔)->
 守衛塔(沿西牆走到西北角買 tower_1 $200 -> 熊放在入口:塔射箭、熊被射中改來拆塔、30 血三箭射死玩家沒出手 -> 塔剩 10 血被厚血熊咬塌:廢墟、
-牌重現「修復」$200 -> 修好血回滿)-> 擴建村莊(錢包直接 +1000、7 秒付清 -> 東門拆、第二水區有魚、第二組建築、新櫃台有顧客、僱用牌 5 / 6 / 4 次)-> 北極熊王(把 play_time 撥到 5 分鐘 -> 王出場血 ×4 體型 1.6 ->
+牌重現「修復」$200 -> 修好血回滿)-> 擴建村莊(錢包直接 +1000、7 秒付清 -> 東牆整面拆、第二水區有魚、第二組建築、新櫃台有顧客、僱用牌 5 / 6 / 4 次)-> 北極熊王(把 play_time 撥到 5 分鐘 -> 王出場血 ×4 體型 1.6 ->
 吃魚回血變大 -> 吃搬運工回滿血更大、牌可買回 -> Lv3 打死、300 秒後再來)-> items_moved / 幽靈 / 音效計數、畫質切換(陰影 / 圓影 / 3D 縮放)、FPS 開關、布景合併 -> 存檔 / 重建關卡還原(含武器等級、買回的漁夫、擴建區、熊的冷卻、遊戲時間、王的下次時間、守衛塔狀態與血量、擴建後的僱用名額)-> 新遊戲,約 5 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
 
 - 新增腳本或資源後要先 `--import`,否則 class_name 找不到;第一次 import 會因為 .translation 還沒產生而印錯誤,第二次就正常。

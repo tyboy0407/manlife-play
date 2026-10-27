@@ -233,7 +233,8 @@ func _run() -> void:
     _check(_level.towers.size() == 4 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
             and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty(),
             "四座守衛塔待建:只有地基牌")
-    _check(not _level.is_expanded() and _level.east_gate != null and _level.fish_areas.size() == 1, "東門關著、只有一個水區(還沒擴建)")
+    _check(not _level.is_expanded() and _level.east_gate != null and _level.east_walls.size() == 5 and _level.fish_areas.size() == 1,
+            "東牆還在(三段牆 + 兩段柵欄)、只有一個水區(還沒擴建)")
     _check(_level.bears != null and not _level.bears.has_bear() and _level.shopkeeper != null and _level.price_pads.has("weapon")
             and (_level.price_pads["weapon"] as PricePad).global_position.x < -13.0, "北極熊系統待命、村外有武器店老闆與武器牌")
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
@@ -840,10 +841,10 @@ func _expand_section() -> void:
     var pay_sec := float(Time.get_ticks_msec() - t0) / 1000.0
     await _step(3)
     _check(bought and pay_sec < 20.0 and not pad.visible and GameState.is_unlocked("village_2"), "擴建村莊:$1000 在 %.1f 秒內付清(大額牌加速)" % pay_sec)
-    _check(_level.is_expanded() and _level.annex != null and _level.east_gate == null and _level.east_gate_mesh == null
+    _check(_level.is_expanded() and _level.annex != null and _level.east_gate == null and _level.east_gate_mesh == null and _level.east_walls.is_empty()
             and _level.fish_areas.size() == 2 and _level.stations.size() == stations0 + 2 and _level.counters.size() == counters0 + 2
             and _level.station_at("station_3") != null and _level.station_at("grill_2") != null and _level.counter_by_id("fillet_counter_2") != null
-            and _level.counter_by_id("grill_counter_2") != null, "東門拆掉、第二個水區、切魚台 + 烤魚攤、兩座櫃台都蓋好")
+            and _level.counter_by_id("grill_counter_2") != null, "東牆整段拆掉、第二個水區、切魚台 + 烤魚攤、兩座櫃台都蓋好")
     var fa2: FishArea = _level.fish_areas[1]
     await _step(30)
     _check(fa2.fish.size() >= 4 and fa2.rect.position.x > 13.0, "第二個水區有魚(%d)" % fa2.fish.size())

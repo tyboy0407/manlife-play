@@ -7,7 +7,7 @@ extends Node3D
 ## 解鎖:unlock 效果的 target 查 UNLOCKS 生工作站 / 櫃台;僱用生 Helper。存檔:GameState + snapshot(),自動存、關閉存、F9 重來。
 ## 村外(西邊出口 z 1.2 ~ 3.8 的缺口外)是武器店的小院子:店屋 + 老闆 + 武器牌(shop.json weapon,三級漲價);
 ## 北極熊(BearSpawner)從地圖邊緣進來吃幫手,玩家要帶武器靠近才趕得走;被吃的幫手由 helper_eaten 結算(僱用牌退名額、買回 1.5 倍)。
-## 擴建村莊(shop.json expand_village $1000,unlock village_2):拆掉東門(EAST_GATE_Z 那段牆與柵欄),往東蓋 annex:沙地、第二個水區、
+## 擴建村莊(shop.json expand_village $1000,unlock village_2):把東牆整段拆掉(east_walls:三段隱形牆 + 柵欄,主村與 annex 連成一片,幫手不用繞門),往東蓋 annex:沙地、第二個水區、
 ## 第二座切魚台 + 烤魚攤、第二組櫃台(顧客跟著變多);僱用牌多開放名額(shop.json expandBuys:漁夫 +2、搬運工 +4、收銀員 +2)。
 ## 守衛塔(Tower):村莊四角各一座,牌子(tower_1 ~ tower_4,$200)就是地基;蓋好會朝靠近的熊射箭,被熊拆掉後站回地基花 $200 修。
 
@@ -30,7 +30,7 @@ const UNLOCKS := {
     "grill_complex": {"stations": ["grill"], "counters": ["grill_counter"]},
     "village_2": {"stations": ["station_3", "grill_2"], "counters": ["fillet_counter_2", "grill_counter_2"], "annex": true, "expandShop": true},
 }
-const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆可拆的那段(擴建後通往 annex)
+const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆中段的門(柵欄缺口的外觀;擴建時整面東牆都拆)
 const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 擴建區(x 13 ~ 31.6)
 const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
@@ -44,8 +44,9 @@ var player: Player
 var fish_area: FishArea                 # 第一個水區(fish_areas[0])
 var fish_areas: Array[FishArea] = []
 var annex: StaticBatch = null           # 擴建區的布景(蓋了才有)
-var east_gate: StaticBody3D = null      # 東門的隱形牆(擴建時拆)
+var east_gate: StaticBody3D = null      # 東門那段隱形牆(擴建時拆)
 var east_gate_mesh: MeshInstance3D = null
+var east_walls: Array[Node3D] = []      # 整面東牆:三段隱形牆 + 柵欄(擴建時全部拆掉)
 var stations: Array[Station] = []
 var counters: Array[Counter] = []
 var money_pad: MoneyPad
@@ -168,17 +169,21 @@ func _build_terrain() -> void:
     # 西牆留缺口(GATE_Z)通往村外的武器店
     _wall(Vector3(-12.6, 1, (-13.0 + GATE_Z.x) / 2.0), Vector3(0.4, 2, GATE_Z.x + 13.0))
     _wall(Vector3(-12.6, 1, (GATE_Z.y + 13.0) / 2.0), Vector3(0.4, 2, 13.0 - GATE_Z.y))
-    # 東牆中段是可拆的門(擴建村莊時打開)
-    _wall(Vector3(12.6, 1, (-13.0 + EAST_GATE_Z.x) / 2.0), Vector3(0.4, 2, EAST_GATE_Z.x + 13.0))
-    _wall(Vector3(12.6, 1, (EAST_GATE_Z.y + 13.0) / 2.0), Vector3(0.4, 2, 13.0 - EAST_GATE_Z.y))
+    # 整面東牆(擴建村莊時全部拆掉,主村與 annex 連成一片)
+    east_walls.append(_wall(Vector3(12.6, 1, (-13.0 + EAST_GATE_Z.x) / 2.0), Vector3(0.4, 2, EAST_GATE_Z.x + 13.0)))
+    east_walls.append(_wall(Vector3(12.6, 1, (EAST_GATE_Z.y + 13.0) / 2.0), Vector3(0.4, 2, 13.0 - EAST_GATE_Z.y)))
     east_gate = _wall(Vector3(12.6, 1, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0), Vector3(0.4, 2, EAST_GATE_Z.y - EAST_GATE_Z.x))
+    east_walls.append(east_gate)
     _wall(Vector3(0, 1, 12.6), Vector3(26, 2, 0.4))
     _wall(Vector3(0, 1, -11.2), Vector3(26, 2, 0.4))
     var fence := Color(0.8, 0.62, 0.42)
     east_gate_mesh = VisualFactory.box(Vector3(0.25, 0.9, EAST_GATE_Z.y - EAST_GATE_Z.x + 0.25), fence,
             Vector3(12.4, 0.45, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0))
     world.add_child(east_gate_mesh)
-    scenery.add_box(Vector3(0.25, 0.9, 12.25 - EAST_GATE_Z.y), fence, Vector3(12.4, 0.45, (EAST_GATE_Z.y + 12.25) / 2.0))
+    east_walls.append(east_gate_mesh)
+    var east_fence := VisualFactory.box(Vector3(0.25, 0.9, 12.25 - EAST_GATE_Z.y), fence, Vector3(12.4, 0.45, (EAST_GATE_Z.y + 12.25) / 2.0))
+    world.add_child(east_fence)
+    east_walls.append(east_fence)
     scenery.add_box(Vector3(0.25, 0.9, GATE_Z.x + 4.25), fence, Vector3(-12.4, 0.45, (GATE_Z.x - 4.25) / 2.0))
     scenery.add_box(Vector3(0.25, 0.9, 12.25 - GATE_Z.y), fence, Vector3(-12.4, 0.45, (GATE_Z.y + 12.25) / 2.0))
     scenery.add_box(Vector3(25, 0.9, 0.25), fence, Vector3(0, 0.45, 12.4))
@@ -218,22 +223,22 @@ func _build_outside() -> void:
     shopkeeper.add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
 
 
-## 擴建區(annex):拆東門,往東蓋沙地、柵欄、隱形牆、第二個水區與深水池;建築由 _spawn_unlock 依 UNLOCKS 生
+## 擴建區(annex):整面東牆拆掉(隱形牆 + 柵欄),往東蓋沙地、柵欄、隱形牆、第二個水區與深水池;建築由 _spawn_unlock 依 UNLOCKS 生
 func _build_annex() -> void:
     if annex != null:
         return
-    if east_gate != null:
-        east_gate.queue_free()
-        east_gate = null
-    if east_gate_mesh != null:
-        east_gate_mesh.queue_free()
-        east_gate_mesh = null
+    for w in east_walls:
+        if w != null and is_instance_valid(w):
+            w.queue_free()
+    east_walls.clear()
+    east_gate = null
+    east_gate_mesh = null
     annex = StaticBatch.new()
     annex.name = "Annex"
     world.add_child(annex)
     var fence := Color(0.8, 0.62, 0.42)
     var cx := ANNEX_RECT.get_center().x
-    annex.add_box(Vector3(ANNEX_RECT.size.x, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(cx, -0.02, 4.0))
+    annex.add_box(Vector3(ANNEX_RECT.size.x + 0.8, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(cx - 0.4, -0.02, 4.0))   # 沙地接到主村,中間沒縫
     annex.add_box(Vector3(0.25, 0.9, 16.5), fence, Vector3(ANNEX_RECT.end.x - 0.2, 0.45, 4.0))
     annex.add_box(Vector3(ANNEX_RECT.size.x, 0.9, 0.25), fence, Vector3(cx, 0.45, 12.4))
     annex.add_box(Vector3(16, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(cx, -0.04, -14.0))
@@ -259,31 +264,16 @@ func is_expanded() -> bool:
     return annex != null
 
 
-## 幫手從 from 走到 to 要經過的中途點(不含終點):跨越東牆(x = 12.6)就先走到門內側再到門外側,不然會卡在牆上;同一側回空陣列
-func route(from: Vector3, to: Vector3) -> Array[Vector3]:
+## 幫手從 from 走到 to 要經過的中途點(不含終點)。擴建後東牆整段拆掉,主村與 annex 之間沒有牆,所以目前永遠是空陣列;
+## 留著給 Helper.go_to 用,以後若加了要繞的牆在這裡補規則。
+func route(_from: Vector3, _to: Vector3) -> Array[Vector3]:
     var out: Array[Vector3] = []
-    if not is_expanded():
-        return out
-    var gate_x := 12.6
-    var gate_z := (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0
-    var from_east := from.x > gate_x
-    var to_east := to.x > gate_x
-    if from_east == to_east:
-        return out
-    var inner := Vector3(gate_x - 1.3, 0.0, gate_z)
-    var outer := Vector3(gate_x + 1.3, 0.0, gate_z)
-    if from_east:
-        out.append(outer)
-        out.append(inner)
-    else:
-        out.append(inner)
-        out.append(outer)
     return out
 
 
-## 離 pos 最近的門口點(東門中心;卡住時往這邊滑)
+## 卡住時往哪邊滑(沒有門了,就回原點,Helper 改往目的地的 z 方向滑)
 func gate_point(pos: Vector3) -> Vector3:
-    return Vector3(12.6, 0.0, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0) if is_expanded() else pos
+    return pos
 
 
 ## 離 pos 最近的水區(站在某個水區裡就是它)
