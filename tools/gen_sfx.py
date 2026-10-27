@@ -120,6 +120,11 @@ def main():
     # 打到熊:短促的悶擊 + 一點高頻
     write("hit", normalize(mix(noise(0.07, 1.0, decay=45, lowpass=0.35), tone(220, 0.09, 0.7, decay=40, sweep_to=140),
                                tone(1800, 0.03, 0.3, decay=90))))
+    # 守衛塔射箭:弓弦「咻」一聲(短噪音 + 高頻往下滑)
+    write("arrow", normalize(mix(noise(0.12, 0.8, decay=30, lowpass=0.5), tone(1500, 0.1, 0.6, decay=35, sweep_to=600))))
+    # 守衛塔塌掉:低頻撞擊 + 碎石噪音拖長
+    write("crash", normalize(mix(tone(90, 0.5, 1.0, decay=8, sweep_to=45, harmonics=((1, 1.0), (2, 0.4))),
+                                 noise(0.6, 0.8, decay=6, lowpass=0.15), delay(noise(0.3, 0.5, decay=12, lowpass=0.25), 0.15))))
     write("ambient_waves", normalize(ambient(), peak=0.6))
 
 

@@ -68,6 +68,24 @@ func _run() -> void:
     level.player.global_position = Vector3(1.5, 0, -2.0)
     await _frames(30)
     await _shot("07_bear_king")
+    # 守衛塔:西北角的塔蓋好射箭,一隻熊被射中改來拆塔;東北角的塔已經塌了(廢墟 + 修復牌)
+    king.queue_free()
+    await _frames(2)
+    GameState.apply_purchase("tower_1", {"type": "tower", "target": "tower_1"})
+    GameState.apply_purchase("tower_2", {"type": "tower", "target": "tower_2"})
+    (level.price_pads["tower_1"] as PricePad).restore_state(1, 0)
+    (level.price_pads["tower_2"] as PricePad).restore_state(1, 0)
+    await _frames(2)
+    var t2: Tower = level.tower_by_id("tower_2")
+    t2.hp = 1.0
+    t2.take_bite(50.0, null)
+    var tb := level.bears.spawn()
+    tb.global_position = Vector3(-13.0, 0, -8.5)
+    tb.hp_max = 400.0
+    tb.hp = 400.0
+    level.player.global_position = Vector3(-9.0, 0, -5.5)
+    await _frames(50)
+    await _shot("08_guard_tower")
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()

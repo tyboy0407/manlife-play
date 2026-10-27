@@ -11,7 +11,8 @@
       "effect": {
         "type": "hire",
         "role": "fisher"
-      }
+      },
+      "expandBuys": 2
     },
     {
       "id": "hire_porter",
@@ -24,7 +25,8 @@
       "effect": {
         "type": "hire",
         "role": "porter"
-      }
+      },
+      "expandBuys": 4
     },
     {
       "id": "hire_cashier",
@@ -37,7 +39,8 @@
       "effect": {
         "type": "hire",
         "role": "cashier"
-      }
+      },
+      "expandBuys": 2
     },
     {
       "id": "capacity_1",
@@ -113,6 +116,46 @@
       "effect": {
         "type": "unlock",
         "target": "village_2"
+      }
+    },
+    {
+      "id": "tower_1",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "tower",
+        "target": "tower_1"
+      }
+    },
+    {
+      "id": "tower_2",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "tower",
+        "target": "tower_2"
+      }
+    },
+    {
+      "id": "tower_3",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "tower",
+        "target": "tower_3"
+      }
+    },
+    {
+      "id": "tower_4",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "tower",
+        "target": "tower_4"
       }
     }
   ]

@@ -15,6 +15,7 @@ func _ready() -> void:
     _test_porter()
     _test_guide()
     _test_bear()
+    _test_tower()
     _test_settings()
     _test_batching()
     _test_models()
@@ -66,7 +67,15 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 10 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000], "shop.json:十塊牌(含村外武器店、擴建村莊)%s" % str(costs))
+    _check(shop.size() == 14 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200],
+            "shop.json:十四塊牌(含村外武器店、擴建村莊、四座守衛塔)%s" % str(costs))
+    _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 2 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
+            and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),
+            "擴建後多開放的名額:漁夫 +2、搬運工 +4、收銀員 +2")
+    _check(str(GameData.purchase("tower_3").get("effect", {}).get("type", "")) == "tower"
+            and str(GameData.purchase("tower_3").get("effect", {}).get("target", "")) == "tower_3"
+            and is_equal_approx(float(GameData.purchase("tower_3").get("rebuyMult", 0.0)), 1.0) and GameData.section("tower").has("damage")
+            and ModelLibrary.guard_model() != "", "守衛塔牌:效果 tower、修復同價;tower 設定與守衛的人物")
     _check(str(GameData.purchase("expand_village").get("effect", {}).get("target", "")) == "village_2"
             and is_equal_approx(float(GameData.purchase("hire_fisher").get("rebuyMult", 0.0)), 1.5), "擴建村莊牌解鎖 village_2;僱用牌買回 ×1.5")
     _check(str(GameData.purchase("weapon").get("effect", {}).get("type", "")) == "weapon" and int(GameData.purchase("weapon").get("maxBuys", 0)) == 3,
@@ -196,6 +205,30 @@ func _test_purchase() -> void:
     var r4 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
     r4.restore(1, 27, 1)
     _check(r4.buys == 1 and r4.lost == 1 and r4.current_cost() == 27 and r4.remaining == 27, "存檔還原:帶著待買回的名額")
+    # 擴建村莊多開放名額:漁夫牌 +2(3 -> 5),買滿消失的牌重新開放、價格是下一級;只加一次
+    var r5 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    r5.restore(3, 0)
+    _check(r5.is_exhausted() and r5.expand_buys == 2 and r5.expand() and not r5.is_exhausted() and r5.max_buys == 5 and r5.buys == 3
+            and r5.remaining == r5.current_cost() and r5.current_cost() == 58 and not r5.expand() and r5.max_buys == 5,
+            "擴建:漁夫牌 3 -> 5 次,買滿的牌重開、第四次 $%d(10 × 1.8³)、只加一次" % r5.current_cost())
+    var r6 := PurchaseLogic.from_def(GameData.purchase("hire_porter"))
+    r6.pay(30)
+    r6.complete()
+    r6.pay(7)
+    var rem6 := r6.remaining
+    _check(r6.expand() and r6.max_buys == 6 and r6.buys == 1 and r6.remaining == rem6 and rem6 == 54 - 7, "擴建:搬運工牌 2 -> 6 次,付到一半的進度不變")
+    _check(not PurchaseLogic.from_def(GameData.purchase("capacity_1")).expand(), "沒 expandBuys 的牌 expand 回 false")
+    # 守衛塔牌:一次性 $200,塔被拆 lose -> 修復同價(rebuyMult 1)
+    var tp := PurchaseLogic.from_def(GameData.purchase("tower_1"))
+    _check(not tp.repeatable and tp.max_buys == 1 and tp.current_cost() == 200 and is_equal_approx(tp.rebuy_mult, 1.0) and not tp.lose(),
+            "守衛塔牌:$200 一次性,沒蓋過沒得修")
+    tp.pay(200)
+    tp.complete()
+    _check(tp.is_exhausted() and tp.lose() and not tp.is_exhausted() and tp.is_rebuy() and tp.current_cost() == 200 and tp.remaining == 200,
+            "塔被拆:牌重開、修復 $200")
+    tp.pay(200)
+    tp.complete()
+    _check(tp.is_exhausted() and tp.lost == 0 and tp.buys == 1, "修好:牌再消失")
 
 
 ## --- 櫃台 ---
@@ -506,6 +539,27 @@ func _test_bear() -> void:
     _check(empty.weapon_damage(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0
             and empty.pack_size(0.5) == 1 and empty.hp(60.0) > 0.0 and empty.interval(999.0) == empty.interval(0.0) and empty.king_at_sec() > 0.0,
             "沒設定也不會爆:沒武器等級、沒入口、用預設秒數、一次一隻、血量與王有預設")
+
+
+## --- 守衛塔 ---
+
+func _test_tower() -> void:
+    var t := TowerLogic.from_config(GameData.section("tower"))
+    _check(is_equal_approx(t.hp(), 120.0) and is_equal_approx(t.damage(), 10.0) and is_equal_approx(t.attack_range(), 9.0)
+            and is_equal_approx(t.attack_interval(), 0.8) and t.arrow_speed() > 0.0 and is_equal_approx(t.bite_sec(), 2.5)
+            and t.aggro_radius() >= 1.0 and t.height() > 0.0, "守衛塔設定:血 120、每箭 10、射程 9、每 0.8 秒一箭、熊咬一口 2.5 秒")
+    _check(is_equal_approx(t.bite_damage(false), 40.0) and is_equal_approx(t.bite_damage(true), 80.0), "熊咬一口 40(三口拆掉)、王 80(兩口)")
+    _near(t.dps(), 12.5, "每秒傷害 12.5", 0.001)
+    _check(t.shots_to_kill(30.0) == 3 and t.shots_to_kill(31.0) == 4 and t.shots_to_kill(0.0) == 0 and t.in_range(9.0) and not t.in_range(9.01),
+            "幾箭射死 / 射程判斷")
+    var bears := [{"id": 1, "pos": Vector3(5, 0, 0), "alive": true}, {"id": 2, "pos": Vector3(2, 3, 1), "alive": false},
+            {"id": 3, "pos": Vector3(-3, 0, 3), "alive": true}, {"id": 4, "pos": Vector3(20, 0, 0), "alive": true}]
+    _check(TowerLogic.pick_target(Vector3.ZERO, bears, 9.0) == 3 and TowerLogic.pick_target(Vector3(6, 0, 0), bears, 9.0) == 1
+            and TowerLogic.pick_target(Vector3(100, 0, 0), bears, 9.0) == -1 and TowerLogic.pick_target(Vector3.ZERO, [], 9.0) == -1,
+            "射程內最近的活熊(跳過逃走的、超出射程的);沒有回 -1")
+    var empty := TowerLogic.from_config({})
+    _check(empty.hp() > 0.0 and empty.damage() > 0.0 and empty.attack_range() > 0.0 and empty.bite_damage(true) >= empty.bite_damage(false)
+            and empty.shots_to_kill(50.0) > 0, "沒設定也有預設")
 
 
 ## --- 裝置偏好 ---

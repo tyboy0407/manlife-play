@@ -49,6 +49,10 @@ func _ready() -> void:
     EventBus.bear_fed.connect(func(_b: Node3D) -> void: _bump("bear_fed"))
     EventBus.bear_left.connect(func(reason: String) -> void: _bump("bear_left_" + reason))
     EventBus.helper_eaten.connect(func(role: String, _h: Node3D) -> void: _bump("eaten_" + role))
+    EventBus.tower_built.connect(func(_t: Node3D) -> void: _bump("tower_built"))
+    EventBus.tower_shot.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("tower_shot"))
+    EventBus.tower_damaged.connect(func(_t: Node3D, _hp: float) -> void: _bump("tower_damaged"))
+    EventBus.tower_destroyed.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("tower_destroyed"))
     await _run()
     Sfx.stop_all()   # 還在播的音效離開時會被報成洩漏
     await _step(25)   # 讓還在飛的幽靈物件飛完、queue_free 處理掉
@@ -225,14 +229,17 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 10 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、十塊價格牌、沒有存檔")
+            and _level.price_pads.size() == 14 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、十四塊價格牌、沒有存檔")
+    _check(_level.towers.size() == 4 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
+            and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty(),
+            "四座守衛塔待建:只有地基牌")
     _check(not _level.is_expanded() and _level.east_gate != null and _level.fish_areas.size() == 1, "東門關著、只有一個水區(還沒擴建)")
     _check(_level.bears != null and not _level.bears.has_bear() and _level.shopkeeper != null and _level.price_pads.has("weapon")
             and (_level.price_pads["weapon"] as PricePad).global_position.x < -13.0, "北極熊系統待命、村外有武器店老闆與武器牌")
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 16, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 十塊價格牌(%d)" % pads)
+    _check(pads == 20, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 十四塊價格牌(%d)" % pads)
     # 直式 + 觸控:相機以寬為準;浮動搖桿按哪裡都能推;選單鈕區域不算搖桿
     var js: TouchJoystick = _level.hud.joystick
     _check(js != null and _level.camera.is_portrait() and _level.camera.keep_aspect == Camera3D.KEEP_WIDTH and _level.hud.menu_button != null
@@ -515,6 +522,7 @@ func _run() -> void:
             five = true
     _check(took and gstock and gsold and five, "烤魚上架、顧客以 $5 買走")
     await _bear_section(g, fisher_pad)
+    await _tower_section()
     await _expand_section()
     await _king_section()
     # 表現層:飛行動畫事件、幽靈物件、音效
@@ -565,8 +573,12 @@ func _run() -> void:
     var play_time_saved := GameState.play_time
     var weapon_saved := GameState.weapon_level
     var lost_saved := GameState.helpers_lost
+    var tower_saved: Tower = _level.tower_by_id("tower_1")
+    var tower_hp_saved := tower_saved.hp
+    var tower_alive_saved := tower_saved.is_alive()
     _check(saved and SaveManager.has_save() and int(snap["money"]) == cash_saved and snap["stations"].has("grill")
-            and snap["counters"].has("grill_counter") and snap["pads"].has("hire_fisher") and is_equal_approx(float(snap["bear"]["cooldown"]), bear_cd),
+            and snap["counters"].has("grill_counter") and snap["pads"].has("hire_fisher") and is_equal_approx(float(snap["bear"]["cooldown"]), bear_cd)
+            and snap["towers"].has("tower_1") and str(snap["towers"]["tower_1"]["state"]) == "alive",
             "存檔寫入、快照內容(含北極熊冷卻 %.0f 秒)" % bear_cd)
     _level.queue_free()
     await _step(3)
@@ -596,6 +608,11 @@ func _run() -> void:
             and _find_helper("fisher") != null and absf(_level.bears.cooldown - bear_cd) < 0.5 and fp2.logic.lost == 0
             and absf(GameState.play_time - play_time_saved) < 0.5 and is_equal_approx(_level.bears.king_next_sec, king_next_saved),
             "重建關卡:武器 Lv%d 掛回腰間、買回的漁夫還在、北極熊冷卻 / 遊戲時間 / 王的下次時間還原" % weapon_saved)
+    var tw2: Tower = _level.tower_by_id("tower_1")
+    _check(tower_alive_saved and tw2 != null and tw2.is_alive() and is_equal_approx(tw2.hp, tower_hp_saved) and tw2._built.visible
+            and not (_level.price_pads["tower_1"] as PricePad).visible and _level.tower_by_id("tower_2").state == "none"
+            and fp2.logic.max_buys == 5 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 6,
+            "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、擴建後的僱用名額還原" % tower_hp_saved)
     # F9 新遊戲
     _level.clear_save_and_state()
     _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0, "新遊戲:武器與被吃數歸零")
@@ -732,6 +749,84 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     await _go(Vector3(0, 0, 7))
 
 
+## --- 守衛塔 ---
+## 買 tower_1($200,牌就是地基)-> 塔蓋起來 -> 熊從西北入口進來:塔射箭、熊被射中改來拆塔、血條歸零逃走 ->
+## 另一隻厚血的熊把只剩 10 血的塔咬塌 -> 牌子重現「修復」$200 -> 修好血回滿
+func _tower_section() -> void:
+    var bs: BearSpawner = _level.bears
+    var pad: PricePad = _level.price_pads["tower_1"]
+    var tower: Tower = _level.tower_by_id("tower_1")
+    var tl: TowerLogic = tower.logic
+    _check(tower != null and pad != null and tower.state == "none" and pad.visible and pad.logic.current_cost() == 200
+            and pad.global_position.distance_to(tower.global_position) < 0.1 and _level.tower_pad_for("tower_1") == pad, "守衛塔牌 $200 就在塔的地基上")
+    bs.enabled = false
+    await _empty_hands()
+    GameState.add_wallet(200)
+    await _go(Vector3(-11.6, 0, 7.0))
+    await _go(Vector3(-11.6, 0, -6.0))
+    pad.logic.pay(80)   # 測試時間預算:$200 以每秒 30 要站 7 秒,先付 80
+    pad._update_label()
+    var bought := await _pay_pad(pad)
+    await _step(3)
+    _check(bought and tower.is_alive() and not pad.visible and pad.logic.is_exhausted() and is_equal_approx(tower.hp, tl.hp())
+            and tower._built.visible and tower._hp_bar.visible and not tower._rubble.visible and _count("tower_built") == 1
+            and GameState.is_unlocked("tower_1") and _level.alive_towers().size() == 1, "付清 $200:塔蓋好(血 %.0f)、牌消失" % tower.hp)
+    # 玩家退到南邊不出手;熊放在西北入口(射程內):塔射箭,熊被射中改來拆塔,三箭就死(血先設 30)
+    await _go(Vector3(-11.6, 0, -6.0))
+    await _go(Vector3(-11.6, 0, 7.0))
+    await _go(Vector3(0, 0, 9))
+    bs.enabled = true
+    bs.cooldown = 999.0
+    var bear := bs.spawn()
+    bear.entry = Vector3(-15.5, 0, -8.0)
+    bear.global_position = bear.entry
+    bear.hp_max = 30.0
+    bear.hp = 30.0
+    var hits0 := _player.hits_total
+    var shot := await _wait_until(func() -> bool: return tower.shots_total >= 1, 120)
+    var hit := await _wait_until(func() -> bool: return tower.hits_total >= 1, 120)
+    await _step(2)
+    _check(shot and hit and is_instance_valid(bear) and bear.hp < 30.0 and _count("tower_shot") >= 1 and tower.last_target == bear
+            and bear.target == tower and bear.hits_taken >= 1, "塔射箭、射中熊(剩 %.0f 血);熊改來拆塔" % bear.hp)
+    var fled := await _wait_until(func() -> bool: return not is_instance_valid(bear) or bear.state == "fleeing", 600)
+    _check(fled and tower.hits_total >= 3 and _player.hits_total == hits0 and _count("bear_defeated") == 5 and tower.is_alive()
+            and is_equal_approx(tower.damage_dealt, 30.0), "塔自己把熊射到血條歸零(射中 %d 箭,玩家沒出手)" % tower.hits_total)
+    var gone := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
+    bs.cooldown = 999.0
+    # 第二隻:血很厚、塔只剩 10 血 -> 咬一口塌掉
+    tower.hp = 10.0
+    tower._update_hp_bar()
+    var bear2 := bs.spawn()
+    bear2.entry = Vector3(-14.0, 0, -8.5)
+    bear2.global_position = bear2.entry
+    bear2.hp_max = 400.0
+    bear2.hp = 400.0
+    var broken := await _wait_until(func() -> bool: return tower.is_broken(), 600)
+    await _step(2)
+    _check(gone and broken and _count("tower_destroyed") == 1 and _count("tower_damaged") >= 1 and not tower._built.visible and tower._rubble.visible
+            and not tower._hp_bar.visible and bear2.towers_broken == 1 and _level.alive_towers().is_empty(), "熊把塔咬塌:剩廢墟")
+    _check(pad.visible and pad.logic.is_rebuy() and pad.logic.buys == 0 and pad.logic.lost == 1 and pad.logic.remaining == 200
+            and pad.label.text.contains(tr("PAD_REPAIR")) and not pad.label.text.contains("×"), "牌子重現:修復 $200(不是 ×1.5 的買回)")
+    bear2.defeat(_player)
+    var gone2 := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
+    bs.cooldown = 999.0
+    bs.enabled = false
+    # 修好
+    GameState.add_wallet(200)
+    await _go(Vector3(-11.6, 0, 7.0))
+    await _go(Vector3(-11.6, 0, -6.0))
+    pad.logic.pay(80)
+    pad._update_label()
+    var repaired := await _pay_pad(pad)
+    await _step(3)
+    _check(gone2 and repaired and tower.is_alive() and is_equal_approx(tower.hp, tl.hp()) and not pad.visible and pad.logic.is_exhausted()
+            and pad.logic.lost == 0 and _count("tower_built") == 2 and tower.times_built == 2 and tower.times_broken == 1 and tower._built.visible
+            and not tower._rubble.visible, "花 $200 修好:塔回來、血回滿、牌消失")
+    await _go(Vector3(-11.6, 0, -6.0))
+    await _go(Vector3(-11.6, 0, 7.0))
+    await _go(Vector3(0, 0, 7))
+
+
 ## --- 擴建村莊 ---
 ## 付 $1000(大額牌付得快)-> 東門拆掉、往東多一塊地:第二個水區有魚、第二座切魚台 + 烤魚攤、第二組櫃台有顧客來
 func _expand_section() -> void:
@@ -758,6 +853,13 @@ func _expand_section() -> void:
     var came := await _wait_until(func() -> bool: return c2.customers.size() >= 1, 400)
     _check(came and c2.logic.item_id == "fillet" and c2.logic.price == 2, "新櫃台也有顧客排隊")
     _check(_level.bears.logic.entries(_level.is_expanded())[1].x > 30.0, "擴建後熊的東邊入口在 annex 外")
+    var hf: PricePad = _level.price_pads["hire_fisher"]
+    var hpp: PricePad = _level.price_pads["hire_porter"]
+    var hc: PricePad = _level.price_pads["hire_cashier"]
+    _check(hf.logic.max_buys == 5 and hpp.logic.max_buys == 6 and hc.logic.max_buys == 4 and hf.visible and hpp.visible and hc.visible
+            and not hf.logic.is_exhausted() and not hpp.logic.is_exhausted() and not hc.logic.is_exhausted() and hf.label.text.contains("/5")
+            and (_level.price_pads["capacity_1"] as PricePad).logic.max_buys == 3,
+            "擴建後僱用牌多開放名額:漁夫 5、搬運工 6、收銀員 4(其他牌不變)")
     await _go(Vector3(11.0, 0, 0.5))
     await _go(Vector3(0, 0, 7))
 
@@ -769,6 +871,11 @@ func _king_section() -> void:
     var fa: FishArea = _level.fish_areas[0]
     var fish0 := fa.fish.size()
     var t_before := GameState.play_time
+    var t1: Tower = _level.tower_by_id("tower_1")
+    var t1_alive := t1.is_alive()
+    if t1_alive:
+        t1.state = "none"   # 王吃魚會繞到西北角順手把塔拆了;這段先把塔收起來(存檔檢查要看它)
+        t1._apply_state()
     GameState.play_time = bs.logic.king_at_sec() + 1.0
     bs.cooldown = 999.0   # 這段只看王,一般熊先不要來
     bs.enabled = true
@@ -820,5 +927,7 @@ func _king_section() -> void:
             "王被打到血條歸零(剩 %.0f 血)倒下,下一隻 %.0f 秒後(狀態 %s)" % [hp_left, bs.king_next_sec - GameState.play_time,
             (king.state + "/hp %.0f" % king.hp) if is_instance_valid(king) else "freed"])
     _check(str(_level.hud.objective_text()) != "" and _level.hud._info.text.contains(":"), "HUD 顯示遊戲時間")
+    if t1_alive:
+        t1.restore({"state": "alive", "hp": t1.hp_max})
     bs.enabled = false
     await _go(Vector3(0, 0, 7))

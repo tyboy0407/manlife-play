@@ -43,6 +43,7 @@
     "player": "character-male-a",
     "worker": "character-male-e",
     "shopkeeper": "character-male-d",
+    "guard": "character-male-d",
     "roles": {
       "fisher": "character-male-b",
       "porter": "character-male-f",
@@ -93,6 +94,18 @@
     "entries": [[-16, -8], [16, -8]],
     "entriesExpanded": [[-16, -8], [35, -8]],
     "length": 2.6
+  },
+  "tower": {
+    "hp": 120,
+    "damage": 10,
+    "range": 9.0,
+    "attackIntervalSec": 0.8,
+    "arrowSpeed": 18.0,
+    "biteDamage": 40,
+    "kingBiteMult": 2.0,
+    "biteSec": 2.5,
+    "aggroRadius": 7.0,
+    "height": 3.0
   },
   "weapon": {
     "attackIntervalSec": 0.5,

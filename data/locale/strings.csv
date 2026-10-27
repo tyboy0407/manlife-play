@@ -89,3 +89,8 @@ PAD_REBUY,Rebuy ×%s,買回 ×%s
 NOTICE_BEAR_PACK,%d polar bears are coming!,%d 隻北極熊來了!
 NOTICE_BEAR_KING,The Polar Bear King is here! It eats fish and every helper and grows with each bite. Kill it!,北極熊王來了!牠會吃魚和所有幫手、越吃越大，快打死牠!
 NOTICE_BEAR_KING_DEAD,The Polar Bear King is down!,北極熊王倒下了!
+SHOP_tower,Guard tower,守衛塔
+PAD_REPAIR,Repair,修復
+NOTICE_TOWER_BUILT,Guard tower built! It shoots arrows at polar bears that come near,守衛塔蓋好了!會朝靠近的北極熊射箭
+NOTICE_TOWER_REPAIRED,Guard tower repaired!,守衛塔修好了!
+NOTICE_TOWER_DESTROYED,A polar bear wrecked a guard tower! Stand on its base to repair it ($%d),北極熊把守衛塔拆了!站到地基上花 $%d 修復

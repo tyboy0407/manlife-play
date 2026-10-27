@@ -8,7 +8,8 @@ extends Node3D
 ## 村外(西邊出口 z 1.2 ~ 3.8 的缺口外)是武器店的小院子:店屋 + 老闆 + 武器牌(shop.json weapon,三級漲價);
 ## 北極熊(BearSpawner)從地圖邊緣進來吃幫手,玩家要帶武器靠近才趕得走;被吃的幫手由 helper_eaten 結算(僱用牌退名額、買回 1.5 倍)。
 ## 擴建村莊(shop.json expand_village $1000,unlock village_2):拆掉東門(EAST_GATE_Z 那段牆與柵欄),往東蓋 annex:沙地、第二個水區、
-## 第二座切魚台 + 烤魚攤、第二組櫃台(顧客跟著變多)。
+## 第二座切魚台 + 烤魚攤、第二組櫃台(顧客跟著變多);僱用牌多開放名額(shop.json expandBuys:漁夫 +2、搬運工 +4、收銀員 +2)。
+## 守衛塔(Tower):村莊四角各一座,牌子(tower_1 ~ tower_4,$200)就是地基;蓋好會朝靠近的熊射箭,被熊拆掉後站回地基花 $200 修。
 
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
     "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0)}
@@ -20,11 +21,14 @@ const PAD_SPOTS := {
     "capacity_1": Vector3(2.0, 0, 5.0), "upgrade_worker_speed": Vector3(6.0, 0, 5.0), "upgrade_pile_cap": Vector3(10.0, 0, 5.0),
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
     "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0),
+    "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
 }
+const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5),
+    "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0)}   # 守衛塔(= 牌子的位置,牌是地基)
 const UNLOCKS := {
     "station_2": {"stations": ["station_2"], "counters": []},
     "grill_complex": {"stations": ["grill"], "counters": ["grill_counter"]},
-    "village_2": {"stations": ["station_3", "grill_2"], "counters": ["fillet_counter_2", "grill_counter_2"], "annex": true},
+    "village_2": {"stations": ["station_3", "grill_2"], "counters": ["fillet_counter_2", "grill_counter_2"], "annex": true, "expandShop": true},
 }
 const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆可拆的那段(擴建後通往 annex)
 const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 擴建區(x 13 ~ 31.6)
@@ -47,6 +51,7 @@ var counters: Array[Counter] = []
 var money_pad: MoneyPad
 var trash_pad: TrashPad
 var price_pads := {}
+var towers: Array[Tower] = []
 var helpers: Array[Helper] = []
 var bears: BearSpawner
 var shopkeeper: Node3D = null
@@ -98,6 +103,7 @@ func _ready() -> void:
         pad.position = PAD_SPOTS.get(id, Vector3(0, 0, 12))
         world.add_child(pad)
         price_pads[id] = pad
+    _build_towers()
     player = Player.new()
     player.name = "Player"
     player.position = PLAYER_SPAWN
@@ -382,6 +388,9 @@ func _spawn_unlock(target: String) -> void:
         _add_station(str(sid))
     for cid in spec.get("counters", []):
         _add_counter(str(cid))
+    if bool(spec.get("expandShop", false)):
+        for id in price_pads:
+            (price_pads[id] as PricePad).expand()
 
 
 func station_at(spot_id: String) -> Station:
@@ -396,6 +405,53 @@ func counter_by_id(id: String) -> Counter:
         if c.def_id == id:
             return c
     return null
+
+
+## --- 守衛塔 ---
+
+## 四座塔一開始就在(state none 只有牌子),買了牌才蓋起來
+func _build_towers() -> void:
+    for id in TOWER_SPOTS:
+        var t := Tower.new()
+        t.id = str(id)
+        t.name = "Tower_%s" % id
+        t.level = self
+        t.position = TOWER_SPOTS[id]
+        world.add_child(t)
+        towers.append(t)
+
+
+func tower_by_id(id: String) -> Tower:
+    for t in towers:
+        if t.id == id:
+            return t
+    return null
+
+
+## 蓋 / 修這座塔的牌(效果 tower、target = 塔 id)
+func tower_pad_for(tower_id: String) -> PricePad:
+    for id in price_pads:
+        var p: PricePad = price_pads[id]
+        if p.is_tower_pad() and str(p.logic.effect.get("target", "")) == tower_id:
+            return p
+    return null
+
+
+func alive_towers() -> Array[Tower]:
+    var out: Array[Tower] = []
+    for t in towers:
+        if t.is_alive():
+            out.append(t)
+    return out
+
+
+## 塔被熊拆了:牌子重新出現(修復價)、通知、存檔
+func tower_destroyed(t: Tower, _by: Node3D) -> void:
+    var pad := tower_pad_for(t.id)
+    if pad != null:
+        pad.on_lost()
+        EventBus.notice.emit(tr("NOTICE_TOWER_DESTROYED") % pad.logic.current_cost())
+    save_now()
 
 
 ## --- 幫手 ---
@@ -442,7 +498,7 @@ func helper_eaten(h: Helper, _bear: Node3D) -> void:
     GameState.lose_helper(h.role)
     var pad := hire_pad_for(h.role)
     if pad != null:
-        pad.on_helper_lost()
+        pad.on_lost()
     h.be_eaten()
     EventBus.helper_eaten.emit(h.role, h)
     EventBus.notice.emit(tr("NOTICE_BEAR_ATE") % tr("ROLE_%s" % h.role))
@@ -553,11 +609,17 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
         "weapon":
             if player != null:
                 player._refresh_weapon()
+        "tower":
+            var t := tower_by_id(str(effect.get("target", "")))
+            if t != null:
+                var repaired := t.is_broken()
+                t.build()
+                EventBus.notice.emit(tr("NOTICE_TOWER_REPAIRED" if repaired else "NOTICE_TOWER_BUILT"))
 
 
 ## --- 存檔 ---
 
-## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆、各櫃台庫存、各價格牌進度
+## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆、各櫃台庫存、各價格牌進度、守衛塔狀態 / 血量、北極熊冷卻
 func snapshot() -> Dictionary:
     var stations_d := {}
     for s in stations:
@@ -569,9 +631,12 @@ func snapshot() -> Dictionary:
     for id in price_pads:
         var p: PricePad = price_pads[id]
         pads_d[str(id)] = {"remaining": p.logic.remaining, "buys": p.logic.buys, "lost": p.logic.lost}
+    var towers_d := {}
+    for t in towers:
+        towers_d[t.id] = t.snapshot()
     return {
         "player": {"item": player.stack.item_id, "count": player.stack.count},
-        "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d,
+        "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d, "towers": towers_d,
         "bear": bears.snapshot() if bears != null else {},
     }
 
@@ -606,6 +671,15 @@ func restore_world(d: Dictionary) -> void:
             if price_pads.has(str(id)) and typeof(pads[id]) == TYPE_DICTIONARY:
                 (price_pads[str(id)] as PricePad).restore_state(int(pads[id].get("buys", 0)), int(pads[id].get("remaining", 0)),
                         int(pads[id].get("lost", 0)))
+    var towers_d = d.get("towers", {})
+    for t in towers:
+        if typeof(towers_d) == TYPE_DICTIONARY and typeof(towers_d.get(t.id, null)) == TYPE_DICTIONARY:
+            t.restore(towers_d[t.id])
+        else:
+            # 存檔沒記這座塔(舊檔):牌買過就當完好
+            var pad := tower_pad_for(t.id)
+            if pad != null and pad.logic.buys >= 1:
+                t.build(true)
     var bear_d = d.get("bear", {})
     if bears != null and typeof(bear_d) == TYPE_DICTIONARY:
         bears.restore(bear_d)
@@ -647,8 +721,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _notification(what: int) -> void:
-    if what == NOTIFICATION_WM_CLOSE_REQUEST:
-        save_now()
+    if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+        save_now()   # 網頁版切到背景 / 自動更新重新整理前也存
 
 
 ## HUD 選單:提示箭頭開關、重新開始(手機沒有 H / F9)

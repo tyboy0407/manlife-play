@@ -3,7 +3,8 @@ extends Pad
 ## 價格牌:會收錢的 carrier(玩家)站上來停留 payDelaySec 後,從錢包(GameState.wallet)一張張扣(payPerSec),走開暫停;
 ## 付清 -> GameState.apply_purchase。停留時間是為了「帶著錢走過牌子不會順手付掉」。
 ## 可重複買的牌付清後價格漲一級、留在原地,但付錢的人要先走開再踏上來才會開始付下一次(避免站著不動就把錢一直吃掉);
-## 買滿或一次性的牌付清就消失;僱用牌的幫手被吃掉(on_helper_lost)名額退回來、牌子重新出現並標「買回 ×1.5」。
+## 買滿或一次性的牌付清就消失;僱用牌的幫手被吃掉(on_lost)名額退回來、牌子重新出現並標「買回 ×1.5」;
+## 守衛塔牌(effect tower)就是塔的地基,塔被拆 on_lost 後標「修復」(同價)。擴建村莊 expand():僱用牌多開放 expandBuys 個名額。
 ## 付款速度 payPerSec × max(1, 本次價格 / payScaleCost):大額牌(擴建村莊 $1000)不用站一分鐘。build_spot = 橘色半透明建地。付款中發黃光。
 
 var logic: PurchaseLogic
@@ -44,7 +45,7 @@ func _update_label() -> void:
     if logic.repeatable:
         text += "\n(%d/%d)" % [logic.buys + 1, logic.max_buys]
     if logic.is_rebuy():
-        text += "\n" + tr("PAD_REBUY") % str(logic.rebuy_mult)
+        text += "\n" + (tr("PAD_REPAIR") if is_tower_pad() else tr("PAD_REBUY") % str(logic.rebuy_mult))
     set_label(text)
     if ring != null:
         ring.set_progress(logic.progress())
@@ -118,8 +119,21 @@ func _enable() -> void:
     visible = true
 
 
-## 這塊牌僱的幫手被吃掉了:名額退回來(買回價),買滿消失的牌也重新出現
-func on_helper_lost() -> void:
+func is_tower_pad() -> bool:
+    return str(logic.effect.get("type", "")) == "tower"
+
+
+## 擴建村莊:這塊牌多開放 expandBuys 個名額(買滿消失的牌重新出現)
+func expand() -> void:
+    if not logic.expand():
+        return
+    _blocked.clear()
+    _enable()
+    _update_label()
+
+
+## 這塊牌僱的幫手被吃掉 / 蓋的塔被拆了:名額退回來(買回價 / 修復價),買滿消失的牌也重新出現
+func on_lost() -> void:
     if not logic.lose():
         return
     _blocked.clear()

@@ -80,6 +80,11 @@ static func shopkeeper_model() -> String:
     return str(config().get("shopkeeper", ""))
 
 
+## 守衛塔上的守衛用哪個人物(models.guard)
+static func guard_model() -> String:
+    return str(config().get("guard", ""))
+
+
 ## 北極熊模型(models.bear.file);沒有就 null,Bear 用方塊占位
 static func bear() -> PackedScene:
     var v = config().get("bear", {})

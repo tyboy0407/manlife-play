@@ -3,7 +3,8 @@ extends RefCounted
 ## 價格牌規則:總價、剩餘、付清後的效果。付款可分期(站上去一張張扣,走開就暫停)。
 ## repeatable 的牌可以買 max_buys 次,每次價格乘 cost_mult;買滿就 exhausted(牌子消失)。
 ## 僱用牌:幫手被北極熊吃掉 lose() 退一個名額(buys -1、lost +1),買回那一次的價格是該級價格 × rebuy_mult(1.5),
-## 買回後回到正常的階梯價;已付的部分付款保留。
+## 買回後回到正常的階梯價;已付的部分付款保留。擴建村莊 expand() 多開放 expandBuys 個名額(買滿消失的牌重新開放)。
+## 守衛塔牌(effect tower):一次性,塔被拆 lose() -> 以 rebuyMult(1)的價格修復。
 
 var id := ""
 var name_key := ""
@@ -16,6 +17,8 @@ var cost_mult := 1.5
 var buys := 0
 var lost := 0           # 被吃掉、可以買回的名額
 var rebuy_mult := 1.5   # 買回的價格倍率
+var expand_buys := 0    # 擴建村莊後多開放的名額(shop.json expandBuys)
+var expanded := false
 
 
 static func from_def(d: Dictionary) -> PurchaseLogic:
@@ -27,6 +30,7 @@ static func from_def(d: Dictionary) -> PurchaseLogic:
     p.max_buys = maxi(int(d.get("maxBuys", 1)), 1) if p.repeatable else 1
     p.cost_mult = maxf(float(d.get("costMult", 1.5)), 1.0)
     p.rebuy_mult = maxf(float(d.get("rebuyMult", 1.5)), 1.0)
+    p.expand_buys = maxi(int(d.get("expandBuys", 0)), 0)
     p.remaining = p.cost
     var e = d.get("effect", {})
     if typeof(e) == TYPE_DICTIONARY:
@@ -54,6 +58,18 @@ func lose() -> bool:
     buys -= 1
     lost += 1
     remaining = maxi(current_cost() - paid, 1)
+    return true
+
+
+## 擴建村莊:多開放 expand_buys 個名額(只加一次);買滿消失的牌重新開放,價格是下一級。沒名額可加回 false
+func expand() -> bool:
+    if expanded or expand_buys <= 0:
+        return false
+    var was_exhausted := is_exhausted()
+    expanded = true
+    max_buys += expand_buys
+    if was_exhausted:
+        remaining = current_cost()
     return true
 
 

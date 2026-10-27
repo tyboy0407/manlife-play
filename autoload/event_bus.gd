@@ -24,3 +24,8 @@ signal bear_left(reason: String)
 signal helper_eaten(role: String, helper: Node3D)
 signal fish_eaten(bear: Node3D)
 signal bear_fed(bear: Node3D)
+## 守衛塔:蓋好(含修好)/ 射出一箭 / 被熊咬(剩多少血)/ 被熊拆了
+signal tower_built(tower: Node3D)
+signal tower_shot(tower: Node3D, bear: Node3D)
+signal tower_damaged(tower: Node3D, hp_left: float)
+signal tower_destroyed(tower: Node3D, by: Node3D)
