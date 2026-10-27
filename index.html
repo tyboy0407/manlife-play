@@ -93,7 +93,7 @@ body {
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 <link rel="manifest" href="index.manifest.json">
-<script>(function(){var cap=2;var real=window.devicePixelRatio||1;if(real>cap){Object.defineProperty(window,'devicePixelRatio',{get:function(){return cap;},configurable:true});}})();</script>
+<script>(function(){var cap=2;var real=window.devicePixelRatio||1;if(real>cap){Object.defineProperty(window,'devicePixelRatio',{get:function(){return cap;},configurable:true});}})();(function(){if(!('serviceWorker' in navigator))return;var t0=Date.now();var tVis=t0;var pending=null;var reloading=false;function reload(){if(reloading)return;reloading=true;setTimeout(function(){window.location.reload();},150);}function apply(w){pending=null;if(w&&w.state!=='redundant'){w.postMessage('update');}}function found(w){var now=Date.now();if(now-t0<30000||now-tVis<10000||document.visibilityState!=='visible'){apply(w);}else{pending=w;}}function watch(reg){if(reg.waiting&&navigator.serviceWorker.controller){found(reg.waiting);}reg.addEventListener('updatefound',function(){var nw=reg.installing;if(!nw)return;nw.addEventListener('statechange',function(){if(nw.state==='installed'&&navigator.serviceWorker.controller){found(nw);}});});document.addEventListener('visibilitychange',function(){if(document.visibilityState!=='visible')return;tVis=Date.now();if(pending){apply(pending);}else{reg.update().catch(function(){});}});setInterval(function(){reg.update().catch(function(){});},300000);}navigator.serviceWorker.addEventListener('controllerchange',function(){reload();});window.addEventListener('pagehide',function(){reloading=true;});function hook(n){navigator.serviceWorker.getRegistration().then(function(reg){if(reg){watch(reg);}else if(n<30){setTimeout(function(){hook(n+1);},1000);}}).catch(function(){});}window.addEventListener('load',function(){hook(0);});})();</script>
 	</head>
 	<body>
 		<canvas id="canvas">
@@ -112,7 +112,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":14716556,"index.wasm":39509339},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":14741144,"index.wasm":39509339},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
