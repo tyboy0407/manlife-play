@@ -58,6 +58,17 @@ static func cylinder(radius: float, height: float, color: Color, pos: Vector3 = 
     return mi
 
 
+## 腳下的圓影:流暢模式用它代替即時陰影(透明圓片,不投影);加進 blob_shadow 群組,Harbor 依畫質開關
+static func blob_shadow(radius: float, visible_now: bool) -> MeshInstance3D:
+    var mi := cylinder(radius, 0.02, Color(0, 0, 0, 0.28), Vector3(0, 0.02, 0))
+    (mi.mesh as CylinderMesh).radial_segments = 20
+    mi.material_override = material(Color(0, 0, 0, 0.28), Color.BLACK, true)
+    mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    mi.add_to_group("blob_shadow")
+    mi.visible = visible_now
+    return mi
+
+
 ## 圓錐(尖端朝 +Y)
 static func cone(radius: float, height: float, color: Color, pos: Vector3 = Vector3.ZERO) -> MeshInstance3D:
     var mi := MeshInstance3D.new()

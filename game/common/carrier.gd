@@ -34,6 +34,7 @@ func _ready() -> void:
     add_child(shape)
     body_mesh = VisualFactory.capsule(0.4, 1.6, color, Vector3(0, 0.9, 0))
     add_child(body_mesh)
+    add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
     add_child(VisualFactory.box(Vector3(0.22, 0.18, 0.18), Color(0.1, 0.1, 0.15), Vector3(0, 1.35, 0.38)))
     stack_visual = StackVisual.new()
     stack_visual.position = Vector3(0, 1.75, -0.32)

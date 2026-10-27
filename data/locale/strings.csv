@@ -67,3 +67,9 @@ MENU_SOUND_OFF,Sound: off,音效:關
 MENU_NEW_GAME,New game (delete save),重新開始(刪存檔)
 MENU_NEW_GAME_CONFIRM,Tap again to confirm,再按一次確認
 MENU_CLOSE,Close,關閉
+MENU_QUALITY_SMOOTH,Quality: smooth,畫質:流暢
+MENU_QUALITY_FINE,Quality: fine,畫質:精細
+MENU_FPS_ON,FPS counter: on,FPS 顯示:開
+MENU_FPS_OFF,FPS counter: off,FPS 顯示:關
+NOTICE_QUALITY_SMOOTH,Smooth mode: shadows off and lower 3D resolution,流暢模式:關閉即時陰影、3D 降解析度
+NOTICE_QUALITY_FINE,Fine mode: real-time shadows and full resolution,精細模式:即時陰影、全解析度

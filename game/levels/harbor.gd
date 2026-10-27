@@ -34,6 +34,8 @@ var helpers: Array[Helper] = []
 var camera: FollowCamera
 var hud: Hud
 var guide: Guide
+var light: DirectionalLight3D
+var scenery: StaticBatch   # 不會動的布景合併成一個網格
 var world: Node3D
 var autosave_sec := 10.0
 var loaded_from_save := false
@@ -47,12 +49,18 @@ func _ready() -> void:
     world.name = "World"
     add_child(world)
     _build_environment()
+    scenery = StaticBatch.new()
+    scenery.name = "Scenery"
+    world.add_child(scenery)
     _build_terrain()
     fish_area = FishArea.new()
     fish_area.name = "FishArea"
     fish_area.rect = Rect2(-8.0, -11.0, 16.0, 7.0)
     world.add_child(fish_area)
     _build_pen_decoration()
+    scenery.build()
+    _apply_quality()
+    Settings.changed.connect(_apply_quality)
     _add_station("station_1")
     money_pad = MoneyPad.new()
     money_pad.name = "MoneyPad"
@@ -105,27 +113,38 @@ func _build_environment() -> void:
     e.ambient_light_energy = 0.9
     env.environment = e
     add_child(env)
-    var light := DirectionalLight3D.new()
+    light = DirectionalLight3D.new()
     light.rotation_degrees = Vector3(-52, -28, 0)
     light.light_energy = 1.1
     light.shadow_enabled = true
+    light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS   # 場景小,兩層就夠,省一半陰影繪製
+    light.directional_shadow_max_distance = 45.0
     add_child(light)
 
 
+## 畫質(Settings):流暢 = 關即時陰影、顯示腳下圓影、3D 用 0.75 倍解析度;精細 = 相反
+func _apply_quality() -> void:
+    var smooth := Settings.is_smooth()
+    if light != null:
+        light.shadow_enabled = not smooth
+    get_viewport().scaling_3d_scale = Settings.scaling_3d()
+    get_tree().call_group("blob_shadow", "set_visible", smooth)
+
+
 func _build_terrain() -> void:
-    world.add_child(VisualFactory.box(Vector3(70, 0.2, 80), Color(0.93, 0.95, 0.98), Vector3(0, -0.12, -3)))
-    world.add_child(VisualFactory.box(Vector3(25, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(0, -0.02, 4.0)))
+    scenery.add_box(Vector3(70, 0.2, 80), Color(0.93, 0.95, 0.98), Vector3(0, -0.12, -3))
+    scenery.add_box(Vector3(25, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(0, -0.02, 4.0))
     _wall(Vector3(-12.6, 1, 0), Vector3(0.4, 2, 26))
     _wall(Vector3(12.6, 1, 0), Vector3(0.4, 2, 26))
     _wall(Vector3(0, 1, 12.6), Vector3(26, 2, 0.4))
     _wall(Vector3(0, 1, -11.2), Vector3(26, 2, 0.4))
     for x in [-12.4, 12.4]:
-        world.add_child(VisualFactory.box(Vector3(0.25, 0.9, 16.5), Color(0.8, 0.62, 0.42), Vector3(x, 0.45, 4.0)))
-    world.add_child(VisualFactory.box(Vector3(25, 0.9, 0.25), Color(0.8, 0.62, 0.42), Vector3(0, 0.45, 12.4)))
+        scenery.add_box(Vector3(0.25, 0.9, 16.5), Color(0.8, 0.62, 0.42), Vector3(x, 0.45, 4.0))
+    scenery.add_box(Vector3(25, 0.9, 0.25), Color(0.8, 0.62, 0.42), Vector3(0, 0.45, 12.4))
     for p in [Vector3(-16, 0, 2), Vector3(-15, 0, 9), Vector3(16, 0, -2), Vector3(15.5, 0, 9), Vector3(-17, 0, -6), Vector3(17, 0, -9)]:
-        world.add_child(VisualFactory.cylinder(0.2, 1.0, Color(0.45, 0.3, 0.2), p + Vector3(0, 0.5, 0)))
-        world.add_child(VisualFactory.box(Vector3(1.6, 1.6, 1.6), Color(0.86, 0.92, 0.96), p + Vector3(0, 1.6, 0)))
-        world.add_child(VisualFactory.box(Vector3(1.0, 1.2, 1.0), Color(0.86, 0.92, 0.96), p + Vector3(0, 2.8, 0)))
+        scenery.add_cylinder(0.2, 1.0, Color(0.45, 0.3, 0.2), p + Vector3(0, 0.5, 0))
+        scenery.add_box(Vector3(1.6, 1.6, 1.6), Color(0.86, 0.92, 0.96), p + Vector3(0, 1.6, 0))
+        scenery.add_box(Vector3(1.0, 1.2, 1.0), Color(0.86, 0.92, 0.96), p + Vector3(0, 2.8, 0))
 
 
 func _wall(pos: Vector3, size: Vector3) -> void:
@@ -141,17 +160,17 @@ func _wall(pos: Vector3, size: Vector3) -> void:
     world.add_child(body)
 
 
-## 魚欄裝飾:北邊的深水池 + 柵欄 + 閘門 + 幾條裝飾魚(抓不到)
+## 魚欄裝飾:北邊的深水池 + 柵欄 + 閘門(併進 scenery)+ 幾條裝飾魚(抓不到;會動所以是獨立節點,數量少一點)
 func _build_pen_decoration() -> void:
-    world.add_child(VisualFactory.box(Vector3(16, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(0, -0.04, -14.0)))
+    scenery.add_box(Vector3(16, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(0, -0.04, -14.0))
     for i in 17:
         var x := -8.0 + float(i)
         if absf(x) <= 1.5:
             continue
-        world.add_child(VisualFactory.cylinder(0.14, 1.1, Color(0.82, 0.62, 0.4), Vector3(x, 0.55, -11.5)))
-    world.add_child(VisualFactory.box(Vector3(3.2, 1.0, 0.3), Color(0.9, 0.6, 0.3), Vector3(0, 0.5, -11.5)))
-    world.add_child(VisualFactory.box(Vector3(16, 0.3, 0.3), Color(0.82, 0.62, 0.4), Vector3(0, 0.95, -11.5)))
-    for i in 14:
+        scenery.add_cylinder(0.14, 1.1, Color(0.82, 0.62, 0.4), Vector3(x, 0.55, -11.5))
+    scenery.add_box(Vector3(3.2, 1.0, 0.3), Color(0.9, 0.6, 0.3), Vector3(0, 0.5, -11.5))
+    scenery.add_box(Vector3(16, 0.3, 0.3), Color(0.82, 0.62, 0.4), Vector3(0, 0.95, -11.5))
+    for i in 6:
         var f := Fish.new()
         f.rect = Rect2(-7.5, -16.0, 15.0, 4.0)
         f.position = f.random_point()

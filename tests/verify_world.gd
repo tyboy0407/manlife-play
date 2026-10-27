@@ -22,6 +22,9 @@ func _ready() -> void:
     SaveManager.save_path = "user://_verify_world_save.json"
     SaveManager.delete()
     GameState.reset()
+    Settings.path = "user://_verify_world_settings.json"
+    Settings.quality = Settings.FINE
+    Settings.show_fps = false
     EventBus.fish_caught.connect(func(_c: Node3D) -> void: _bump("fish"))
     EventBus.sale_made.connect(func(item: String, n: int, cash: int) -> void:
         _bump("sale")
@@ -42,6 +45,9 @@ func _ready() -> void:
     await _step(25)   # 讓還在飛的幽靈物件飛完、queue_free 處理掉
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
+    Settings.delete_file()
+    Settings.path = Settings.DEFAULT_PATH
+    Settings.load_settings()
     GameState.reset()
     if _fails == 0:
         print("VERIFY WORLD: ALL OK")
@@ -143,6 +149,20 @@ func _find_helper(role: String) -> Helper:
         if h.role == role:
             return h
     return null
+
+
+func _any_visible(nodes: Array) -> bool:
+    for n in nodes:
+        if is_instance_valid(n) and (n as Node3D).visible:
+            return true
+    return false
+
+
+func _all_visible(nodes: Array) -> bool:
+    for n in nodes:
+        if is_instance_valid(n) and not (n as Node3D).visible:
+            return false
+    return true
 
 
 func _sales_of(item: String) -> int:
@@ -443,6 +463,24 @@ func _run() -> void:
     var muted := not Sfx.enabled and not GameState.sound_on and not Sfx.play("goal")
     _level.hud.menu_action("sound")
     _check(muted and Sfx.enabled and GameState.sound_on, "選單:音效關掉就不播、再開回來")
+    # 畫質:精細 = 即時陰影、全解析度、沒圓影;流暢 = 反過來
+    var blobs := get_tree().get_nodes_in_group("blob_shadow")
+    _check(_level.light != null and _level.light.shadow_enabled and is_equal_approx(get_viewport().scaling_3d_scale, 1.0) and blobs.size() >= 4
+            and not _any_visible(blobs), "精細模式:陰影開、3D 全解析度、%d 個圓影都藏著" % blobs.size())
+    _level.hud.menu_action("quality")
+    await _step(2)
+    _check(Settings.is_smooth() and not _level.light.shadow_enabled and is_equal_approx(get_viewport().scaling_3d_scale, 0.75) and _all_visible(blobs),
+            "流暢模式:陰影關、3D 0.75 倍、圓影全亮")
+    _level.hud.menu_action("quality")
+    await _step(2)
+    _check(not Settings.is_smooth() and _level.light.shadow_enabled and not _any_visible(blobs), "切回精細")
+    _level.hud.menu_action("fps")
+    await _step(2)
+    var fps_on := Settings.show_fps and _level.hud.fps_visible()
+    _level.hud.menu_action("fps")
+    _check(fps_on and not Settings.show_fps and not _level.hud.fps_visible(), "選單:FPS 顯示開關")
+    _check(_level.scenery != null and _level.scenery.mesh != null and _level.scenery.mesh.get_surface_count() <= 8
+            and _level.stations[0].input_pile.visible_count() == mini(_level.stations[0].logic.input_count, 60), "布景合併成 %d 個 surface;堆疊用 MultiMesh 畫" % _level.scenery.mesh.get_surface_count())
     # 存檔 -> 重建 -> 還原
     var saved := _level.save_now()
     var snap := _level.snapshot()

@@ -14,6 +14,8 @@ func _ready() -> void:
     _test_counter()
     _test_porter()
     _test_guide()
+    _test_settings()
+    _test_batching()
     _test_ring()
     _test_sfx()
     _test_input()
@@ -397,6 +399,63 @@ func _test_guide() -> void:
     state["wallet"] = 100
     state["pads"][0]["visible"] = false
     _check(GuideLogic.hint(state)["target"] == "capacity_1", "隱藏(買滿)的牌不算,挑下一個最便宜的")
+
+
+## --- 裝置偏好 ---
+
+func _test_settings() -> void:
+    var default_path := Settings.path
+    var old_quality := Settings.quality
+    var old_fps := Settings.show_fps
+    Settings.path = "user://_verify_core_settings.json"
+    Settings.delete_file()
+    Settings.quality = Settings.FINE
+    Settings.show_fps = false
+    var changes := [0]
+    var cb := func() -> void: changes[0] += 1
+    Settings.changed.connect(cb)
+    Settings.toggle_quality()
+    _check(Settings.is_smooth() and is_equal_approx(Settings.scaling_3d(), 0.75) and changes[0] == 1 and FileAccess.file_exists(Settings.path),
+            "畫質切到流暢:3D 0.75 倍、發 changed、寫檔")
+    Settings.set_show_fps(true)
+    Settings.set_quality("nope")
+    _check(Settings.show_fps and Settings.is_smooth() and changes[0] == 2, "FPS 開關;不認識的畫質值不理")
+    Settings.quality = Settings.FINE
+    Settings.show_fps = false
+    Settings.load_settings()
+    _check(Settings.is_smooth() and Settings.show_fps, "重新讀檔:畫質與 FPS 設定都回來")
+    Settings.delete_file()
+    Settings.load_settings()
+    _check(Settings.quality == (Settings.SMOOTH if Settings.is_touch_device() else Settings.FINE) and not Settings.show_fps,
+            "沒設定檔:依裝置給預設(這台是 %s)" % Settings.quality)
+    Settings.changed.disconnect(cb)
+    Settings.path = default_path
+    Settings.quality = old_quality
+    Settings.show_fps = old_fps
+
+
+## --- 堆疊 MultiMesh 與靜態合併 ---
+
+func _test_batching() -> void:
+    var sv := StackVisual.new()
+    sv.columns = 3
+    add_child(sv)
+    sv.show_items("fish", 5)
+    _check(sv.visible_count() == 5 and is_equal_approx(sv.top_height(), 2.0 * (GameData.item_size("fish").y + 0.02)), "堆 5 條魚:畫 5 個、兩層高")
+    sv.show_items("fillet", 70)
+    _check(sv.visible_count() == 60 and sv.count == 70, "70 片魚片:最多畫 60 個,數量仍記 70")
+    sv.show_items("", 0)
+    _check(sv.visible_count() == 0 and is_equal_approx(sv.top_height(), 0.0), "清空:不畫")
+    sv.free()
+    var sb := StaticBatch.new()
+    add_child(sb)
+    sb.add_box(Vector3(1, 1, 1), Color.RED, Vector3.ZERO)
+    sb.add_box(Vector3(2, 1, 1), Color.RED, Vector3(3, 0, 0))
+    sb.add_cylinder(0.5, 1.0, Color.BLUE, Vector3(0, 0, 3))
+    var surfaces := sb.build()
+    _check(surfaces == 2 and sb.mesh != null and sb.mesh.get_surface_count() == 2 and sb.mesh.surface_get_array_len(0) == 48,
+            "三個零件兩種顏色 -> 兩個 surface(紅色兩個方塊 48 個頂點)")
+    sb.free()
 
 
 ## --- 進度環 ---

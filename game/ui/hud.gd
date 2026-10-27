@@ -19,11 +19,15 @@ var _notice: Label
 var _objective: Label
 var _hints_btn: Button
 var _sound_btn: Button
+var _quality_btn: Button
+var _fps_btn: Button
 var _new_game_btn: Button
+var _fps: Label
 var _notice_timer := 0.0
 var _objective_text := ""
 var _chips := 0
 var _confirm_new_game := false
+var _fps_timer := 0.0
 
 
 func _ready() -> void:
@@ -37,6 +41,10 @@ func _ready() -> void:
     _info = _make_label(16, Color(0.95, 0.97, 1.0))
     _info.position = Vector2(14, 48)
     add_child(_info)
+    _fps = _make_label(15, Color(0.6, 1.0, 0.6))
+    _fps.position = Vector2(14, 104)
+    _fps.visible = Settings.show_fps
+    add_child(_fps)
     _objective = _make_label(20, Color(1.0, 0.9, 0.55))
     _wide(_objective, 136, 96)
     _objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -69,7 +77,7 @@ func _ready() -> void:
 
 ## 手機 / 平板 / 觸控螢幕:提示文字講觸控,不講鍵盤
 static func is_touch_device() -> bool:
-    return DisplayServer.is_touchscreen_available() or OS.has_feature("web_ios") or OS.has_feature("web_android") or OS.has_feature("mobile")
+    return Settings.is_touch_device()
 
 
 ## 橫跨整個寬度的一行(左右各留 margin,top 是從上緣算的位置),高度跟著內容長
@@ -140,6 +148,10 @@ func _build_menu() -> void:
     box.add_child(_hints_btn)
     _sound_btn = _make_button("", "sound")
     box.add_child(_sound_btn)
+    _quality_btn = _make_button("", "quality")
+    box.add_child(_quality_btn)
+    _fps_btn = _make_button("", "fps")
+    box.add_child(_fps_btn)
     _new_game_btn = _make_button("", "new_game")
     box.add_child(_new_game_btn)
     box.add_child(_make_button(tr("MENU_CLOSE"), "close"))
@@ -149,6 +161,8 @@ func _build_menu() -> void:
 func _refresh_menu_labels() -> void:
     _hints_btn.text = tr("MENU_HINTS_ON") if GameState.hints_on else tr("MENU_HINTS_OFF")
     _sound_btn.text = tr("MENU_SOUND_ON") if Sfx.enabled else tr("MENU_SOUND_OFF")
+    _quality_btn.text = tr("MENU_QUALITY_SMOOTH") if Settings.is_smooth() else tr("MENU_QUALITY_FINE")
+    _fps_btn.text = tr("MENU_FPS_ON") if Settings.show_fps else tr("MENU_FPS_OFF")
     _new_game_btn.text = tr("MENU_NEW_GAME_CONFIRM") if _confirm_new_game else tr("MENU_NEW_GAME")
 
 
@@ -172,6 +186,12 @@ func menu_action(id: String) -> void:
         "sound":
             Sfx.set_enabled(not Sfx.enabled)
             GameState.sound_on = Sfx.enabled
+        "quality":
+            Settings.toggle_quality()
+            EventBus.notice.emit(tr("NOTICE_QUALITY_SMOOTH" if Settings.is_smooth() else "NOTICE_QUALITY_FINE"))
+        "fps":
+            Settings.set_show_fps(not Settings.show_fps)
+            _fps.visible = Settings.show_fps
         "hints":
             action.emit("hints")
         "new_game":
@@ -244,10 +264,19 @@ func _chip_done(chip: Control) -> void:
     tw.tween_property(_wallet, "scale", Vector2.ONE, 0.15)
 
 
+func fps_visible() -> bool:
+    return _fps.visible
+
+
 func _process(delta: float) -> void:
     if _notice_timer > 0.0:
         _notice_timer -= delta
         _notice.modulate.a = clampf(_notice_timer / 0.6, 0.0, 1.0)
+    if _fps.visible:
+        _fps_timer -= delta
+        if _fps_timer <= 0.0:
+            _fps_timer = 0.25
+            _fps.text = "FPS %d" % Engine.get_frames_per_second()
     _wallet.text = tr("HUD_WALLET") % GameState.wallet
     if player == null or not is_instance_valid(player):
         return
