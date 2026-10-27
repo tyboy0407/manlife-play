@@ -1,7 +1,7 @@
 extends Node3D
 ## 開一個小視窗跑主場景、把鏡頭移到幾個地方截圖存成 PNG(接新東西時用來看外觀;headless 畫不出來,所以會短暫跳出視窗)。
 ## 跑法:godot --path . --resolution 900x900 res://tools/snap_scene.tscn -- <輸出資料夾>(要用場景跑,Autoload 才會在)
-## 會截:村子(玩家出生點)、西邊缺口與村外武器店、北極熊咬幫手、帶著 Lv3 武器的玩家。
+## 會截:村子(玩家出生點)、西邊缺口與村外武器店、北極熊咬幫手、帶著 Lv3 武器的玩家、擴建區、一群三隻熊。
 
 const HARBOR := preload("res://game/levels/harbor.tscn")
 
@@ -47,6 +47,16 @@ func _run() -> void:
     bear.set_physics_process(false)
     await _frames(15)
     await _shot("04_weapon_lv3")
+    # 擴建村莊:東門拆掉、東邊多一塊地;一群三隻熊從擴建區的入口進來
+    bear.queue_free()
+    GameState.apply_purchase("expand_village", {"type": "unlock", "target": "village_2"})
+    level.player.global_position = Vector3(16.0, 0, 4.0)
+    await _frames(30)
+    await _shot("05_annex")
+    level.bears.spawn_pack(3)
+    level.player.global_position = Vector3(24.0, 0, -2.0)
+    await _frames(45)
+    await _shot("06_bear_pack")
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()

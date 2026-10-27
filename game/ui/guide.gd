@@ -161,15 +161,15 @@ func _resolve(h: Dictionary) -> bool:
         "bear":
             if level.bears == null or not level.bears.has_bear():
                 return false
-            target_pos = level.bears.bear.global_position
+            target_pos = level.bears.nearest_bear(level.player.global_position).global_position
             return true
     return false
 
 
-## 水邊目標:在水裡就指最近的魚,不然指離玩家最近的水面點
+## 水邊目標:在水裡就指最近的魚,不然指離玩家最近的水面點(有多個水區就挑最近的)
 func _water_target() -> Vector3:
-    var fa := level.fish_area
     var p := level.player.global_position
+    var fa := level.nearest_fish_area(p)
     if fa == null:
         return p
     if fa.contains(p):

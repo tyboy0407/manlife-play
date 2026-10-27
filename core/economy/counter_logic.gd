@@ -23,3 +23,18 @@ func serve(want: int) -> Dictionary:
     var sold := mini(maxi(want, 0), stock)
     stock -= sold
     return {"sold": sold, "cash": sold * price}
+
+
+## 顧客要幾件:weights[i] 是「要 i + 1 件」的權重(customers.wantWeights),roll 0 ~ 1;沒權重就 1 件
+static func roll_want(weights: Array, roll: float) -> int:
+    var total := 0.0
+    for w in weights:
+        total += maxf(float(w), 0.0)
+    if total <= 0.0:
+        return 1
+    var acc := 0.0
+    for i in weights.size():
+        acc += maxf(float(weights[i]), 0.0) / total
+        if roll < acc:
+            return i + 1
+    return weights.size()

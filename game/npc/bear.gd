@@ -115,13 +115,18 @@ func _hunt(delta: float) -> void:
     _move_to(target.global_position, logic.speed(), delta, logic.bite_radius() * 0.9)
 
 
-## 最近的、還沒被吃的幫手
+## 最近的、還沒被吃的幫手;一群熊時先避開別隻熊已經盯上的(都被盯了才搶)
 func _retarget() -> void:
+    var taken := level.bears.targeted_ids(self) if level.bears != null else {}
     var prey := []
+    var free := []
     for h in level.helpers:
         if h != null and is_instance_valid(h) and not h.eaten:
-            prey.append({"id": h.get_instance_id(), "pos": h.global_position})
-    var id := BearLogic.pick_target(global_position, prey)
+            var e := {"id": h.get_instance_id(), "pos": h.global_position}
+            prey.append(e)
+            if not taken.has(h.get_instance_id()):
+                free.append(e)
+    var id := BearLogic.pick_target(global_position, free if not free.is_empty() else prey)
     if id < 0:
         return
     var obj := instance_from_id(id)

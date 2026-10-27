@@ -84,3 +84,6 @@ NOTICE_BEAR_FLED,You drove the polar bear away!,北極熊被趕跑了!
 NOTICE_BEAR_LEFT,The polar bear left: nobody was left to eat,北極熊走了:沒人可吃
 HINT_BEAR_WEAPON,A polar bear! Buy a weapon at the shop outside the village (west gate),北極熊來了!快去村外(西邊出口)的武器店買武器
 HINT_BEAR_CHASE,Run at the polar bear with your weapon to drive it off,拿著武器衝向北極熊把牠趕走
+SHOP_expand_village,Expand the village,擴建村莊
+PAD_REBUY,Rebuy ×%s,買回 ×%s
+NOTICE_BEAR_PACK,%d polar bears are coming!,%d 隻北極熊來了!

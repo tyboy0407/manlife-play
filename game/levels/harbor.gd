@@ -6,21 +6,28 @@ extends Node3D
 ## 帶著現金穿過走道才不會順手付進別的牌。
 ## 解鎖:unlock 效果的 target 查 UNLOCKS 生工作站 / 櫃台;僱用生 Helper。存檔:GameState + snapshot(),自動存、關閉存、F9 重來。
 ## 村外(西邊出口 z 1.2 ~ 3.8 的缺口外)是武器店的小院子:店屋 + 老闆 + 武器牌(shop.json weapon,三級漲價);
-## 北極熊(BearSpawner)從地圖邊緣進來吃幫手,玩家要帶武器靠近才趕得走;被吃的幫手由 helper_eaten 結算。
+## 北極熊(BearSpawner)從地圖邊緣進來吃幫手,玩家要帶武器靠近才趕得走;被吃的幫手由 helper_eaten 結算(僱用牌退名額、買回 1.5 倍)。
+## 擴建村莊(shop.json expand_village $1000,unlock village_2):拆掉東門(EAST_GATE_Z 那段牆與柵欄),往東蓋 annex:沙地、第二個水區、
+## 第二座切魚台 + 烤魚攤、第二組櫃台(顧客跟著變多)。
 
-const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0)}
-const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill"}
-const COUNTER_SPOTS := {"fillet_counter": Vector3(-9.0, 0, 8.5), "grill_counter": Vector3(3.0, 0, 8.5)}
+const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
+    "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0)}
+const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill", "station_3": "cutting_table", "grill_2": "grill"}
+const COUNTER_SPOTS := {"fillet_counter": Vector3(-9.0, 0, 8.5), "grill_counter": Vector3(3.0, 0, 8.5),
+    "fillet_counter_2": Vector3(15.0, 0, 8.5), "grill_counter_2": Vector3(25.0, 0, 8.5)}
 const PAD_SPOTS := {
     "hire_fisher": Vector3(-10.0, 0, 5.0), "hire_porter": Vector3(-6.0, 0, 5.0), "hire_cashier": Vector3(-2.0, 0, 5.0),
     "capacity_1": Vector3(2.0, 0, 5.0), "upgrade_worker_speed": Vector3(6.0, 0, 5.0), "upgrade_pile_cap": Vector3(10.0, 0, 5.0),
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
-    "weapon": Vector3(-19.5, 0, 4.0),
+    "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0),
 }
 const UNLOCKS := {
     "station_2": {"stations": ["station_2"], "counters": []},
     "grill_complex": {"stations": ["grill"], "counters": ["grill_counter"]},
+    "village_2": {"stations": ["station_3", "grill_2"], "counters": ["fillet_counter_2", "grill_counter_2"], "annex": true},
 }
+const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆可拆的那段(擴建後通往 annex)
+const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 擴建區(x 13 ~ 31.6)
 const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
 const HELPER_SPAWN := Vector3(0.0, 0, -3.0)
@@ -30,7 +37,11 @@ const WEAPON_SHOP := Vector3(-19.5, 0, -1.4)  # 武器店店屋中心
 const SHOPKEEPER_SPOT := Vector3(-19.5, 0, 0.6)
 
 var player: Player
-var fish_area: FishArea
+var fish_area: FishArea                 # 第一個水區(fish_areas[0])
+var fish_areas: Array[FishArea] = []
+var annex: StaticBatch = null           # 擴建區的布景(蓋了才有)
+var east_gate: StaticBody3D = null      # 東門的隱形牆(擴建時拆)
+var east_gate_mesh: MeshInstance3D = null
 var stations: Array[Station] = []
 var counters: Array[Counter] = []
 var money_pad: MoneyPad
@@ -66,6 +77,7 @@ func _ready() -> void:
     fish_area.name = "FishArea"
     fish_area.rect = Rect2(-8.0, -11.0, 16.0, 7.0)
     world.add_child(fish_area)
+    fish_areas.append(fish_area)
     _build_pen_decoration()
     scenery.build()
     _apply_quality()
@@ -150,11 +162,17 @@ func _build_terrain() -> void:
     # 西牆留缺口(GATE_Z)通往村外的武器店
     _wall(Vector3(-12.6, 1, (-13.0 + GATE_Z.x) / 2.0), Vector3(0.4, 2, GATE_Z.x + 13.0))
     _wall(Vector3(-12.6, 1, (GATE_Z.y + 13.0) / 2.0), Vector3(0.4, 2, 13.0 - GATE_Z.y))
-    _wall(Vector3(12.6, 1, 0), Vector3(0.4, 2, 26))
+    # 東牆中段是可拆的門(擴建村莊時打開)
+    _wall(Vector3(12.6, 1, (-13.0 + EAST_GATE_Z.x) / 2.0), Vector3(0.4, 2, EAST_GATE_Z.x + 13.0))
+    _wall(Vector3(12.6, 1, (EAST_GATE_Z.y + 13.0) / 2.0), Vector3(0.4, 2, 13.0 - EAST_GATE_Z.y))
+    east_gate = _wall(Vector3(12.6, 1, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0), Vector3(0.4, 2, EAST_GATE_Z.y - EAST_GATE_Z.x))
     _wall(Vector3(0, 1, 12.6), Vector3(26, 2, 0.4))
     _wall(Vector3(0, 1, -11.2), Vector3(26, 2, 0.4))
     var fence := Color(0.8, 0.62, 0.42)
-    scenery.add_box(Vector3(0.25, 0.9, 16.5), fence, Vector3(12.4, 0.45, 4.0))
+    east_gate_mesh = VisualFactory.box(Vector3(0.25, 0.9, EAST_GATE_Z.y - EAST_GATE_Z.x + 0.25), fence,
+            Vector3(12.4, 0.45, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0))
+    world.add_child(east_gate_mesh)
+    scenery.add_box(Vector3(0.25, 0.9, 12.25 - EAST_GATE_Z.y), fence, Vector3(12.4, 0.45, (EAST_GATE_Z.y + 12.25) / 2.0))
     scenery.add_box(Vector3(0.25, 0.9, GATE_Z.x + 4.25), fence, Vector3(-12.4, 0.45, (GATE_Z.x - 4.25) / 2.0))
     scenery.add_box(Vector3(0.25, 0.9, 12.25 - GATE_Z.y), fence, Vector3(-12.4, 0.45, (GATE_Z.y + 12.25) / 2.0))
     scenery.add_box(Vector3(25, 0.9, 0.25), fence, Vector3(0, 0.45, 12.4))
@@ -194,7 +212,85 @@ func _build_outside() -> void:
     shopkeeper.add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
 
 
-func _wall(pos: Vector3, size: Vector3) -> void:
+## 擴建區(annex):拆東門,往東蓋沙地、柵欄、隱形牆、第二個水區與深水池;建築由 _spawn_unlock 依 UNLOCKS 生
+func _build_annex() -> void:
+    if annex != null:
+        return
+    if east_gate != null:
+        east_gate.queue_free()
+        east_gate = null
+    if east_gate_mesh != null:
+        east_gate_mesh.queue_free()
+        east_gate_mesh = null
+    annex = StaticBatch.new()
+    annex.name = "Annex"
+    world.add_child(annex)
+    var fence := Color(0.8, 0.62, 0.42)
+    var cx := ANNEX_RECT.get_center().x
+    annex.add_box(Vector3(ANNEX_RECT.size.x, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(cx, -0.02, 4.0))
+    annex.add_box(Vector3(0.25, 0.9, 16.5), fence, Vector3(ANNEX_RECT.end.x - 0.2, 0.45, 4.0))
+    annex.add_box(Vector3(ANNEX_RECT.size.x, 0.9, 0.25), fence, Vector3(cx, 0.45, 12.4))
+    annex.add_box(Vector3(16, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(cx, -0.04, -14.0))
+    for i in 17:
+        var x := cx - 8.0 + float(i)
+        if absf(x - cx) <= 1.5:
+            continue
+        annex.add_cylinder(0.14, 1.1, fence, Vector3(x, 0.55, -11.5))
+    annex.add_box(Vector3(16, 0.3, 0.3), fence, Vector3(cx, 0.95, -11.5))
+    annex.build()
+    _wall(Vector3(ANNEX_RECT.end.x, 1, 0), Vector3(0.4, 2, 26))
+    _wall(Vector3(cx, 1, 12.6), Vector3(ANNEX_RECT.size.x + 0.4, 2, 0.4))
+    _wall(Vector3(cx, 1, -11.2), Vector3(ANNEX_RECT.size.x + 0.4, 2, 0.4))
+    var fa := FishArea.new()
+    fa.name = "FishArea2"
+    fa.rect = Rect2(cx - 8.0, -11.0, 16.0, 7.0)
+    world.add_child(fa)
+    fish_areas.append(fa)
+    _apply_quality()
+
+
+func is_expanded() -> bool:
+    return annex != null
+
+
+## 離 pos 最近的水區(站在某個水區裡就是它)
+func nearest_fish_area(pos: Vector3) -> FishArea:
+    var best: FishArea = null
+    var best_d := INF
+    for fa in fish_areas:
+        if fa.contains(pos):
+            return fa
+        var r := fa.rect
+        var d := Vector2(clampf(pos.x, r.position.x, r.end.x) - pos.x, clampf(pos.z, r.position.y, r.end.y) - pos.z).length()
+        if d < best_d:
+            best_d = d
+            best = fa
+    return best
+
+
+## 漁夫該去哪個水區:漁夫最少的那個,一樣多就最近的
+func pick_fish_area(h: Helper) -> FishArea:
+    if fish_areas.is_empty():
+        return null
+    var counts := {}
+    for other in helpers:
+        if other != h and other.role == "fisher" and other.fish_area != null:
+            counts[other.fish_area] = int(counts.get(other.fish_area, 0)) + 1
+    var best: FishArea = null
+    var best_n := 1 << 30
+    var best_d := INF
+    for fa in fish_areas:
+        var n := int(counts.get(fa, 0))
+        var r := fa.rect
+        var d := Vector2(r.get_center().x - h.global_position.x, r.get_center().y - h.global_position.z).length()
+        if n < best_n or (n == best_n and d < best_d):
+            best = fa
+            best_n = n
+            best_d = d
+    return best
+
+
+func _wall(pos: Vector3, size: Vector3) -> StaticBody3D:
     var body := StaticBody3D.new()
     body.collision_layer = 1 << (Carrier.TERRAIN_LAYER - 1)
     body.collision_mask = 0
@@ -205,6 +301,7 @@ func _wall(pos: Vector3, size: Vector3) -> void:
     body.add_child(shape)
     body.position = pos
     world.add_child(body)
+    return body
 
 
 ## 魚欄裝飾:北邊的深水池 + 柵欄 + 閘門(併進 scenery)+ 幾條裝飾魚(抓不到;會動所以是獨立節點,數量少一點)
@@ -252,6 +349,8 @@ func _spawn_unlock(target: String) -> void:
         return
     _spawned_unlocks[target] = true
     var spec: Dictionary = UNLOCKS[target]
+    if bool(spec.get("annex", false)):
+        _build_annex()
     for sid in spec.get("stations", []):
         _add_station(str(sid))
     for cid in spec.get("counters", []):
@@ -305,7 +404,7 @@ func _assign_cashiers() -> void:
                 break
 
 
-## 幫手被北極熊吃掉:從名單移除、收銀員的櫃台空出來、GameState 角色計數 -1(牌子次數不退)、外觀縮小消失
+## 幫手被北極熊吃掉:從名單移除、收銀員的櫃台空出來、GameState 角色計數 -1、僱用牌退一個名額(買回價 ×1.5)、外觀縮小消失
 func helper_eaten(h: Helper, _bear: Node3D) -> void:
     if h == null or not is_instance_valid(h) or h.eaten:
         return
@@ -314,11 +413,23 @@ func helper_eaten(h: Helper, _bear: Node3D) -> void:
         if c.cashier == h:
             c.cashier = null
     GameState.lose_helper(h.role)
+    var pad := hire_pad_for(h.role)
+    if pad != null:
+        pad.on_helper_lost()
     h.be_eaten()
     EventBus.helper_eaten.emit(h.role, h)
     EventBus.notice.emit(tr("NOTICE_BEAR_ATE") % tr("ROLE_%s" % h.role))
     _assign_cashiers()
     save_now()
+
+
+## 僱用 role 的那塊牌(沒有回 null)
+func hire_pad_for(role: String) -> PricePad:
+    for id in price_pads:
+        var p: PricePad = price_pads[id]
+        if str(p.logic.effect.get("type", "")) == "hire" and str(p.logic.effect.get("role", "")) == role:
+            return p
+    return null
 
 
 func _spawn_flash(pos: Vector3) -> void:
@@ -418,7 +529,7 @@ func snapshot() -> Dictionary:
     var pads_d := {}
     for id in price_pads:
         var p: PricePad = price_pads[id]
-        pads_d[str(id)] = {"remaining": p.logic.remaining, "buys": p.logic.buys}
+        pads_d[str(id)] = {"remaining": p.logic.remaining, "buys": p.logic.buys, "lost": p.logic.lost}
     return {
         "player": {"item": player.stack.item_id, "count": player.stack.count},
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d,
@@ -454,7 +565,8 @@ func restore_world(d: Dictionary) -> void:
     if typeof(pads) == TYPE_DICTIONARY:
         for id in pads:
             if price_pads.has(str(id)) and typeof(pads[id]) == TYPE_DICTIONARY:
-                (price_pads[str(id)] as PricePad).restore_state(int(pads[id].get("buys", 0)), int(pads[id].get("remaining", 0)))
+                (price_pads[str(id)] as PricePad).restore_state(int(pads[id].get("buys", 0)), int(pads[id].get("remaining", 0)),
+                        int(pads[id].get("lost", 0)))
     var bear_d = d.get("bear", {})
     if bears != null and typeof(bear_d) == TYPE_DICTIONARY:
         bears.restore(bear_d)

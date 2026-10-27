@@ -1,7 +1,8 @@
 class_name Counter
 extends Node3D
 ## 櫃台:上架格(local -X)+ 櫃台桌 + 收銀格(local +Z,要有會收銀的人站著才賣)+ 排隊位(local +X 一排)。
-## 顧客從出生點走到自己的排隊位,輪到最前面、有貨、有人收銀就買 1 件,錢進 money_pad,然後走向出口消失;後面的往前補。
+## 顧客從出生點走到自己的排隊位,輪到最前面、有貨、有人收銀就買 want 件(customers.wantWeights 抽 1 ~ N 件;庫存不夠就買得到幾件算幾件),
+## 錢進 money_pad,然後走向出口消失;後面的往前補。
 ## 規則在 CounterLogic;庫存上限吃 pile_cap 升級。資料在 data/counters.json。
 
 var def := {}
@@ -20,6 +21,7 @@ var serve_interval := 0.35
 var spawn_offset := Vector3(12.0, 0, 1.5)   # local:顧客出生點
 var exit_offset := Vector3(12.0, 0, 4.0)    # local:離開點
 var served_total := 0
+var want_weights: Array = [1]
 
 var _spawn_timer := 0.5
 var _serve_timer := 0.0
@@ -43,6 +45,8 @@ func _ready() -> void:
     max_customers = int(ccfg.get("max", 6))
     spawn_interval = maxf(float(ccfg.get("spawnIntervalSec", 2.0)), 0.1)
     serve_interval = maxf(float(ccfg.get("serveIntervalSec", 0.35)), 0.0)
+    var ww = ccfg.get("wantWeights", [1])
+    want_weights = ww if typeof(ww) == TYPE_ARRAY and not ww.is_empty() else [1]
     add_child(VisualFactory.box(Vector3(1.0, 1.0, 2.6), Color(0.75, 0.52, 0.28), Vector3(0, 0.5, 0)))
     add_child(VisualFactory.box(Vector3(1.2, 0.08, 2.8), Color(0.85, 0.65, 0.4), Vector3(0, 1.04, 0)))
     var title := str(def.get("name", "COUNTER_%s" % def_id))
@@ -131,7 +135,7 @@ func _physics_process(delta: float) -> void:
 
 func _spawn_customer() -> void:
     var c := Customer.new()
-    c.want = 1
+    c.want = CounterLogic.roll_want(want_weights, randf())
     c.item_name = GameData.item_name(logic.item_id)
     get_parent().add_child(c)
     c.global_position = to_global(spawn_offset + Vector3(0, 0, randf_range(-0.5, 0.5)))

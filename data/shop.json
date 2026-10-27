@@ -7,6 +7,7 @@
       "repeatable": true,
       "maxBuys": 3,
       "costMult": 1.8,
+      "rebuyMult": 1.5,
       "effect": {
         "type": "hire",
         "role": "fisher"
@@ -19,6 +20,7 @@
       "repeatable": true,
       "maxBuys": 2,
       "costMult": 1.8,
+      "rebuyMult": 1.5,
       "effect": {
         "type": "hire",
         "role": "porter"
@@ -31,6 +33,7 @@
       "repeatable": true,
       "maxBuys": 2,
       "costMult": 1.8,
+      "rebuyMult": 1.5,
       "effect": {
         "type": "hire",
         "role": "cashier"
@@ -101,6 +104,15 @@
       "costMult": 1.7,
       "effect": {
         "type": "weapon"
+      }
+    },
+    {
+      "id": "expand_village",
+      "name": "SHOP_expand_village",
+      "cost": 1000,
+      "effect": {
+        "type": "unlock",
+        "target": "village_2"
       }
     }
   ]

@@ -66,13 +66,18 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 9 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35], "shop.json:九塊牌(含村外武器店)%s" % str(costs))
+    _check(shop.size() == 10 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000], "shop.json:十塊牌(含村外武器店、擴建村莊)%s" % str(costs))
+    _check(str(GameData.purchase("expand_village").get("effect", {}).get("target", "")) == "village_2"
+            and is_equal_approx(float(GameData.purchase("hire_fisher").get("rebuyMult", 0.0)), 1.5), "擴建村莊牌解鎖 village_2;僱用牌買回 ×1.5")
     _check(str(GameData.purchase("weapon").get("effect", {}).get("type", "")) == "weapon" and int(GameData.purchase("weapon").get("maxBuys", 0)) == 3,
             "武器牌:效果 weapon、三級")
     _check(bool(GameData.purchase("expand_table").get("buildSpot", false)) and GameData.purchase("nope").is_empty(),
             "建地牌旗標;未知購買回空")
-    _check(GameData.counters().size() == 2 and int(GameData.counter("grill_counter").get("price", 0)) == 5
-            and str(GameData.counter("fillet_counter").get("item", "")) == "fillet", "counters.json:魚片櫃台 $2、烤魚櫃台 $5")
+    _check(GameData.counters().size() == 4 and int(GameData.counter("grill_counter").get("price", 0)) == 5
+            and str(GameData.counter("fillet_counter").get("item", "")) == "fillet" and str(GameData.counter("grill_counter_2").get("item", "")) == "grilled",
+            "counters.json:魚片櫃台 $2、烤魚櫃台 $5、擴建區的第二組")
+    _check(GameData.section("customers").get("wantWeights", []).size() == 5 and float(GameData.config().get("payScaleCost", 0.0)) > 0.0,
+            "顧客要 1 ~ 5 件的權重;大額牌付款加速門檻")
     _check(str(GameData.station("grill").get("input", "")) == "fillet" and str(GameData.station("grill").get("output", "")) == "grilled"
             and GameData.item("grilled").has("color"), "烤魚攤:魚片 -> 烤魚;烤魚物品存在")
     _check(GameData.helper("porter").has("speed") and GameData.helper("cashier").has("capacity") and GameData.helper("nope").is_empty(),
@@ -165,6 +170,32 @@ func _test_purchase() -> void:
     _check(r2.is_exhausted() and r2.remaining == 0, "存檔還原:買滿")
     r2.restore(0, 0)
     _check(r2.buys == 0 and r2.remaining == 10, "存檔還原:剩 0 但沒買滿 -> 重設成整價")
+    # 被吃掉買回:退一個名額,價格 = 該級 × 1.5,買回後回到正常階梯
+    var r3 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    _check(not r3.lose() and r3.buys == 0 and r3.lost == 0, "沒僱過就沒得退")
+    r3.pay(10)
+    r3.complete()
+    r3.pay(10)
+    r3.complete()
+    var before := r3.current_cost()
+    _check(r3.buys == 2 and before == 32 and r3.lose() and r3.buys == 1 and r3.lost == 1 and r3.is_rebuy() and r3.current_cost() == 27
+            and r3.remaining == 27, "兩個漁夫被吃一個:第二級 $18 × 1.5 = $27 買回(下一級本來 $32)")
+    r3.pay(27)
+    _check(r3.is_paid(), "付清買回價")
+    r3.complete()
+    _check(r3.buys == 2 and r3.lost == 0 and not r3.is_rebuy() and r3.current_cost() == 32 and r3.remaining == 32, "買回後名額補回、下一級回到正常的 $32")
+    r3.pay(12)
+    r3.lose()
+    _check(r3.buys == 1 and r3.lost == 1 and r3.remaining == 27 - 12, "付到一半被吃:已付的 $12 保留在買回價裡")
+    r3.pay(99)
+    r3.complete()
+    r3.pay(99)
+    r3.complete()
+    _check(r3.is_exhausted(), "買回 + 第三級 -> 買滿")
+    _check(r3.lose() and not r3.is_exhausted() and r3.buys == 2 and r3.current_cost() == 49 and r3.remaining == 49, "買滿後被吃:牌子重新開放,第三級 $32.4 × 1.5 = $49")
+    var r4 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    r4.restore(1, 27, 1)
+    _check(r4.buys == 1 and r4.lost == 1 and r4.current_cost() == 27 and r4.remaining == 27, "存檔還原:帶著待買回的名額")
 
 
 ## --- 櫃台 ---
@@ -180,6 +211,11 @@ func _test_counter() -> void:
     _check(int(r["sold"]) == 3 and int(r["cash"]) == 6 and c.stock == 0, "只賣得出剩下的 3 件")
     r = c.serve(1)
     _check(int(r["sold"]) == 0 and int(r["cash"]) == 0, "沒貨賣不出")
+    var w := [45, 25, 15, 10, 5]
+    _check(CounterLogic.roll_want(w, 0.0) == 1 and CounterLogic.roll_want(w, 0.449) == 1 and CounterLogic.roll_want(w, 0.45) == 2
+            and CounterLogic.roll_want(w, 0.699) == 2 and CounterLogic.roll_want(w, 0.7) == 3 and CounterLogic.roll_want(w, 0.85) == 4
+            and CounterLogic.roll_want(w, 0.951) == 5 and CounterLogic.roll_want(w, 1.0) == 5 and CounterLogic.roll_want([], 0.5) == 1
+            and CounterLogic.roll_want([1], 0.9) == 1, "顧客要幾件:權重 45 / 25 / 15 / 10 / 5 -> 1 ~ 5 件;沒權重 1 件")
 
 
 ## --- 輸入 ---
@@ -435,25 +471,28 @@ func _test_guide() -> void:
 
 func _test_bear() -> void:
     var b := BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
-    _near(b.first_delay(), 45.0, "第一隻熊:僱幫手後 45 秒", 0.001)
-    _check(b.interval() == Vector2(60.0, 90.0) and is_equal_approx(b.bite_sec(), 4.0) and is_equal_approx(b.bite_radius(), 1.4)
+    _check(is_equal_approx(b.bite_sec(), 4.0) and is_equal_approx(b.bite_radius(), 1.4)
             and b.panic_radius() >= b.bite_radius() and b.speed() > 0.0 and b.flee_speed() >= b.speed() and b.entries().size() == 2,
-            "間隔 60 ~ 90 秒、咬 4 秒、嚇呆半徑 >= 咬的半徑、兩個入口")
+            "咬 4 秒、嚇呆半徑 >= 咬的半徑、兩個入口")
     _check(b.weapon_max_level() == 3 and is_equal_approx(b.scare_radius(0), 0.0) and is_equal_approx(b.scare_radius(1), 1.8)
             and is_equal_approx(b.scare_radius(2), 1.8) and is_equal_approx(b.scare_radius(3), 6.0) and is_equal_approx(b.scare_radius(9), 6.0),
             "武器三級:沒武器嚇不走、Lv1 / Lv2 要靠到 1.8、Lv3 看到(6)就逃;超過最高級當最高級")
     _check(not b.can_scare(0, 0.1) and b.can_scare(1, 1.8) and not b.can_scare(1, 2.0) and b.can_scare(3, 5.0), "can_scare:等級 × 距離")
     _near(b.cooldown_mult(1), 1.0, "Lv1 冷卻倍率 1", 0.001)
     _near(b.cooldown_mult(2), 1.7, "Lv2 冷卻倍率 1.7", 0.001)
-    _near(b.next_cooldown(0, 0.0), 60.0, "下次冷卻:最短 60", 0.001)
-    _near(b.next_cooldown(3, 1.0), 153.0, "下次冷卻:Lv3 最長 90 × 1.7", 0.001)
+    _near(b.next_cooldown(0, 0.0), 35.0, "下次冷卻:最短 35", 0.001)
+    _near(b.next_cooldown(3, 1.0), 93.5, "下次冷卻:Lv3 最長 55 × 1.7", 0.001)
     _check(str(b.weapon_model(3).get("file", "")).contains("axe-upgraded") and b.weapon_model(0).is_empty(), "武器模型:Lv3 強化斧、Lv0 沒有")
+    _check(b.pack_size(0.0) == 4 and b.pack_size(0.099) == 4 and b.pack_size(0.1) == 3 and b.pack_size(0.399) == 3 and b.pack_size(0.4) == 2
+            and b.pack_size(0.899) == 2 and b.pack_size(0.9) == 1 and b.pack_size(1.0) == 1, "一次幾隻:10% 4 隻、30% 3 隻、50% 2 隻、10% 1 隻")
+    _check(b.interval() == Vector2(35.0, 55.0) and is_equal_approx(b.first_delay(), 40.0), "出沒更頻繁:第一群 40 秒、之後 35 ~ 55 秒")
+    _check(b.entries(true).size() == 2 and b.entries(true)[1].x > 30.0 and b.entries(false)[1].x < 20.0, "擴建後東邊入口移到 annex 外")
     var prey := [{"id": 1, "pos": Vector3(10, 0, 0)}, {"id": 2, "pos": Vector3(3, 5, 4)}, {"id": 3, "pos": Vector3(-8, 0, 1)}]
     _check(BearLogic.pick_target(Vector3.ZERO, prey) == 2 and BearLogic.pick_target(Vector3(-7, 0, 0), prey) == 3
             and BearLogic.pick_target(Vector3.ZERO, []) == -1, "盯上平面距離最近的幫手(忽略高度);沒幫手回 -1")
     var empty := BearLogic.from_config({}, {})
-    _check(empty.scare_radius(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0,
-            "沒設定也不會爆:沒武器等級、沒入口、用預設秒數")
+    _check(empty.scare_radius(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0
+            and empty.pack_size(0.5) == 1, "沒設定也不會爆:沒武器等級、沒入口、用預設秒數、一次一隻")
 
 
 ## --- 裝置偏好 ---

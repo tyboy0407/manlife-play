@@ -6,6 +6,7 @@
   "cashPickupPerSec": 40,
   "payPerSec": 15,
   "payDelaySec": 0.6,
+  "payScaleCost": 100,
   "fish": {
     "maxInWater": 18,
     "spawnIntervalSec": 0.5,
@@ -16,7 +17,8 @@
     "max": 6,
     "spawnIntervalSec": 2.0,
     "serveIntervalSec": 0.35,
-    "speed": 3.5
+    "speed": 3.5,
+    "wantWeights": [45, 25, 15, 10, 5]
   },
   "autosaveSec": 10,
   "trashPerSec": 12,
@@ -63,14 +65,16 @@
   },
   "bear": {
     "enabled": true,
-    "firstDelaySec": 45,
-    "intervalSec": [60, 90],
+    "firstDelaySec": 40,
+    "intervalSec": [35, 55],
+    "packChances": [[4, 0.10], [3, 0.30], [2, 0.50], [1, 0.10]],
     "speed": 4.0,
     "fleeSpeed": 7.5,
     "biteSec": 4.0,
     "biteRadius": 1.4,
     "panicRadius": 2.6,
     "entries": [[-16, -8], [16, -8]],
+    "entriesExpanded": [[-16, -8], [35, -8]],
     "length": 2.6
   },
   "weapon": {

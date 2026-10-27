@@ -2,7 +2,8 @@ class_name BearLogic
 extends RefCounted
 ## 北極熊規則(純資料,可 headless 測試):多久來一次(冷卻)、盯上誰(最近的幫手)、咬多久吃掉、
 ## 玩家的武器等級能在多遠把牠嚇跑、嚇跑後下次要隔多久(武器等級的 cooldownMult)。
-## 數值在 game.json:bear {firstDelaySec, intervalSec [min, max], speed, fleeSpeed, biteSec, biteRadius, panicRadius, entries [[x, z]...]}
+## 數值在 game.json:bear {firstDelaySec, intervalSec [min, max], speed, fleeSpeed, biteSec, biteRadius, panicRadius, entries [[x, z]...],
+## entriesExpanded(村莊擴建後的入口), packChances [[隻數, 機率]...](一次來幾隻)}
 ## 與 weapon {levels: [{scareRadius, cooldownMult, model {file, length}}...]}(第 i 項 = 武器 Lv i+1;Lv0 = 沒武器,嚇不走)。
 
 var cfg := {}
@@ -62,15 +63,32 @@ func flee_speed() -> float:
     return maxf(float(cfg.get("fleeSpeed", 7.5)), speed())
 
 
-## 熊從哪幾個邊緣點進來(世界 XZ)
-func entries() -> Array[Vector3]:
+## 熊從哪幾個邊緣點進來(世界 XZ);expanded = 村莊擴建後用 entriesExpanded(沒設定就同 entries)
+func entries(expanded: bool = false) -> Array[Vector3]:
     var out: Array[Vector3] = []
-    var v = cfg.get("entries", [])
+    var v = cfg.get("entriesExpanded", null) if expanded else null
+    if typeof(v) != TYPE_ARRAY:
+        v = cfg.get("entries", [])
     if typeof(v) == TYPE_ARRAY:
         for p in v:
             if typeof(p) == TYPE_ARRAY and p.size() >= 2:
                 out.append(Vector3(float(p[0]), 0.0, float(p[1])))
     return out
+
+
+## 一次來幾隻:packChances 依序累加機率,roll(0 ~ 1)落在哪段;沒設定或機率加總不到就 1 隻
+func pack_size(roll: float) -> int:
+    var v = cfg.get("packChances", [])
+    if typeof(v) != TYPE_ARRAY:
+        return 1
+    var acc := 0.0
+    for e in v:
+        if typeof(e) != TYPE_ARRAY or e.size() < 2:
+            continue
+        acc += maxf(float(e[1]), 0.0)
+        if roll < acc:
+            return maxi(int(e[0]), 1)
+    return 1
 
 
 ## --- 武器 ---

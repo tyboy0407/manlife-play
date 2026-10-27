@@ -3,7 +3,8 @@ extends Pad
 ## 價格牌:會收錢的 carrier(玩家)站上來停留 payDelaySec 後,從錢包(GameState.wallet)一張張扣(payPerSec),走開暫停;
 ## 付清 -> GameState.apply_purchase。停留時間是為了「帶著錢走過牌子不會順手付掉」。
 ## 可重複買的牌付清後價格漲一級、留在原地,但付錢的人要先走開再踏上來才會開始付下一次(避免站著不動就把錢一直吃掉);
-## 買滿或一次性的牌付清就消失。build_spot = 橘色半透明建地。付款中發黃光。
+## 買滿或一次性的牌付清就消失;僱用牌的幫手被吃掉(on_helper_lost)名額退回來、牌子重新出現並標「買回 ×1.5」。
+## 付款速度 payPerSec × max(1, 本次價格 / payScaleCost):大額牌(擴建村莊 $1000)不用站一分鐘。build_spot = 橘色半透明建地。付款中發黃光。
 
 var logic: PurchaseLogic
 var build_spot := false
@@ -42,6 +43,8 @@ func _update_label() -> void:
     var text := "%s\n$%d" % [tr(logic.name_key), logic.remaining]
     if logic.repeatable:
         text += "\n(%d/%d)" % [logic.buys + 1, logic.max_buys]
+    if logic.is_rebuy():
+        text += "\n" + tr("PAD_REBUY") % str(logic.rebuy_mult)
     set_label(text)
     if ring != null:
         ring.set_progress(logic.progress())
@@ -57,7 +60,9 @@ func _on_carrier_stay(c: Carrier, delta: float) -> void:
     _dwell[key] = dwell
     if dwell < pay_delay or GameState.wallet <= 0:
         return
-    var n := _budget(c, float(GameData.config().get("payPerSec", 15.0)), delta)
+    var scale_cost := maxf(float(GameData.config().get("payScaleCost", 100.0)), 1.0)
+    var rate := float(GameData.config().get("payPerSec", 15.0)) * maxf(1.0, float(logic.current_cost()) / scale_cost)
+    var n := _budget(c, rate, delta)
     var paid := logic.pay(mini(n, GameState.wallet))
     if paid <= 0:
         return
@@ -107,10 +112,26 @@ func _disable() -> void:
     visible = false
 
 
-## 存檔還原:買過幾次、這一次還剩多少
-func restore_state(buys: int, remaining: int) -> void:
-    logic.restore(buys, remaining)
+func _enable() -> void:
+    set_deferred("monitoring", true)
+    set_physics_process(true)
+    visible = true
+
+
+## 這塊牌僱的幫手被吃掉了:名額退回來(買回價),買滿消失的牌也重新出現
+func on_helper_lost() -> void:
+    if not logic.lose():
+        return
+    _blocked.clear()
+    _enable()
+    _update_label()
+
+
+## 存檔還原:買過幾次、這一次還剩多少、幾個名額等著買回
+func restore_state(buys: int, remaining: int, lost: int = 0) -> void:
+    logic.restore(buys, remaining, lost)
     if logic.is_exhausted():
         _disable()
     else:
+        _enable()
         _update_label()

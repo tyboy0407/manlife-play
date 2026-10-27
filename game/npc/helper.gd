@@ -162,6 +162,10 @@ func _fisher(delta: float) -> void:
                 else:
                     _wait_timer = 1.0
         _:
+            if level != null:
+                var fa := level.pick_fish_area(self)
+                if fa != null:
+                    fish_area = fa
             if fish_area == null:
                 move_toward_dir(Vector3.ZERO, delta)
                 return
