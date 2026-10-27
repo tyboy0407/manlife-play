@@ -10,6 +10,8 @@ extends Node3D
 ## 擴建村莊(shop.json expand_village $1000,unlock village_2):把東牆整段拆掉(east_walls:三段隱形牆 + 柵欄,主村與 annex 連成一片,幫手不用繞門),往東蓋 annex:沙地、第二個水區、
 ## 第二座切魚台 + 烤魚攤、第二組櫃台(顧客跟著變多);僱用牌多開放名額(shop.json expandBuys:漁夫 +2、搬運工 +4、收銀員 +2)。
 ## 守衛塔(Tower):村莊四角各一座,牌子(tower_1 ~ tower_4,$200)就是地基;蓋好會朝靠近的熊射箭,被熊拆掉後站回地基花 $200 修。
+## 北極熊王會拆工作站(切魚台 / 烤魚攤):_add_station 時順便生一塊藏著的修復牌(repair_<spot_id>,shop.json repairStation $200)在桌子位置,
+## 被拆(station_destroyed)才出現,付清 _on_purchased "repair" 修好。
 
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
     "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0)}
@@ -350,10 +352,19 @@ func _add_station(spot_id: String) -> Station:
     var def := GameData.station(str(STATION_DEFS.get(spot_id, "cutting_table")))
     var s := Station.create(def)
     s.spot_id = spot_id
+    s.level = self
     s.name = "Station_%s" % spot_id
     s.position = STATION_SPOTS.get(spot_id, Vector3.ZERO)
     world.add_child(s)
     stations.append(s)
+    # 修復牌:就在桌子的位置,完好時藏著(當作已買),被王拆了 on_lost 才出現
+    var rdef := GameData.repair_station()
+    var pad := PricePad.create({"id": "repair_%s" % spot_id, "name": s.display_name_key(), "cost": int(rdef.get("cost", 200)),
+            "rebuyMult": 1.0, "effect": {"type": "repair", "target": spot_id}})
+    pad.position = s.position
+    world.add_child(pad)
+    pad.restore_state(1, 0)
+    price_pads[pad.logic.id] = pad
     return s
 
 
@@ -395,6 +406,20 @@ func counter_by_id(id: String) -> Counter:
         if c.def_id == id:
             return c
     return null
+
+
+## 這座工作站的修復牌(效果 repair、target = spot_id)
+func repair_pad_for(spot_id: String) -> PricePad:
+    return price_pads.get("repair_%s" % spot_id, null) as PricePad
+
+
+## 工作站被北極熊王拆了:修復牌出現、通知、存檔
+func station_destroyed(s: Station, _by: Node3D) -> void:
+    var pad := repair_pad_for(s.spot_id)
+    if pad != null:
+        pad.on_lost()
+        EventBus.notice.emit(tr("NOTICE_STATION_DESTROYED") % [tr(s.display_name_key()), pad.logic.current_cost()])
+    save_now()
 
 
 ## --- 守衛塔 ---
@@ -533,7 +558,7 @@ func find_station_accepting(item: String) -> Station:
     var best: Station = null
     var best_space := 0
     for s in stations:
-        if s.logic.input_id == item and s.logic.input_space() > best_space:
+        if not s.is_broken() and s.logic.input_id == item and s.logic.input_space() > best_space:
             best = s
             best_space = s.logic.input_space()
     return best
@@ -541,7 +566,7 @@ func find_station_accepting(item: String) -> Station:
 
 func find_station_with_input(item: String) -> Station:
     for s in stations:
-        if s.logic.input_id == item:
+        if not s.is_broken() and s.logic.input_id == item:
             return s
     return null
 
@@ -549,17 +574,19 @@ func find_station_with_input(item: String) -> Station:
 ## 產 item 且輸出堆還有空位的工作站(搬運工把送不出去的貨放回去用)
 func find_station_with_output(item: String) -> Station:
     for s in stations:
-        if s.logic.output_id == item and s.logic.output_count < s.logic.output_cap:
+        if not s.is_broken() and s.logic.output_id == item and s.logic.output_count < s.logic.output_cap:
             return s
     return null
 
 
-## 給 PorterPlanner 的目的地清單:櫃台(賣什麼)+ 工作站原料(吃什麼、產什麼),帶 node 方便對回去
+## 給 PorterPlanner 的目的地清單:櫃台(賣什麼)+ 工作站原料(吃什麼、產什麼),帶 node 方便對回去;被拆的工作站不算
 func porter_dests() -> Array:
     var out := []
     for c in counters:
         out.append({"id": c.get_instance_id(), "node": c, "kind": "counter", "item": c.logic.item_id, "stock": c.logic.stock, "cap": c.logic.stock_cap})
     for s in stations:
+        if s.is_broken():
+            continue
         out.append({"id": s.get_instance_id(), "node": s, "kind": "station", "item": s.logic.input_id, "stock": s.logic.input_count,
                 "cap": s.logic.input_cap, "out": s.logic.output_id})
     return out
@@ -569,6 +596,8 @@ func porter_dests() -> Array:
 func porter_sources() -> Array:
     var out := []
     for s in stations:
+        if s.is_broken():
+            continue
         out.append({"id": s.get_instance_id(), "node": s, "item": s.logic.output_id, "count": s.logic.output_count})
     return out
 
@@ -605,15 +634,20 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
                 var repaired := t.is_broken()
                 t.build()
                 EventBus.notice.emit(tr("NOTICE_TOWER_REPAIRED" if repaired else "NOTICE_TOWER_BUILT"))
+        "repair":
+            var s := station_at(str(effect.get("target", "")))
+            if s != null:
+                s.repair()
+                EventBus.notice.emit(tr("NOTICE_STATION_REPAIRED") % tr(s.display_name_key()))
 
 
 ## --- 存檔 ---
 
-## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆、各櫃台庫存、各價格牌進度、守衛塔狀態 / 血量、北極熊冷卻
+## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆 / 是否被拆、各櫃台庫存、各價格牌進度(含修復牌)、守衛塔狀態 / 血量、北極熊冷卻
 func snapshot() -> Dictionary:
     var stations_d := {}
     for s in stations:
-        stations_d[s.spot_id] = {"input": s.logic.input_count, "output": s.logic.output_count}
+        stations_d[s.spot_id] = {"input": s.logic.input_count, "output": s.logic.output_count, "broken": s.is_broken()}
     var counters_d := {}
     for c in counters:
         counters_d[c.def_id] = {"stock": c.logic.stock}
@@ -648,6 +682,7 @@ func restore_world(d: Dictionary) -> void:
                 s.logic.input_count = clampi(int(st[spot].get("input", 0)), 0, s.logic.input_cap)
                 s.logic.output_count = clampi(int(st[spot].get("output", 0)), 0, s.logic.output_cap)
                 s.refresh_piles()
+                s.set_broken(bool(st[spot].get("broken", false)))
     var ct = d.get("counters", {})
     if typeof(ct) == TYPE_DICTIONARY:
         for id in ct:
@@ -661,6 +696,11 @@ func restore_world(d: Dictionary) -> void:
             if price_pads.has(str(id)) and typeof(pads[id]) == TYPE_DICTIONARY:
                 (price_pads[str(id)] as PricePad).restore_state(int(pads[id].get("buys", 0)), int(pads[id].get("remaining", 0)),
                         int(pads[id].get("lost", 0)))
+    for s in stations:
+        # 廢墟的修復牌一定要開著(存檔沒記到牌子也一樣)
+        var rp := repair_pad_for(s.spot_id)
+        if s.is_broken() and rp != null and rp.logic.is_exhausted():
+            rp.on_lost()
     var towers_d = d.get("towers", {})
     for t in towers:
         if typeof(towers_d) == TYPE_DICTIONARY and typeof(towers_d.get(t.id, null)) == TYPE_DICTIONARY:

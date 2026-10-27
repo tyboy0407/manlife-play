@@ -45,6 +45,7 @@ func _ready() -> void:
     EventBus.fish_eaten.connect(func(_b: Node3D) -> void: play("chomp", 0.2))
     EventBus.tower_shot.connect(func(_t: Node3D, _b: Node3D) -> void: play("arrow"))
     EventBus.tower_destroyed.connect(func(_t: Node3D, _b: Node3D) -> void: play("crash"))
+    EventBus.station_destroyed.connect(func(_s: Node3D, _b: Node3D) -> void: play("crash"))
 
 
 func has(name: String) -> bool:

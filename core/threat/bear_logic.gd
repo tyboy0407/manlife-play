@@ -4,7 +4,8 @@ extends RefCounted
 ## 血量(遊戲時間越久越厚)、玩家武器各級的攻擊力與距離、北極熊王的參數。
 ## 數值在 game.json:bear {firstDelaySec, intervalSec [min, max], intervalMin [min, max], rampStartSec, rampSec, hpBase, hpPerMin,
 ## speed, fleeSpeed, biteSec, biteRadius, panicRadius, entries [[x, z]...], entriesExpanded, packChances [[隻數, 機率]...],
-## king {atSec, respawnSec, hpMult, biteSec, fishBiteSec, scale, growHelper, growFish, maxScale, healFish}}
+## king {atSec, respawnSec, hpMult, biteSec, fishBiteSec, buildingBiteSec, scale, growHelper, growFish, maxScale, healFish, healHelper}}
+## 王吃魚 / 吃幫手只變大不回血(healFish / healHelper 0),咬建築(工作站 / 守衛塔)buildingBiteSec 秒就拆掉。
 ## 與 weapon {attackIntervalSec, levels: [{damage, range, model {file, length}}...]}(第 i 項 = 武器 Lv i+1;Lv0 = 沒武器,打不了)。
 
 var cfg := {}
@@ -108,9 +109,19 @@ func king_max_scale() -> float:
     return maxf(float(_king().get("maxScale", 2.4)), king_scale())
 
 
-## 吃一條魚回多少血(血條上限的比例;吃幫手回滿)
+## 吃一條魚回多少血(血條上限的比例;預設 0 = 不回血)
 func king_heal_fish() -> float:
-    return clampf(float(_king().get("healFish", 0.15)), 0.0, 1.0)
+    return clampf(float(_king().get("healFish", 0.0)), 0.0, 1.0)
+
+
+## 吃一個幫手回多少血(血條上限的比例;預設 0 = 不回血)
+func king_heal_helper() -> float:
+    return clampf(float(_king().get("healHelper", 0.0)), 0.0, 1.0)
+
+
+## 王咬建築(工作站 / 守衛塔)幾秒就拆掉
+func king_building_bite_sec() -> float:
+    return maxf(float(_king().get("buildingBiteSec", 10.0)), 0.1)
 
 
 func bite_sec() -> float:

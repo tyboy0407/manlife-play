@@ -107,6 +107,8 @@ func build_state() -> Dictionary:
                 "has_server": c.has_server(), "has_cashier": c.cashier != null and is_instance_valid(c.cashier)})
     var stations := []
     for s in level.stations:
+        if s.is_broken():
+            continue   # 廢墟不收貨也不出貨,提示只看完好的
         stations.append({"id": s.spot_id, "input": s.logic.input_id, "input_count": s.logic.input_count, "input_cap": s.logic.input_cap,
                 "output": s.logic.output_id, "output_count": s.logic.output_count})
     var pads := []

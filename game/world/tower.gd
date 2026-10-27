@@ -2,7 +2,8 @@ class_name Tower
 extends Node3D
 ## 守衛塔(村莊四角,各有一塊 $200 的牌:shop.json tower_1 ~ tower_4,牌就是塔的地基):
 ## 買了就蓋起來(state alive),塔頂的守衛每 attackIntervalSec 朝射程內最近的活熊射一箭(Arrow 追著熊飛,到了才扣血),
-## 熊靠近(TowerLogic.aggro_radius)或被射中會改來咬塔,咬一口扣 biteDamage,血條歸零就塌(state broken,剩廢墟),
+## 熊靠近(TowerLogic.aggro_radius)或被射中會改來咬塔,咬一口扣 biteDamage,血條歸零就塌(state broken,剩廢墟);
+## 北極熊王不看血量,咬滿 buildingBiteSec 秒直接拆(wreck),
 ## 牌子重新出現標「修復」(rebuyMult 1 = 同價),付清再蓋回來。沒買過是 state none(只有牌子)。沒有物理(熊 / 玩家都穿得過)。
 ## 規則在 TowerLogic;蓋 / 塌的結算在 Harbor(_on_purchased "tower" / tower_destroyed)。外觀:方塊占位 + models.guard 的人物當守衛。
 
@@ -175,6 +176,15 @@ func take_bite(damage: float, by: Node3D) -> bool:
         _collapse(by)
         return true
     return false
+
+
+## 北極熊王咬滿時間直接拆掉(不看血量);回傳是否真的塌了
+func wreck(by: Node3D) -> bool:
+    if not is_alive():
+        return false
+    hp = 0.0
+    _collapse(by)
+    return true
 
 
 func _collapse(by: Node3D) -> void:

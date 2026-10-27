@@ -87,10 +87,12 @@ HINT_BEAR_CHASE,Run at the polar bear and hit it until its health bar is empty,�
 SHOP_expand_village,Expand the village,擴建村莊
 PAD_REBUY,Rebuy ×%s,買回 ×%s
 NOTICE_BEAR_PACK,%d polar bears are coming!,%d 隻北極熊來了!
-NOTICE_BEAR_KING,The Polar Bear King is here! It eats fish and every helper and grows with each bite. Kill it!,北極熊王來了!牠會吃魚和所有幫手、越吃越大，快打死牠!
+NOTICE_BEAR_KING,The Polar Bear King is here! It eats fish and helpers and wrecks any building it chews on for 10 s. Kill it!,北極熊王來了!牠會吃魚和幫手、咬建築 10 秒就拆掉，快打死牠!
 NOTICE_BEAR_KING_DEAD,The Polar Bear King is down!,北極熊王倒下了!
 SHOP_tower,Guard tower,守衛塔
 PAD_REPAIR,Repair,修復
 NOTICE_TOWER_BUILT,Guard tower built! It shoots arrows at polar bears that come near,守衛塔蓋好了!會朝靠近的北極熊射箭
 NOTICE_TOWER_REPAIRED,Guard tower repaired!,守衛塔修好了!
 NOTICE_TOWER_DESTROYED,A polar bear wrecked a guard tower! Stand on its base to repair it ($%d),北極熊把守衛塔拆了!站到地基上花 $%d 修復
+NOTICE_STATION_DESTROYED,The Polar Bear King wrecked the %s! Stand on the rubble to repair it ($%d),北極熊王把%s拆了!站到廢墟上花 $%d 修復
+NOTICE_STATION_REPAIRED,%s repaired!,%s修好了!

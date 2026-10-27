@@ -4,7 +4,8 @@ extends Pad
 ## 付清 -> GameState.apply_purchase。停留時間是為了「帶著錢走過牌子不會順手付掉」。
 ## 可重複買的牌付清後價格漲一級、留在原地,但付錢的人要先走開再踏上來才會開始付下一次(避免站著不動就把錢一直吃掉);
 ## 買滿或一次性的牌付清就消失;僱用牌的幫手被吃掉(on_lost)名額退回來、牌子重新出現並標「買回 ×1.5」;
-## 守衛塔牌(effect tower)就是塔的地基,塔被拆 on_lost 後標「修復」(同價)。擴建村莊 expand():僱用牌多開放 expandBuys 個名額。
+## 守衛塔牌(effect tower)就是塔的地基,塔被拆 on_lost 後標「修復」(同價);工作站的修復牌(effect repair,Harbor._add_station 生的)
+## 完好時藏著(當作已買),被王拆了 on_lost 才出現。擴建村莊 expand():僱用牌多開放 expandBuys 個名額。
 ## 付款速度 payPerSec × max(1, 本次價格 / payScaleCost):大額牌(擴建村莊 $1000)不用站一分鐘。build_spot = 橘色半透明建地。付款中發黃光。
 
 var logic: PurchaseLogic
@@ -45,7 +46,7 @@ func _update_label() -> void:
     if logic.repeatable:
         text += "\n(%d/%d)" % [logic.buys + 1, logic.max_buys]
     if logic.is_rebuy():
-        text += "\n" + (tr("PAD_REPAIR") if is_tower_pad() else tr("PAD_REBUY") % str(logic.rebuy_mult))
+        text += "\n" + (tr("PAD_REPAIR") if is_repair_pad() else tr("PAD_REBUY") % str(logic.rebuy_mult))
     set_label(text)
     if ring != null:
         ring.set_progress(logic.progress())
@@ -121,6 +122,12 @@ func _enable() -> void:
 
 func is_tower_pad() -> bool:
     return str(logic.effect.get("type", "")) == "tower"
+
+
+## 蓋回來 / 修好用的牌(守衛塔、工作站修復):再買一次標「修復」而不是「買回 ×」
+func is_repair_pad() -> bool:
+    var t := str(logic.effect.get("type", ""))
+    return t == "tower" or t == "repair"
 
 
 ## 擴建村莊:這塊牌多開放 expandBuys 個名額(買滿消失的牌重新出現)

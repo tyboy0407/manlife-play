@@ -84,7 +84,9 @@
       "growHelper": 1.15,
       "growFish": 1.02,
       "maxScale": 2.4,
-      "healFish": 0.05
+      "healFish": 0,
+      "healHelper": 0,
+      "buildingBiteSec": 10
     },
     "speed": 4.0,
     "fleeSpeed": 7.5,
@@ -96,13 +98,12 @@
     "length": 2.6
   },
   "tower": {
-    "hp": 120,
+    "hp": 800,
     "damage": 10,
     "range": 9.0,
     "attackIntervalSec": 0.8,
     "arrowSpeed": 18.0,
     "biteDamage": 40,
-    "kingBiteMult": 2.0,
     "biteSec": 2.5,
     "aggroRadius": 7.0,
     "height": 3.0

@@ -14,6 +14,7 @@ static var _items := {}
 static var _stations := {}
 static var _counters := {}
 static var _shop: Array = []
+static var _repair := {}   # shop.json repairStation:被拆的建築修復價
 static var _loaded := false
 
 
@@ -27,11 +28,14 @@ static func reload() -> void:
     _stations = _index(_load(STATIONS_PATH).get("stations", []))
     _counters = _index(_load(COUNTERS_PATH).get("counters", []))
     _shop = []
-    var shop = _load(SHOP_PATH).get("purchases", [])
+    var shop_raw := _load(SHOP_PATH)
+    var shop = shop_raw.get("purchases", [])
     if typeof(shop) == TYPE_ARRAY:
         for p in shop:
             if typeof(p) == TYPE_DICTIONARY and p.has("id"):
                 _shop.append(p)
+    var rp = shop_raw.get("repairStation", {})
+    _repair = rp if typeof(rp) == TYPE_DICTIONARY else {}
     _loaded = true
 
 
@@ -127,6 +131,12 @@ static func counter(id: String) -> Dictionary:
 static func shop() -> Array:
     _ensure()
     return _shop
+
+
+## 被北極熊王拆掉的工作站的修復牌設定(shop.json repairStation:{cost});沒設定就 $200
+static func repair_station() -> Dictionary:
+    _ensure()
+    return _repair if not _repair.is_empty() else {"cost": 200}
 
 
 static func purchase(id: String) -> Dictionary:

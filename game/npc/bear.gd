@@ -3,8 +3,9 @@ extends Node3D
 ## 北極熊:從地圖邊緣(entry)走進村裡,盯上最近的幫手,走到旁邊咬 biteSec 秒就把幫手吃掉(永久消失),
 ## 接著找下一個,直到被玩家打到血條歸零(逃回 entry)或村裡沒幫手了才走。沒有物理(穿過一切)。
 ## 血量 = BearLogic.hp(遊戲時間):越晚越厚;玩家帶武器靠近會自動攻擊(Player._attack -> take_hit),頭上有血條,被打閃紅。
-## 北極熊王(is_king):更大更厚,連水裡的魚也吃,每吃一口回血並變大;不會自己走,只能打死。
-## 守衛塔(Tower):熊靠近塔(aggroRadius)或被塔的箭射中時會改去拆塔,咬一口扣 TowerLogic.bite_damage(王更痛),塔塌了再找下一個。
+## 北極熊王(is_king):更大更厚,連水裡的魚也吃,吃東西只變大不回血;還會盯玩家的建築(工作站、守衛塔,不限距離),
+## 咬滿 king_building_bite_sec(10 秒)就拆掉(Station.wreck / Tower.wreck);不會自己走,只能打死。
+## 守衛塔(Tower):一般熊靠近塔(aggroRadius)或被塔的箭射中時會改去拆塔,咬一口扣 TowerLogic.bite_damage,塔塌了再找下一個。
 ## 規則在 BearLogic;吃掉幫手 / 魚由 Harbor.helper_eaten / fish_eaten 結算。外觀:白色方塊占位(models.bear 有模型就用模型)。
 
 signal left(reason: String)   # "fled" 被打跑 / "no_prey" 沒人可吃
@@ -13,7 +14,7 @@ var level: Harbor = null
 var logic: BearLogic = null
 var entry := Vector3(-16, 0, -8)
 var state := "hunting"        # hunting / biting / fleeing / leaving
-var target: Node3D = null     # Helper、Tower(或王才會盯的 Fish)
+var target: Node3D = null     # Helper、Tower(或王才會盯的 Fish / Station)
 var bite := 0.0
 var eaten_total := 0
 var hp := 30.0
@@ -22,6 +23,7 @@ var is_king := false
 var size_scale := 1.0         # 體型倍率(王吃東西會變大)
 var hits_taken := 0
 var towers_broken := 0
+var buildings_broken := 0     # 王拆掉的建築(含塔)
 
 var _body: Node3D = null      # 全部外觀掛這裡,體型用它縮放
 var _head: Node3D = null
@@ -147,7 +149,7 @@ func _hunt(delta: float) -> void:
     if level == null:
         return
     if target == null or not is_instance_valid(target) or (target is Helper and (target as Helper).eaten) \
-            or (target is Tower and not (target as Tower).is_alive()):
+            or (target is Tower and not (target as Tower).is_alive()) or (target is Station and (target as Station).is_broken()):
         target = null
         _retarget()
         if target == null:
@@ -181,12 +183,19 @@ func _hunt(delta: float) -> void:
     _move_to(target.global_position, logic.speed(), delta, _reach() * 0.9)
 
 
-## 咬得到的距離:咬的半徑 × 體型;塔很粗,再加塔的半徑
+## 咬得到的距離:咬的半徑 × 體型;塔很粗、工作站的桌子更寬,再加建築的半徑
 func _reach() -> float:
-    return logic.bite_radius() * size_scale + (0.7 if target is Tower else 0.0)
+    var extra := 0.0
+    if target is Tower:
+        extra = 0.7
+    elif target is Station:
+        extra = 1.0
+    return logic.bite_radius() * size_scale + extra
 
 
 func _bite_sec_for(t: Node3D) -> float:
+    if is_king and (t is Tower or t is Station):
+        return logic.king_building_bite_sec()
     if t is Tower:
         return (t as Tower).logic.bite_sec()
     if t is Fish:
@@ -194,8 +203,8 @@ func _bite_sec_for(t: Node3D) -> float:
     return logic.king_bite_sec() if is_king else logic.bite_sec()
 
 
-## 最近的、還沒被吃的幫手;一群熊時先避開別隻熊已經盯上的(都被盯了才搶)。王連水裡的魚也算獵物。
-## 靠得夠近(aggroRadius)的完好守衛塔也算目標(幾隻熊可以一起拆同一座)。
+## 最近的、還沒被吃的幫手;一群熊時先避開別隻熊已經盯上的(都被盯了才搶)。王連水裡的魚、完好的建築(工作站 / 塔)都算獵物。
+## 一般熊只把靠得夠近(aggroRadius)的完好守衛塔算進目標(幾隻熊可以一起拆同一座)。
 func _retarget() -> void:
     var taken := level.bears.targeted_ids(self) if level.bears != null else {}
     var prey := []
@@ -207,11 +216,16 @@ func _retarget() -> void:
             if not taken.has(h.get_instance_id()):
                 free.append(e)
     for t in level.towers:
-        if t != null and is_instance_valid(t) and t.is_alive() and planar_distance_to(t.global_position) <= t.logic.aggro_radius():
+        if t != null and is_instance_valid(t) and t.is_alive() and (is_king or planar_distance_to(t.global_position) <= t.logic.aggro_radius()):
             var e := {"id": t.get_instance_id(), "pos": t.global_position}
             prey.append(e)
             free.append(e)
     if is_king:
+        for s in level.stations:
+            if s != null and is_instance_valid(s) and not s.is_broken():
+                var e := {"id": s.get_instance_id(), "pos": s.global_position}
+                prey.append(e)
+                free.append(e)
         for fa in level.fish_areas:
             for f in fa.fish:
                 if f != null and is_instance_valid(f):
@@ -233,11 +247,20 @@ func _eat() -> void:
     bite = 0.0
     if _head != null:
         _head.rotation.x = 0.0
+    if is_king and t != null and is_instance_valid(t) and (t is Tower or t is Station):
+        # 王咬滿時間:建築直接拆掉(不看血量),再找下一個
+        var wrecked := (t as Tower).wreck(self) if t is Tower else (t as Station).wreck(self)
+        if wrecked:
+            buildings_broken += 1
+            if t is Tower:
+                towers_broken += 1
+        return
     if t is Tower and is_instance_valid(t):
-        # 咬塔一口:沒塌就繼續咬,塌了再找下一個
+        # 一般熊咬塔一口:沒塌就繼續咬,塌了再找下一個
         var tw := t as Tower
-        if tw.take_bite(tw.logic.bite_damage(is_king), self):
+        if tw.take_bite(tw.logic.bite_damage(), self):
             towers_broken += 1
+            buildings_broken += 1
         elif tw.is_alive():
             target = tw
             state = "biting"
@@ -252,16 +275,16 @@ func _eat() -> void:
     elif t is Helper:
         level.helper_eaten(t as Helper, self)
         if is_king:
-            _feast(1.0, logic.king_grow_helper())
+            _feast(logic.king_heal_helper(), logic.king_grow_helper())
 
 
-## 王吃到東西:回血(heal = 血條上限的比例)、變大(血條上限跟著體型漲)
+## 王吃到東西:變大(血條上限跟著體型漲,現有血量等比例跟著漲所以血條比例不變)、回 heal(血條上限的比例,預設 0)
 func _feast(heal: float, grow: float) -> void:
     var new_scale := minf(size_scale * grow, logic.king_max_scale())
     var ratio := new_scale / maxf(size_scale, 0.01)
     size_scale = new_scale
     hp_max *= ratio
-    hp = minf(hp + hp_max * heal, hp_max)
+    hp = minf(hp * ratio + hp_max * heal, hp_max)
     _body.scale = Vector3(size_scale, size_scale, size_scale)
     _update_hp_bar()
     EventBus.bear_fed.emit(self)

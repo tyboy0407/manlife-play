@@ -525,8 +525,10 @@ func _test_bear() -> void:
     _near(b.hp(180.0), 60.0, "血量:3 分鐘 60", 0.001)
     _check(is_equal_approx(b.king_at_sec(), 300.0) and is_equal_approx(b.king_hp_mult(), 4.0) and is_equal_approx(b.king_scale(), 1.6)
             and b.king_grow_helper() > b.king_grow_fish() and b.king_grow_fish() > 1.0 and b.king_max_scale() >= b.king_scale()
-            and b.king_fish_bite_sec() < b.king_bite_sec() and b.king_bite_sec() < b.bite_sec() and b.king_heal_fish() > 0.0 and b.king_respawn_sec() > 0.0,
+            and b.king_fish_bite_sec() < b.king_bite_sec() and b.king_bite_sec() < b.bite_sec() and b.king_respawn_sec() > 0.0,
             "北極熊王:5 分鐘出場、血量 ×4、體型 1.6、吃幫手長得比吃魚多、咬得比一般熊快")
+    _check(is_equal_approx(b.king_heal_fish(), 0.0) and is_equal_approx(b.king_heal_helper(), 0.0) and is_equal_approx(b.king_building_bite_sec(), 10.0),
+            "王吃魚 / 吃幫手都不回血;咬建築 10 秒拆掉")
     _check(str(b.weapon_model(3).get("file", "")).contains("axe-upgraded") and b.weapon_model(0).is_empty(), "武器模型:Lv3 強化斧、Lv0 沒有")
     _check(b.pack_size(0.0) == 4 and b.pack_size(0.099) == 4 and b.pack_size(0.1) == 3 and b.pack_size(0.399) == 3 and b.pack_size(0.4) == 2
             and b.pack_size(0.899) == 2 and b.pack_size(0.9) == 1 and b.pack_size(1.0) == 1, "一次幾隻:10% 4 隻、30% 3 隻、50% 2 隻、10% 1 隻")
@@ -537,7 +539,8 @@ func _test_bear() -> void:
             and BearLogic.pick_target(Vector3.ZERO, []) == -1, "盯上平面距離最近的幫手(忽略高度);沒幫手回 -1")
     var empty := BearLogic.from_config({}, {})
     _check(empty.weapon_damage(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0
-            and empty.pack_size(0.5) == 1 and empty.hp(60.0) > 0.0 and empty.interval(999.0) == empty.interval(0.0) and empty.king_at_sec() > 0.0,
+            and empty.pack_size(0.5) == 1 and empty.hp(60.0) > 0.0 and empty.interval(999.0) == empty.interval(0.0) and empty.king_at_sec() > 0.0
+            and empty.king_building_bite_sec() > 0.0 and is_equal_approx(empty.king_heal_fish(), 0.0),
             "沒設定也不會爆:沒武器等級、沒入口、用預設秒數、一次一隻、血量與王有預設")
 
 
@@ -545,10 +548,11 @@ func _test_bear() -> void:
 
 func _test_tower() -> void:
     var t := TowerLogic.from_config(GameData.section("tower"))
-    _check(is_equal_approx(t.hp(), 120.0) and is_equal_approx(t.damage(), 10.0) and is_equal_approx(t.attack_range(), 9.0)
+    _check(is_equal_approx(t.hp(), 800.0) and is_equal_approx(t.damage(), 10.0) and is_equal_approx(t.attack_range(), 9.0)
             and is_equal_approx(t.attack_interval(), 0.8) and t.arrow_speed() > 0.0 and is_equal_approx(t.bite_sec(), 2.5)
-            and t.aggro_radius() >= 1.0 and t.height() > 0.0, "守衛塔設定:血 120、每箭 10、射程 9、每 0.8 秒一箭、熊咬一口 2.5 秒")
-    _check(is_equal_approx(t.bite_damage(false), 40.0) and is_equal_approx(t.bite_damage(true), 80.0), "熊咬一口 40(三口拆掉)、王 80(兩口)")
+            and t.aggro_radius() >= 1.0 and t.height() > 0.0, "守衛塔設定:血 800、每箭 10、射程 9、每 0.8 秒一箭、熊咬一口 2.5 秒")
+    _check(is_equal_approx(t.bite_damage(), 40.0) and t.bites_to_break() == 20, "一般熊咬一口 40:要咬 20 口才拆得掉")
+    _check(int(GameData.repair_station().get("cost", 0)) == 200, "工作站修復牌 $200(shop.json repairStation)")
     _near(t.dps(), 12.5, "每秒傷害 12.5", 0.001)
     _check(t.shots_to_kill(30.0) == 3 and t.shots_to_kill(31.0) == 4 and t.shots_to_kill(0.0) == 0 and t.in_range(9.0) and not t.in_range(9.01),
             "幾箭射死 / 射程判斷")
@@ -558,7 +562,7 @@ func _test_tower() -> void:
             and TowerLogic.pick_target(Vector3(100, 0, 0), bears, 9.0) == -1 and TowerLogic.pick_target(Vector3.ZERO, [], 9.0) == -1,
             "射程內最近的活熊(跳過逃走的、超出射程的);沒有回 -1")
     var empty := TowerLogic.from_config({})
-    _check(empty.hp() > 0.0 and empty.damage() > 0.0 and empty.attack_range() > 0.0 and empty.bite_damage(true) >= empty.bite_damage(false)
+    _check(empty.hp() > 0.0 and empty.damage() > 0.0 and empty.attack_range() > 0.0 and empty.bite_damage() > 0.0 and empty.bites_to_break() > 0
             and empty.shots_to_kill(50.0) > 0, "沒設定也有預設")
 
 

@@ -1,8 +1,9 @@
 class_name TowerLogic
 extends RefCounted
-## 守衛塔規則(純資料,可 headless 測試):血量、每箭傷害、射程、射速、箭速、熊咬一口扣多少(王更痛)、咬一口幾秒、
+## 守衛塔規則(純資料,可 headless 測試):血量、每箭傷害、射程、射速、箭速、一般熊咬一口扣多少、咬一口幾秒、
 ## 熊離塔多近會改去拆塔(aggroRadius)。數值在 game.json tower {hp, damage, range, attackIntervalSec, arrowSpeed, biteDamage,
-## kingBiteMult, biteSec, aggroRadius, height}。蓋 / 修的價格在 shop.json(tower_1 ~ tower_4,rebuyMult 1 = 修復同價)。
+## biteSec, aggroRadius, height}:hp 800 / biteDamage 40 = 扛得住 20 口。北極熊王不看血量,咬滿 BearLogic.king_building_bite_sec 秒直接拆掉。
+## 蓋 / 修的價格在 shop.json(tower_1 ~ tower_4,rebuyMult 1 = 修復同價)。
 
 var cfg := {}
 
@@ -14,7 +15,7 @@ static func from_config(c: Dictionary) -> TowerLogic:
 
 
 func hp() -> float:
-    return maxf(float(cfg.get("hp", 120.0)), 1.0)
+    return maxf(float(cfg.get("hp", 800.0)), 1.0)
 
 
 ## 每一箭的傷害
@@ -34,10 +35,16 @@ func arrow_speed() -> float:
     return maxf(float(cfg.get("arrowSpeed", 18.0)), 1.0)
 
 
-## 熊咬一口扣多少血;王乘 kingBiteMult
-func bite_damage(king: bool = false) -> float:
-    var d := maxf(float(cfg.get("biteDamage", 40.0)), 0.0)
-    return d * maxf(float(cfg.get("kingBiteMult", 2.0)), 1.0) if king else d
+## 一般熊咬一口扣多少血(王不看血量,直接咬 king_building_bite_sec 秒拆掉)
+func bite_damage() -> float:
+    return maxf(float(cfg.get("biteDamage", 40.0)), 0.0)
+
+
+## 一般熊要咬幾口才拆得掉
+func bites_to_break() -> int:
+    if bite_damage() <= 0.0:
+        return -1
+    return int(ceil(hp() / bite_damage()))
 
 
 ## 熊咬塔一口要幾秒

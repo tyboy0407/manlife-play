@@ -29,3 +29,5 @@ signal tower_built(tower: Node3D)
 signal tower_shot(tower: Node3D, bear: Node3D)
 signal tower_damaged(tower: Node3D, hp_left: float)
 signal tower_destroyed(tower: Node3D, by: Node3D)
+signal station_destroyed(station: Node3D, by: Node3D)   # 北極熊王拆掉工作站
+signal station_repaired(station: Node3D)

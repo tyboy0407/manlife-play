@@ -53,6 +53,8 @@ func _ready() -> void:
     EventBus.tower_shot.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("tower_shot"))
     EventBus.tower_damaged.connect(func(_t: Node3D, _hp: float) -> void: _bump("tower_damaged"))
     EventBus.tower_destroyed.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("tower_destroyed"))
+    EventBus.station_destroyed.connect(func(_s: Node3D, _b: Node3D) -> void: _bump("station_destroyed"))
+    EventBus.station_repaired.connect(func(_s: Node3D) -> void: _bump("station_repaired"))
     await _run()
     Sfx.stop_all()   # 還在播的音效離開時會被報成洩漏
     await _step(25)   # 讓還在飛的幽靈物件飛完、queue_free 處理掉
@@ -229,7 +231,7 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 14 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、十四塊價格牌、沒有存檔")
+            and _level.price_pads.size() == 15 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、十四塊價格牌 + 切魚台的修復牌、沒有存檔")
     _check(_level.towers.size() == 4 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
             and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty(),
             "四座守衛塔待建:只有地基牌")
@@ -240,7 +242,10 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 20, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 十四塊價格牌(%d)" % pads)
+    _check(pads == 21, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 十四塊價格牌 / 修復牌(%d)" % pads)
+    var rp0: PricePad = _level.price_pads.get("repair_station_1", null)
+    _check(rp0 != null and not rp0.visible and rp0.logic.is_exhausted() and rp0.global_position.distance_to(_level.stations[0].global_position) < 0.1
+            and rp0.logic.effect.get("type", "") == "repair" and _level.repair_pad_for("station_1") == rp0, "切魚台完好:修復牌藏在桌子位置")
     # 直式 + 觸控:相機以寬為準;浮動搖桿按哪裡都能推;選單鈕區域不算搖桿
     var js: TouchJoystick = _level.hud.joystick
     _check(js != null and _level.camera.is_portrait() and _level.camera.keep_aspect == Camera3D.KEEP_WIDTH and _level.hud.menu_button != null
@@ -899,13 +904,19 @@ func _king_section() -> void:
     await _go(Vector3(0, 0, 9))
     king.hp = king.hp_max * 0.5
     king.global_position = Vector3(0, 0, -5.0)
+    var nearest_fish: Fish = null   # 直接盯最近的魚(王現在也會盯建築,別讓牠先跑去拆切魚台)
+    for f in fa.fish:
+        if nearest_fish == null or f.global_position.distance_to(king.global_position) < nearest_fish.global_position.distance_to(king.global_position):
+            nearest_fish = f
+    king.target = nearest_fish
+    king.state = "hunting"
     var hp_before := king.hp
     var scale_before := king.size_scale
     var ate := await _wait_until(func() -> bool: return _count("fish_eaten") >= 1, 600)
     await _step(2)
-    _check(ate and _count("bear_fed") >= 1 and king.hp > hp_before and king.size_scale > scale_before and fish0 > 0,
-            "王吃掉水裡的魚:回血(%.0f -> %.0f)、變大(%.2f -> %.2f)" % [hp_before, king.hp, scale_before, king.size_scale])
-    # 王也會盯幫手:把搬運工放到牠旁邊,咬 2.5 秒吃掉 -> 回滿血、變更大(後面的存檔檢查不看搬運工)
+    _check(ate and _count("bear_fed") >= 1 and absf(king.hp_ratio() - 0.5) < 0.01 and king.size_scale > scale_before and fish0 > 0,
+            "王吃掉水裡的魚:不回血(血條還是 %.0f%%)、只變大(%.2f -> %.2f)" % [king.hp_ratio() * 100.0, scale_before, king.size_scale])
+    # 王也會盯幫手:把搬運工放到牠旁邊,咬 2.5 秒吃掉 -> 不回血、變更大(後面的存檔檢查不看搬運工)
     var porter := _find_helper("porter")
     var helpers0 := _level.helpers.size()
     if porter != null:
@@ -916,8 +927,9 @@ func _king_section() -> void:
         var scale2 := king.size_scale
         var eaten := await _wait_until(func() -> bool: return not is_instance_valid(porter) or porter.eaten, 600)
         await _step(2)
-        _check(eaten and _level.helpers.size() == helpers0 - 1 and is_equal_approx(king.hp, king.hp_max) and king.size_scale > scale2
-                and (_level.price_pads["hire_porter"] as PricePad).logic.is_rebuy(), "王吃掉搬運工:血回滿、體型 %.2f -> %.2f、搬運工牌可買回" % [scale2, king.size_scale])
+        _check(eaten and _level.helpers.size() == helpers0 - 1 and absf(king.hp_ratio() - 0.3) < 0.01 and king.size_scale > scale2
+                and (_level.price_pads["hire_porter"] as PricePad).logic.is_rebuy(), "王吃掉搬運工:不回血(血條 %.0f%%)、體型 %.2f -> %.2f、搬運工牌可買回" % [king.hp_ratio() * 100.0, scale2, king.size_scale])
+    await _king_wreck_section(king)
     # 打死王
     king.hp = minf(king.hp, 35.0 * 4.0)   # 測試不想打幾十下:留四下的血(牠在水邊還會邊吃魚邊回血,所以實際會多幾下)
     var hp_left := king.hp
@@ -932,3 +944,58 @@ func _king_section() -> void:
         t1.restore({"state": "alive", "hp": t1.hp_max})
     bs.enabled = false
     await _go(Vector3(0, 0, 7))
+
+
+## 王拆建築:把牠放到第二座切魚台旁邊盯著咬,10 秒就拆掉 -> 廢墟、工人不見、格子停用、搬運工 / 漁夫不再送去、修復牌出現 $200;
+## 站上廢墟付清修好 -> 桌子回來、牌消失。存檔快照記 broken。
+func _king_wreck_section(king: Bear) -> void:
+    var st1 := _level.station_at("station_1")
+    var rp: PricePad = _level.price_pads.get("repair_station_1", null)
+    if st1 == null or rp == null:
+        _check(false, "找不到 station_1 或它的修復牌")
+        return
+    var bite_sec: float = king.logic.king_building_bite_sec()
+    _check(not rp.visible and rp.logic.is_exhausted() and rp.global_position.distance_to(st1.global_position) < 0.1 and not st1.is_broken()
+            and st1._built.visible and not st1._rubble.visible, "切魚台完好:修復牌藏著")
+    await _go(Vector3(0, 0, 9))
+    king.global_position = Vector3(-6, 0, -4.0)
+    king.target = st1
+    king.state = "hunting"
+    var t0 := GameState.play_time
+    var biting := await _wait_until(func() -> bool: return king.state == "biting" and king.target == st1, 300)
+    var wrecked := await _wait_until(func() -> bool: return st1.is_broken(), int(bite_sec * 60.0) + 240)
+    var took := GameState.play_time - t0
+    await _step(3)
+    var dests_ok := true
+    for d in _level.porter_dests():
+        if d.get("node", null) == st1:
+            dests_ok = false
+    for s in _level.porter_sources():
+        if s.get("node", null) == st1:
+            dests_ok = false
+    _check(biting and wrecked and took >= bite_sec - 0.5 and king.buildings_broken == 1 and _count("station_destroyed") == 1
+            and not st1._built.visible and st1._rubble.visible and not st1.logic.is_working() and not st1.input_pad.monitoring
+            and not st1.output_pad.monitoring and not st1.input_pad.visible,
+            "王盯著切魚台咬 %.1f 秒(規則 %.0f 秒)就拆掉:廢墟、工人不見、格子停用" % [took, bite_sec])
+    _check(dests_ok and _level.find_station_accepting("fish") != st1 and _level.find_station_with_input("fish") != st1
+            and _level.find_station_with_output("fillet") != st1, "被拆的切魚台不再是搬運工 / 漁夫的目的地或來源")
+    _check(rp.visible and rp.logic.is_rebuy() and rp.logic.buys == 0 and rp.logic.lost == 1 and rp.logic.remaining == 200
+            and rp.label.text.contains(tr("PAD_REPAIR")) and rp.label.text.contains(tr("STATION_cutting_table")) and not rp.label.text.contains("×")
+            and bool(_level.snapshot()["stations"]["station_1"].get("broken", false)), "廢墟上出現修復牌 $200(存檔記 broken)")
+    # 王先定住、挪遠一點,玩家去修
+    king.set_physics_process(false)
+    king.target = null
+    king.state = "hunting"
+    king.global_position = Vector3(-6, 0, -7.0)
+    GameState.add_wallet(200)
+    rp.logic.pay(80)   # 測試時間預算:先付 80
+    rp._update_label()
+    var repaired := await _pay_pad(rp)
+    await _step(3)
+    _check(repaired and not st1.is_broken() and st1._built.visible and not st1._rubble.visible and st1.input_pad.monitoring and st1.output_pad.monitoring
+            and not rp.visible and rp.logic.is_exhausted() and rp.logic.lost == 0 and _count("station_repaired") == 1 and st1.times_broken == 1
+            and st1.times_repaired == 1 and not bool(_level.snapshot()["stations"]["station_1"].get("broken", true)),
+            "花 $200 修好:切魚台回來、牌消失、存檔不再記 broken")
+    await _go(Vector3(0, 0, 9))
+    await _empty_hands()
+    king.set_physics_process(true)

@@ -86,6 +86,17 @@ func _run() -> void:
     level.player.global_position = Vector3(-9.0, 0, -5.5)
     await _frames(50)
     await _shot("08_guard_tower")
+    # 北極熊王拆切魚台:第一座切魚台已成廢墟(修復牌出現),王正在咬旁邊的第二座
+    tb.queue_free()
+    await _frames(2)
+    (level.station_at("station_1") as Station).wreck(null)
+    var king2 := level.bears.spawn_king()
+    king2.set_physics_process(false)   # 定住,擺出正在咬切魚台的樣子
+    king2.global_position = Vector3(-6.0, 0, -3.6)
+    king2.rotation.y = 0.0
+    level.player.global_position = Vector3(-3.0, 0, -0.5)
+    await _frames(30)
+    await _shot("09_king_wrecks")
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()
