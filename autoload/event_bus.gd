@@ -14,3 +14,9 @@ signal notice(text: String)
 signal items_moved(kind: String, item_id: String, from: Vector3, to: Vector3, count: int)
 signal tutorial_step_done(step: int)
 signal tutorial_finished
+## 北極熊:出現 / 開始咬某個幫手 / 被帶武器的玩家嚇跑 / 走了(reason = fled 被趕跑、no_prey 沒人可吃)/ 吃掉幫手
+signal bear_appeared(bear: Node3D)
+signal bear_biting(helper: Node3D)
+signal bear_scared(bear: Node3D, by: Node3D)
+signal bear_left(reason: String)
+signal helper_eaten(role: String, helper: Node3D)

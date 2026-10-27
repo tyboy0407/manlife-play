@@ -70,6 +70,22 @@ static func customer_models() -> Array:
     return v if typeof(v) == TYPE_ARRAY else []
 
 
+## 任意道具 / 建築模型場景(武器、北極熊...);路徑空或載不到回 null
+static func prop(path: String) -> PackedScene:
+    return _scene(path)
+
+
+## 武器店老闆用哪個人物(models.shopkeeper)
+static func shopkeeper_model() -> String:
+    return str(config().get("shopkeeper", ""))
+
+
+## 北極熊模型(models.bear.file);沒有就 null,Bear 用方塊占位
+static func bear() -> PackedScene:
+    var v = config().get("bear", {})
+    return _scene(str(v.get("file", ""))) if typeof(v) == TYPE_DICTIONARY else null
+
+
 ## --- 水裡游的魚(models.waterFish:dir / files / length / yawDeg)---
 
 static func _water_cfg() -> Dictionary:

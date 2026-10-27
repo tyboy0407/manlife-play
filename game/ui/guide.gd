@@ -119,6 +119,7 @@ func build_state() -> Dictionary:
         "money_on_pad": level.money_pad.cash if level.money_pad != null else 0,
         "fish_caught": GameState.fish_caught, "items_sold": GameState.items_sold, "purchases": GameState.unlocked.size(),
         "hired": GameState.hired.duplicate(), "counters": counters, "stations": stations, "pads": pads,
+        "bear": level.bears != null and level.bears.has_bear(), "weapon_level": GameState.weapon_level,
     }
 
 
@@ -156,6 +157,11 @@ func _resolve(h: Dictionary) -> bool:
             if not level.price_pads.has(id):
                 return false
             target_pos = (level.price_pads[id] as PricePad).global_position
+            return true
+        "bear":
+            if level.bears == null or not level.bears.has_bear():
+                return false
+            target_pos = level.bears.bear.global_position
             return true
     return false
 

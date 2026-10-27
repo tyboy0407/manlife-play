@@ -5,12 +5,8 @@ extends SceneTree
 
 func _init() -> void:
     var paths := []
-    var after := false
-    for a in OS.get_cmdline_args():
-        if after:
-            paths.append(a)
-        elif a == "--":
-            after = true
+    for a in OS.get_cmdline_user_args():   # `--` 之後的參數(get_cmdline_args 不含它們)
+        paths.append(a)
     if paths.is_empty():
         paths = ["res://assets/models/game/characters/character-male-a.glb", "res://assets/models/game/props/fish.glb",
                 "res://assets/models/game/fish/Fish1.fbx"]

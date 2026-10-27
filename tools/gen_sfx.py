@@ -111,6 +111,12 @@ def main():
     write("hire", normalize(mix(tone(880, 0.16, decay=12, sweep_to=1175), delay(tone(1175, 0.2, decay=10), 0.14))))
     write("trash", normalize(noise(0.16, 1.0, decay=18, lowpass=0.25)))
     write("goal", normalize(mix(tone(1319, 0.12, decay=18), delay(tone(1760, 0.2, decay=14), 0.08))))
+    # 北極熊吼叫:低頻鋸齒般的和聲往下滑 + 悶噪音
+    write("roar", normalize(mix(tone(110, 0.8, 1.0, decay=3.5, sweep_to=70, harmonics=((1, 1.0), (2, 0.6), (3, 0.35), (5, 0.15)), attack=0.03),
+                                noise(0.7, 0.5, decay=4, lowpass=0.08, attack=0.03))))
+    # 咬一口:短促的悶噪音 + 低音撞擊
+    write("chomp", normalize(mix(noise(0.12, 1.0, decay=30, lowpass=0.2), tone(120, 0.18, 0.8, decay=25, sweep_to=60),
+                                 delay(noise(0.08, 0.6, decay=50, lowpass=0.3), 0.09))))
     write("ambient_waves", normalize(ambient(), peak=0.6))
 
 

@@ -5,8 +5,8 @@ extends RefCounted
 ## {"carry_item", "carry_count", "wallet", "money_on_pad", "fish_caught", "items_sold", "purchases", "hired": {role: n},
 ##  "counters": [{"id", "item", "stock", "cap", "has_server", "has_cashier"}],
 ##  "stations": [{"id", "input", "input_count", "input_cap", "output", "output_count"}],
-##  "pads": [{"id", "name", "remaining", "visible"}]}
-## 回傳的提示:{"kind": water / station_input / station_output / counter_deposit / service / money / pad / trash / none,
+##  "pads": [{"id", "name", "remaining", "visible"}], "bear": 北極熊在不在, "weapon_level": 武器等級}
+## 回傳的提示:{"kind": water / station_input / station_output / counter_deposit / service / money / pad / trash / bear / none,
 ##  "target": 目標 id(工作站 spot_id / 櫃台 def_id / 價格牌 id), "text": 翻譯鍵, "arg": 翻譯鍵 %s 要帶的翻譯鍵(可省)}
 
 const TUTORIAL := [
@@ -14,6 +14,7 @@ const TUTORIAL := [
     {"text": "TUT_serve"}, {"text": "TUT_collect"}, {"text": "TUT_buy"},
 ]
 const TUTORIAL_FISH := 4
+const WEAPON_PAD := "weapon"   # 村外武器店的牌(shop.json id)
 
 
 static func tutorial_steps() -> int:
@@ -67,9 +68,15 @@ static func tutorial_hint(step: int, state: Dictionary) -> Dictionary:
     return {}
 
 
-## 教學之後的提示:當下最該做的事。手上有貨先處理貨;空手依序:買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 >
-## 工作站有成品(沒搬運工才提醒)> 去抓魚(有工作站收魚)> 沒事
+## 教學之後的提示:當下最該做的事。北極熊在村裡最優先(沒武器指武器店的牌、有武器指熊);
+## 手上有貨先處理貨;空手依序:買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚(有工作站收魚)> 沒事
 static func hint(state: Dictionary) -> Dictionary:
+    if bool(state.get("bear", false)):
+        if int(state.get("weapon_level", 0)) <= 0:
+            var wp := _pad_by_id(state, WEAPON_PAD)
+            if not wp.is_empty():
+                return {"kind": "pad", "target": WEAPON_PAD, "text": "HINT_BEAR_WEAPON"}
+        return {"kind": "bear", "target": "", "text": "HINT_BEAR_CHASE"}
     var item := str(state.get("carry_item", ""))
     var count := int(state.get("carry_count", 0))
     if count > 0 and item != "":
@@ -180,6 +187,14 @@ static func _counter_with_space(state: Dictionary, item: String) -> Dictionary:
             best = c
             best_ratio = ratio
     return best
+
+
+## 還看得見的指定牌子;沒有(買滿了)回空
+static func _pad_by_id(state: Dictionary, id: String) -> Dictionary:
+    for p in state.get("pads", []):
+        if str(p.get("id", "")) == id and bool(p.get("visible", true)):
+            return p
+    return {}
 
 
 ## 看得見、剩餘價格最低的牌;budget >= 0 時只算付得起的

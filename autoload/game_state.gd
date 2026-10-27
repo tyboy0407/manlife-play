@@ -1,6 +1,7 @@
 extends Node
 ## 遊戲進行狀態(Autoload:GameState):錢包、購買 / 升級 / 僱用的結果與統計;to_dict / from_dict 給存檔用。
-## 效果型別:capacity 擴充背包、hire 僱用幫手(角色計數)、unlock 解鎖目標(關卡聽 purchased 生東西)、upgrade 升級等級。
+## 效果型別:capacity 擴充背包、hire 僱用幫手(角色計數)、unlock 解鎖目標(關卡聽 purchased 生東西)、upgrade 升級等級、
+## weapon 武器等級(北極熊)。幫手被北極熊吃掉:lose_helper 角色計數 -1(牌子的購買次數不退,價格維持)。
 ## 錢包:錢格收進來、價格牌扣出去,不佔背包;改錢包不發 changed(HUD 每幀自己讀)。
 
 signal changed
@@ -13,6 +14,8 @@ var capacity_bonus := 0        # 背包容量加成
 var unlocked := {}             # 購買 id 或解鎖目標 -> true
 var hired := {}                # 幫手角色 -> 人數
 var upgrades := {}             # 升級鍵(worker_speed / pile_cap)-> 等級
+var weapon_level := 0          # 武器等級(0 = 沒有;北極熊只怕有武器的玩家)
+var helpers_lost := 0          # 被北極熊吃掉的幫手數
 var cash_earned := 0
 var fish_caught := 0
 var items_sold := 0
@@ -35,6 +38,8 @@ func reset() -> void:
     unlocked = {}
     hired = {}
     upgrades = {}
+    weapon_level = 0
+    helpers_lost = 0
     cash_earned = 0
     fish_caught = 0
     items_sold = 0
@@ -56,8 +61,17 @@ func apply_purchase(id: String, effect: Dictionary) -> void:
             var key := str(effect.get("key", ""))
             if key != "":
                 upgrades[key] = upgrade_level(key) + 1
+        "weapon":
+            weapon_level += 1
     changed.emit()
     EventBus.purchased.emit(id, effect)
+
+
+## 幫手被吃掉:該角色人數 -1(不會低於 0),統計 +1
+func lose_helper(role: String) -> void:
+    hired[role] = maxi(int(hired.get(role, 0)) - 1, 0)
+    helpers_lost += 1
+    changed.emit()
 
 
 func is_unlocked(id: String) -> bool:
@@ -109,8 +123,8 @@ func to_dict() -> Dictionary:
     return {
         "wallet": wallet, "tutorial_step": tutorial_step, "hints_on": hints_on, "sound_on": sound_on,
         "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
-        "upgrades": upgrades.duplicate(), "cash_earned": cash_earned, "fish_caught": fish_caught,
-        "items_sold": items_sold, "items_trashed": items_trashed,
+        "upgrades": upgrades.duplicate(), "weapon_level": weapon_level, "helpers_lost": helpers_lost,
+        "cash_earned": cash_earned, "fish_caught": fish_caught, "items_sold": items_sold, "items_trashed": items_trashed,
     }
 
 
@@ -141,4 +155,6 @@ func from_dict(d: Dictionary) -> void:
     fish_caught = int(d.get("fish_caught", 0))
     items_sold = int(d.get("items_sold", 0))
     items_trashed = int(d.get("items_trashed", 0))
+    weapon_level = maxi(int(d.get("weapon_level", 0)), 0)
+    helpers_lost = maxi(int(d.get("helpers_lost", 0)), 0)
     changed.emit()

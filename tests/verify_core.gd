@@ -1,6 +1,6 @@
 extends Node
 ## 核心規則 headless 驗證:資料載入(game / items / stations / shop / 翻譯)、ItemStack、StationLogic、PurchaseLogic、
-## CounterLogic、MoveInput。跑法:godot --headless --path . res://tests/verify_core.tscn(先 --import)
+## CounterLogic、PorterPlanner、GuideLogic、BearLogic(北極熊 / 武器)、MoveInput、存檔、GameState。跑法:godot --headless --path . res://tests/verify_core.tscn(先 --import)
 
 var _fails := 0
 
@@ -14,6 +14,7 @@ func _ready() -> void:
     _test_counter()
     _test_porter()
     _test_guide()
+    _test_bear()
     _test_settings()
     _test_batching()
     _test_models()
@@ -65,7 +66,9 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 8 and costs == [10, 30, 20, 25, 20, 20, 50, 60], "shop.json:八塊牌 %s" % str(costs))
+    _check(shop.size() == 9 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35], "shop.json:九塊牌(含村外武器店)%s" % str(costs))
+    _check(str(GameData.purchase("weapon").get("effect", {}).get("type", "")) == "weapon" and int(GameData.purchase("weapon").get("maxBuys", 0)) == 3,
+            "武器牌:效果 weapon、三級")
     _check(bool(GameData.purchase("expand_table").get("buildSpot", false)) and GameData.purchase("nope").is_empty(),
             "建地牌旗標;未知購買回空")
     _check(GameData.counters().size() == 2 and int(GameData.counter("grill_counter").get("price", 0)) == 5
@@ -75,6 +78,8 @@ func _test_data() -> void:
     _check(GameData.helper("porter").has("speed") and GameData.helper("cashier").has("capacity") and GameData.helper("nope").is_empty(),
             "helpers 設定:搬運工 / 收銀員")
     _check(GameData.section("upgrades").has("worker_speed") and GameData.section("upgrades").has("pile_cap"), "upgrades 設定")
+    _check(GameData.section("bear").has("biteSec") and GameData.section("weapon").get("levels", []).size() == 3
+            and ModelLibrary.shopkeeper_model() != "", "bear / weapon 設定:咬的秒數、三級武器、武器店老闆的人物")
 
 
 ## --- 背上的一疊 ---
@@ -236,11 +241,18 @@ func _test_state() -> void:
     GameState.apply_purchase("unlock_grill", {"type": "unlock", "target": "grill_complex"})
     GameState.apply_purchase("upgrade_worker_speed", {"type": "upgrade", "key": "worker_speed"})
     GameState.apply_purchase("upgrade_worker_speed", {"type": "upgrade", "key": "worker_speed"})
+    GameState.apply_purchase("weapon", {"type": "weapon"})
+    GameState.apply_purchase("weapon", {"type": "weapon"})
     GameState.add_trashed(3)
     EventBus.purchased.disconnect(cb)
-    _check(purchased[0] == 7 and GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2
+    _check(purchased[0] == 9 and GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2
             and GameState.hired_count("cashier") == 1 and GameState.hired_total() == 3 and GameState.is_unlocked("grill_complex")
-            and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3, "apply_purchase:容量 / 僱用 / 解鎖 / 升級 / 丟棄")
+            and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.weapon_level == 2,
+            "apply_purchase:容量 / 僱用 / 解鎖 / 升級 / 武器 / 丟棄")
+    GameState.lose_helper("fisher")
+    GameState.lose_helper("porter")
+    _check(GameState.hired_count("fisher") == 1 and GameState.hired_count("porter") == 0 and GameState.hired_total() == 2
+            and GameState.helpers_lost == 2, "被北極熊吃掉:角色計數 -1(不低於 0)、統計 +2")
     _near(GameState.upgrade_mult("worker_speed"), 2.0, "升級倍率 1 + 0.5 × 2", 0.001)
     _near(GameState.upgrade_mult("pile_cap"), 1.0, "沒升級倍率 1", 0.001)
     GameState.add_wallet(30)
@@ -254,9 +266,10 @@ func _test_state() -> void:
     _check(GameState.hired_total() == 0 and GameState.capacity_bonus == 0 and GameState.upgrade_level("worker_speed") == 0
             and GameState.wallet == 0 and GameState.sound_on, "reset 清空")
     GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
-    _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2 and GameState.is_unlocked("grill_complex")
+    _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 1 and GameState.is_unlocked("grill_complex")
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher")
-            and GameState.wallet == 7 and not GameState.sound_on, "to_dict -> JSON -> from_dict 往返(含錢包、音效開關)")
+            and GameState.wallet == 7 and not GameState.sound_on and GameState.weapon_level == 2 and GameState.helpers_lost == 2,
+            "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數)")
     GameState.reset()
 
 
@@ -400,6 +413,47 @@ func _test_guide() -> void:
     state["wallet"] = 100
     state["pads"][0]["visible"] = false
     _check(GuideLogic.hint(state)["target"] == "capacity_1", "隱藏(買滿)的牌不算,挑下一個最便宜的")
+    # 北極熊在村裡:最優先
+    state = _guide_state()
+    state["carry_item"] = "fish"
+    state["carry_count"] = 3
+    state["bear"] = true
+    state["pads"].append({"id": "weapon", "name": "SHOP_weapon", "remaining": 35, "visible": true})
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "pad" and h["target"] == "weapon" and h["text"] == "HINT_BEAR_WEAPON", "北極熊來了、沒武器:就算背著魚也先指武器店的牌")
+    state["weapon_level"] = 1
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "bear" and h["text"] == "HINT_BEAR_CHASE", "有武器:指向北極熊")
+    state["weapon_level"] = 0
+    state["pads"][2]["visible"] = false
+    _check(GuideLogic.hint(state)["kind"] == "bear", "武器牌買滿看不見又沒武器(不該發生):退回指熊")
+    state["bear"] = false
+    _check(GuideLogic.hint(state)["kind"] == "station_input", "熊走了:回到平常的提示")
+
+
+## --- 北極熊 / 武器 ---
+
+func _test_bear() -> void:
+    var b := BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
+    _near(b.first_delay(), 45.0, "第一隻熊:僱幫手後 45 秒", 0.001)
+    _check(b.interval() == Vector2(60.0, 90.0) and is_equal_approx(b.bite_sec(), 4.0) and is_equal_approx(b.bite_radius(), 1.4)
+            and b.panic_radius() >= b.bite_radius() and b.speed() > 0.0 and b.flee_speed() >= b.speed() and b.entries().size() == 2,
+            "間隔 60 ~ 90 秒、咬 4 秒、嚇呆半徑 >= 咬的半徑、兩個入口")
+    _check(b.weapon_max_level() == 3 and is_equal_approx(b.scare_radius(0), 0.0) and is_equal_approx(b.scare_radius(1), 1.8)
+            and is_equal_approx(b.scare_radius(2), 1.8) and is_equal_approx(b.scare_radius(3), 6.0) and is_equal_approx(b.scare_radius(9), 6.0),
+            "武器三級:沒武器嚇不走、Lv1 / Lv2 要靠到 1.8、Lv3 看到(6)就逃;超過最高級當最高級")
+    _check(not b.can_scare(0, 0.1) and b.can_scare(1, 1.8) and not b.can_scare(1, 2.0) and b.can_scare(3, 5.0), "can_scare:等級 × 距離")
+    _near(b.cooldown_mult(1), 1.0, "Lv1 冷卻倍率 1", 0.001)
+    _near(b.cooldown_mult(2), 1.7, "Lv2 冷卻倍率 1.7", 0.001)
+    _near(b.next_cooldown(0, 0.0), 60.0, "下次冷卻:最短 60", 0.001)
+    _near(b.next_cooldown(3, 1.0), 153.0, "下次冷卻:Lv3 最長 90 × 1.7", 0.001)
+    _check(str(b.weapon_model(3).get("file", "")).contains("axe-upgraded") and b.weapon_model(0).is_empty(), "武器模型:Lv3 強化斧、Lv0 沒有")
+    var prey := [{"id": 1, "pos": Vector3(10, 0, 0)}, {"id": 2, "pos": Vector3(3, 5, 4)}, {"id": 3, "pos": Vector3(-8, 0, 1)}]
+    _check(BearLogic.pick_target(Vector3.ZERO, prey) == 2 and BearLogic.pick_target(Vector3(-7, 0, 0), prey) == 3
+            and BearLogic.pick_target(Vector3.ZERO, []) == -1, "盯上平面距離最近的幫手(忽略高度);沒幫手回 -1")
+    var empty := BearLogic.from_config({}, {})
+    _check(empty.scare_radius(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0,
+            "沒設定也不會爆:沒武器等級、沒入口、用預設秒數")
 
 
 ## --- 裝置偏好 ---

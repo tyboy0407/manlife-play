@@ -91,6 +91,17 @@
         "target": "grill_complex"
       },
       "buildSpot": true
+    },
+    {
+      "id": "weapon",
+      "name": "SHOP_weapon",
+      "cost": 35,
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 1.7,
+      "effect": {
+        "type": "weapon"
+      }
     }
   ]
 }

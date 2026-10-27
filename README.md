@@ -26,6 +26,9 @@
 - 模型:`assets/models/game/`(Kenney Mini Characters 人物、Survival Kit 的魚、Quaternius 動畫魚,全部 CC0,來源見裡面的 CREDITS.md);
   哪個角色用哪個人物在 `data/config/game.json` 的 `models`,物品模型在 `data/items.json` 的 `model`;原始套件放 `assets/models/<套件名>/`(有 .gdignore,git 不追蹤)。
   魚片 / 烤魚還是方塊,候選模型清單見 `docs/model_candidates.md`。
+- 北極熊:村裡有幫手後會不定時從地圖邊緣進來吃掉漁夫 / 收銀員 / 搬運工(被吃就永久消失、僱用牌不退),
+  玩家要穿過西邊柵欄缺口到村外武器店買武器(三級:趕跑 / 趕跑後更久不來 / 看到就逃),帶著武器靠近熊就會把牠趕跑。
+  數值在 `data/config/game.json` 的 `bear` 與 `weapon`;熊目前是白色方塊占位(`models.bear.file` 填模型路徑就會換)。
 - 音效是程式合成的占位版(`tools/gen_sfx.py` 產生 `assets/sfx/*.wav`),之後拿正式音檔同名覆蓋即可。
 - 數值:`data/config/game.json`(速度、容量、搬運 / 收錢 / 付錢速率與付錢前停留秒數、魚群、顧客、幫手、升級、自動存檔);物品 `data/items.json`;站點 `data/stations.json`;櫃台 `data/counters.json`;價格牌 `data/shop.json`;文字 `data/locale/strings.csv`。
 - 跑測試:`powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1`

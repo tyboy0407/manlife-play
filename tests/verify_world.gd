@@ -2,7 +2,7 @@ extends Node3D
 ## 世界整合 headless 驗證(3D 物理):建關卡 -> 抓魚到滿 -> 切魚台卸貨 / 切 / 取魚片 -> 櫃台上架 -> 沒人收銀不賣、玩家站收銀格才賣 ->
 ## 錢格收進錢包(不佔背包)、帶錢走過價格牌不付、站著才分期付 -> 僱收銀員(接手收銀)-> 垃圾桶丟魚 -> 僱搬運工(自己把成品送到櫃台)->
 ## 升級牌(工人速度 / 堆疊上限,越買越貴)-> 再僱漁夫(可重複牌)-> 增建烤魚攤(第二條貨物鏈:魚片 -> 烤魚 -> 烤魚櫃台 $5)->
-## 搬運工送不出去會放回來源、最缺貨的櫃台優先補 ->
+## 搬運工送不出去會放回來源、最缺貨的櫃台優先補 -> 北極熊(吃掉漁夫、村外武器店買武器、趕跑、Lv3 看到就逃)->
 ## 存檔 / 重建關卡還原 -> 清存檔。玩家用合成輸入(朝目標走);買東西的錢用 money_pad.add_cash 補。
 ## 跑法:godot --headless --path . res://tests/verify_world.tscn(先 --import)
 
@@ -40,6 +40,11 @@ func _ready() -> void:
         _bump("moved_" + kind, n))
     EventBus.tutorial_step_done.connect(func(_s: int) -> void: _bump("tut_step"))
     EventBus.tutorial_finished.connect(func() -> void: _bump("tut_done"))
+    EventBus.bear_appeared.connect(func(_b: Node3D) -> void: _bump("bear_appeared"))
+    EventBus.bear_biting.connect(func(_h: Node3D) -> void: _bump("bear_biting"))
+    EventBus.bear_scared.connect(func(_b: Node3D, _by: Node3D) -> void: _bump("bear_scared"))
+    EventBus.bear_left.connect(func(reason: String) -> void: _bump("bear_left_" + reason))
+    EventBus.helper_eaten.connect(func(role: String, _h: Node3D) -> void: _bump("eaten_" + role))
     await _run()
     Sfx.stop_all()   # 還在播的音效離開時會被報成洩漏
     await _step(25)   # 讓還在飛的幽靈物件飛完、queue_free 處理掉
@@ -142,6 +147,25 @@ func _spawn_level() -> void:
     await _step(3)
     _player = _level.player
     _player.input_provider = _provide
+    _level.bears.enabled = false   # 北極熊只在測試指定的時候出現(不然 45 秒後會自己來吃幫手)
+
+
+## 追著熊跑(熊會動,每幀更新目標)直到牠逃 / 消失或超時
+func _chase_bear(bear: Bear, max_frames: int) -> void:
+    _moving = true
+    for i in max_frames:
+        if bear == null or not is_instance_valid(bear) or bear.state == "fleeing":
+            break
+        _target = bear.global_position
+        await get_tree().physics_frame
+    _moving = false
+    await _step(2)
+
+
+## 從村裡穿過西邊缺口走到村外(直線會撞牆,所以先到缺口)
+func _go_outside() -> void:
+    await _go(Vector3(-11.0, 0, 2.5))
+    await _go(Vector3(-14.5, 0, 2.5))
 
 
 func _find_helper(role: String) -> Helper:
@@ -179,11 +203,13 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 8 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、八塊價格牌、沒有存檔")
+            and _level.price_pads.size() == 9 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、九塊價格牌、沒有存檔")
+    _check(_level.bears != null and not _level.bears.has_bear() and _level.shopkeeper != null and _level.price_pads.has("weapon")
+            and (_level.price_pads["weapon"] as PricePad).global_position.x < -13.0, "北極熊系統待命、村外有武器店老闆與武器牌")
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 14, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 八塊價格牌(%d)" % pads)
+    _check(pads == 15, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 九塊價格牌(%d)" % pads)
     # 直式 + 觸控:相機以寬為準;浮動搖桿按哪裡都能推;選單鈕區域不算搖桿
     var js: TouchJoystick = _level.hud.joystick
     _check(js != null and _level.camera.is_portrait() and _level.camera.keep_aspect == Camera3D.KEEP_WIDTH and _level.hud.menu_button != null
@@ -462,12 +488,14 @@ func _run() -> void:
         if str(s[0]) == "grilled" and int(s[2]) == 5 * int(s[1]):
             five = true
     _check(took and gstock and gsold and five, "烤魚上架、顧客以 $5 買走")
+    await _bear_section(g, fisher_pad)
     # 表現層:飛行動畫事件、幽靈物件、音效
     _check(_count("moved") >= 30 and _count("moved_catch") >= 8 and _count("moved_to_station") >= 8 and _count("moved_from_station") >= 8
             and _count("moved_to_counter") >= 8 and _count("moved_sold") >= 3 and _count("moved_cash") >= 6 and _count("moved_pay") >= 20
             and _count("moved_trash") >= 2 and _count("moved_return") >= 3, "items_moved:抓魚 / 卸貨 / 取貨 / 上架 / 賣出 / 收錢 / 付錢 / 丟棄 / 放回都有發")
     _check(Fx.spawned_total >= 30 and Sfx.played_total >= 20 and Sfx.played.has("sale") and Sfx.played.has("unlock") and Sfx.played.has("hire")
-            and Sfx.played.has("goal") and Sfx.played.has("catch") and Sfx.played.has("coin"), "幽靈物件飛過 %d 個、音效播了 %d 次" % [Fx.spawned_total, Sfx.played_total])
+            and Sfx.played.has("goal") and Sfx.played.has("catch") and Sfx.played.has("coin") and Sfx.played.has("roar") and Sfx.played.has("chomp"),
+            "幽靈物件飛過 %d 個、音效播了 %d 次(含熊吼 / 咬)" % [Fx.spawned_total, Sfx.played_total])
     _check(st.ring != null and st.ring.visible == st.logic.is_working(), "工作站進度環只在工作時顯示")
     _level.hud.menu_action("sound")
     var muted := not Sfx.enabled and not GameState.sound_on and not Sfx.play("goal")
@@ -489,7 +517,7 @@ func _run() -> void:
     var fps_on := Settings.show_fps and _level.hud.fps_visible()
     _level.hud.menu_action("fps")
     _check(fps_on and not Settings.show_fps and not _level.hud.fps_visible(), "選單:FPS 顯示開關")
-    _check(_level.scenery != null and _level.scenery.mesh != null and _level.scenery.mesh.get_surface_count() <= 8
+    _check(_level.scenery != null and _level.scenery.mesh != null and _level.scenery.mesh.get_surface_count() <= 10
             and _level.stations[0].input_pile.visible_count() == mini(_level.stations[0].logic.input_count, 60), "布景合併成 %d 個 surface;堆疊用 MultiMesh 畫" % _level.scenery.mesh.get_surface_count())
     # 存檔 -> 重建 -> 還原
     var saved := _level.save_now()
@@ -504,8 +532,12 @@ func _run() -> void:
     var grill_out := grill.logic.output_count
     var fstock := cnt.logic.stock
     var fp_rem := fisher_pad.logic.remaining
+    var bear_cd := _level.bears.cooldown
+    var weapon_saved := GameState.weapon_level
+    var lost_saved := GameState.helpers_lost
     _check(saved and SaveManager.has_save() and int(snap["money"]) == cash_saved and snap["stations"].has("grill")
-            and snap["counters"].has("grill_counter") and snap["pads"].has("hire_fisher"), "存檔寫入、快照內容")
+            and snap["counters"].has("grill_counter") and snap["pads"].has("hire_fisher") and is_equal_approx(float(snap["bear"]["cooldown"]), bear_cd),
+            "存檔寫入、快照內容(含北極熊冷卻 %.0f 秒)" % bear_cd)
     _level.queue_free()
     await _step(3)
     GameState.reset()
@@ -529,8 +561,102 @@ func _run() -> void:
             and not ug2.visible and ug2.logic.is_exhausted(), "重建關卡:價格牌進度還原(漁夫牌第二次 $18 剩 $%d、烤魚攤建地牌已用掉)" % fp_rem)
     var cashier2 := _find_helper("cashier")
     _check(cashier2 != null and cashier2.assigned_counter == cnt2 and is_equal_approx(st2.logic.speed_mult, 1.5), "重建關卡:收銀員指派、升級套回")
+    _check(GameState.weapon_level == weapon_saved and GameState.helpers_lost == lost_saved and _player.weapon_prop != null
+            and _find_helper("fisher") == null and absf(_level.bears.cooldown - bear_cd) < 0.5,
+            "重建關卡:武器 Lv%d 掛回腰間、被吃掉的漁夫不會回來、北極熊冷卻還原" % weapon_saved)
     # F9 新遊戲
     _level.clear_save_and_state()
+    _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0, "新遊戲:武器與被吃數歸零")
     _check(not SaveManager.has_save() and GameState.hired_total() == 0 and GameState.wallet == 0, "新遊戲:刪存檔、清狀態")
     _level.queue_free()
     await _step(2)
+
+
+## --- 北極熊 ---
+## 強制出現、指定盯上漁夫 -> 漁夫嚇呆 -> 咬 biteSec 秒吃掉(幫手少一個、僱用數 -1、牌子次數不退)-> 熊留著找下一個 ->
+## 玩家穿過西邊缺口到村外武器店買 Lv1 -> 衝向熊把牠趕跑(冷卻 60 ~ 90 秒)-> 買到 Lv3 -> 熊再來時看到玩家就逃
+func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
+    var bs: BearSpawner = _level.bears
+    var fisher := _find_helper("fisher")
+    var helpers_before := _level.helpers.size()
+    var hired_fisher := GameState.hired_count("fisher")
+    var fisher_buys := fisher_pad.logic.buys
+    await _empty_hands()
+    await _go(Vector3(0, 0, 7))
+    if fisher == null:
+        _fails += 1
+        print("  FAIL 沒有漁夫可以給熊吃,北極熊段落略過")
+        return
+    bs.enabled = true
+    var bear := bs.spawn(fisher)
+    await _step(8)
+    _check(bear != null and bs.has_bear() and bear.state == "hunting" and bear.target == fisher and GameState.weapon_level == 0
+            and _count("bear_appeared") == 1 and bs.visits == 1, "北極熊從邊緣進來、盯上漁夫")
+    _check(str(g.current.get("kind", "")) == "pad" and str(g.current.get("target", "")) == "weapon" and str(g.current.get("text", "")) == "HINT_BEAR_WEAPON"
+            and g.target_pos.distance_to((_level.price_pads["weapon"] as PricePad).global_position) < 0.1, "提示:沒武器 -> 指村外武器店的牌")
+    var panicked := await _wait_until(func() -> bool: return fisher.panicked, 900)
+    await _step(10)
+    _check(panicked and fisher.velocity.length() < 0.2 and fisher.model != null and fisher.model.current() == "emote-no",
+            "熊靠近:漁夫嚇呆不動、一直搖頭")
+    var biting := await _wait_until(func() -> bool: return bear.state == "biting", 300)
+    var bite_t0 := Time.get_ticks_msec()
+    var eaten := await _wait_until(func() -> bool: return not is_instance_valid(fisher) or fisher.eaten, 600)
+    var bite_sec := float(Time.get_ticks_msec() - bite_t0) / 1000.0
+    _check(biting and _count("bear_biting") == 1 and eaten and bite_sec >= 3.0, "咬了 %.1f 秒才吃掉(設定 %.0f 秒)" % [bite_sec, bs.logic.bite_sec()])
+    _check(_level.helpers.size() == helpers_before - 1 and GameState.hired_count("fisher") == hired_fisher - 1 and GameState.helpers_lost == 1
+            and fisher_pad.logic.buys == fisher_buys and _count("eaten_fisher") == 1 and _find_helper("fisher") == null,
+            "漁夫被吃掉:幫手少一個、僱用數 -1、漁夫牌次數不退(仍是第 %d 次 $%d)" % [fisher_pad.logic.buys + 1, fisher_pad.logic.remaining])
+    await _step(5)
+    _check(is_instance_valid(bear) and bs.has_bear() and bear.state == "hunting" and bear.target != null and bear.target != fisher,
+            "熊不走,盯上下一個幫手(%s)" % (bear.target.role if bear.target != null else "無"))
+    # 買武器(先把熊定住,不然買武器的路上收銀員也會被吃掉)
+    bear.set_physics_process(false)
+    var wp: PricePad = _level.price_pads["weapon"]
+    _level.money_pad.add_cash(60)
+    await _go(_level.money_pad.global_position)
+    await _wait_until(func() -> bool: return GameState.wallet >= 35, 240)
+    await _go_outside()
+    var bought := await _pay_pad(wp)
+    await _step(2)
+    _check(bought and GameState.weapon_level == 1 and _player.weapon_prop != null and wp.visible and wp.logic.remaining == 60 and wp.logic.buys == 1,
+            "村外武器店:買到武器 Lv1、腰間掛著武器、下一級 $60")
+    _check(_level.shopkeeper != null and _level.shopkeeper.get_child_count() >= 1 and _player.global_position.x < -13.0, "武器店老闆站在店前,玩家在村外")
+    await _step(3)
+    _check(str(g.current.get("kind", "")) == "bear" and g.target_pos.distance_to(bear.global_position) < 0.5, "提示:有武器 -> 指向北極熊")
+    # 趕熊:走回村裡追著熊跑,靠到 1.8 內牠就逃(熊先挪到缺口附近,免得它在村子另一頭先把收銀員吃了)
+    await _go(Vector3(-14.5, 0, 2.5))
+    await _go(Vector3(-11.0, 0, 2.5))
+    bear.global_position = Vector3(-6.0, 0, 2.5)
+    bear.set_physics_process(true)
+    await _chase_bear(bear, 900)
+    _check(is_instance_valid(bear) and bear.state == "fleeing" and _count("bear_scared") == 1 and bear.scared_at_dist <= 1.9
+            and _player.model != null and _player.model.current() == "attack-melee-right",
+            "靠到 %.2f 就把熊嚇跑、玩家揮一下武器" % (bear.scared_at_dist if is_instance_valid(bear) else -1.0))
+    var gone := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
+    _check(gone and _count("bear_left_fled") == 1 and bs.cooldown >= 58.0 and bs.cooldown <= 90.0 and _level.helpers.size() == helpers_before - 1,
+            "熊逃到地圖邊緣消失,下一隻 %.0f 秒後再來,沒有再損失幫手" % bs.cooldown)
+    await _step(8)   # Guide 每 0.1 秒才重算
+    _check(str(g.current.get("kind", "")) != "bear", "熊走了:提示回到平常")
+    # 升到 Lv3:看到玩家就逃
+    _level.money_pad.add_cash(200)
+    await _go(_level.money_pad.global_position)
+    await _wait_until(func() -> bool: return GameState.wallet >= 161, 300)
+    await _go_outside()
+    var b2 := await _pay_pad(wp)
+    await _go(Vector3(-16.0, 0, 2.5))
+    var b3 := await _pay_pad(wp)
+    _check(b2 and b3 and GameState.weapon_level == 3 and not wp.visible and wp.logic.is_exhausted() and _player.weapon_prop != null,
+            "武器買到 Lv3(牌子用完消失)")
+    await _go(Vector3(-14.5, 0, 2.5))
+    await _go(Vector3(-11.0, 0, 2.5))
+    await _go(Vector3(-6.0, 0, -2.0))
+    var porter := _find_helper("porter")
+    var bear2 := bs.spawn(porter)
+    await _chase_bear(bear2, 600)
+    _check(is_instance_valid(bear2) and bear2.state == "fleeing" and bear2.scared_at_dist > 2.5 and bear2.scared_at_dist <= 6.1
+            and _count("bear_scared") == 2, "Lv3:熊在 %.1f 外看到玩家就逃(不用靠到 1.8)" % (bear2.scared_at_dist if is_instance_valid(bear2) else -1.0))
+    var gone2 := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
+    _check(gone2 and bs.cooldown >= 60.0 * 1.7 - 2.0 and bs.cooldown <= 90.0 * 1.7 + 0.01 and _level.helpers.size() == helpers_before - 1,
+            "Lv3 趕跑後冷卻 ×1.7(%.0f 秒)" % bs.cooldown)
+    bs.enabled = false
+    await _go(Vector3(0, 0, 7))

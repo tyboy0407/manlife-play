@@ -5,6 +5,8 @@ extends Node3D
 ## 世界座標:x 右、-z 螢幕上(水在上面)、+z 螢幕下(顧客從右邊來)。價格牌一排在 z = 5、間距 4(牌寬 2),中間留 2 格寬的走道,
 ## 帶著現金穿過走道才不會順手付進別的牌。
 ## 解鎖:unlock 效果的 target 查 UNLOCKS 生工作站 / 櫃台;僱用生 Helper。存檔:GameState + snapshot(),自動存、關閉存、F9 重來。
+## 村外(西邊出口 z 1.2 ~ 3.8 的缺口外)是武器店的小院子:店屋 + 老闆 + 武器牌(shop.json weapon,三級漲價);
+## 北極熊(BearSpawner)從地圖邊緣進來吃幫手,玩家要帶武器靠近才趕得走;被吃的幫手由 helper_eaten 結算。
 
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0)}
 const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill"}
@@ -13,6 +15,7 @@ const PAD_SPOTS := {
     "hire_fisher": Vector3(-10.0, 0, 5.0), "hire_porter": Vector3(-6.0, 0, 5.0), "hire_cashier": Vector3(-2.0, 0, 5.0),
     "capacity_1": Vector3(2.0, 0, 5.0), "upgrade_worker_speed": Vector3(6.0, 0, 5.0), "upgrade_pile_cap": Vector3(10.0, 0, 5.0),
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
+    "weapon": Vector3(-19.5, 0, 4.0),
 }
 const UNLOCKS := {
     "station_2": {"stations": ["station_2"], "counters": []},
@@ -22,6 +25,9 @@ const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
 const HELPER_SPAWN := Vector3(0.0, 0, -3.0)
 const PLAYER_SPAWN := Vector3(0.0, 0, 7.0)
+const GATE_Z := Vector2(1.2, 3.8)             # 西牆缺口(z 範圍),通往村外
+const WEAPON_SHOP := Vector3(-19.5, 0, -1.4)  # 武器店店屋中心
+const SHOPKEEPER_SPOT := Vector3(-19.5, 0, 0.6)
 
 var player: Player
 var fish_area: FishArea
@@ -31,6 +37,8 @@ var money_pad: MoneyPad
 var trash_pad: TrashPad
 var price_pads := {}
 var helpers: Array[Helper] = []
+var bears: BearSpawner
+var shopkeeper: Node3D = null
 var camera: FollowCamera
 var hud: Hud
 var guide: Guide
@@ -53,6 +61,7 @@ func _ready() -> void:
     scenery.name = "Scenery"
     world.add_child(scenery)
     _build_terrain()
+    _build_outside()
     fish_area = FishArea.new()
     fish_area.name = "FishArea"
     fish_area.rect = Rect2(-8.0, -11.0, 16.0, 7.0)
@@ -81,6 +90,10 @@ func _ready() -> void:
     player.name = "Player"
     player.position = PLAYER_SPAWN
     add_child(player)
+    bears = BearSpawner.new()
+    bears.name = "Bears"
+    bears.level = self
+    add_child(bears)
     camera = FollowCamera.new()
     camera.name = "Camera"
     camera.target = player
@@ -134,17 +147,51 @@ func _apply_quality() -> void:
 func _build_terrain() -> void:
     scenery.add_box(Vector3(70, 0.2, 80), Color(0.93, 0.95, 0.98), Vector3(0, -0.12, -3))
     scenery.add_box(Vector3(25, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(0, -0.02, 4.0))
-    _wall(Vector3(-12.6, 1, 0), Vector3(0.4, 2, 26))
+    # 西牆留缺口(GATE_Z)通往村外的武器店
+    _wall(Vector3(-12.6, 1, (-13.0 + GATE_Z.x) / 2.0), Vector3(0.4, 2, GATE_Z.x + 13.0))
+    _wall(Vector3(-12.6, 1, (GATE_Z.y + 13.0) / 2.0), Vector3(0.4, 2, 13.0 - GATE_Z.y))
     _wall(Vector3(12.6, 1, 0), Vector3(0.4, 2, 26))
     _wall(Vector3(0, 1, 12.6), Vector3(26, 2, 0.4))
     _wall(Vector3(0, 1, -11.2), Vector3(26, 2, 0.4))
-    for x in [-12.4, 12.4]:
-        scenery.add_box(Vector3(0.25, 0.9, 16.5), Color(0.8, 0.62, 0.42), Vector3(x, 0.45, 4.0))
-    scenery.add_box(Vector3(25, 0.9, 0.25), Color(0.8, 0.62, 0.42), Vector3(0, 0.45, 12.4))
-    for p in [Vector3(-16, 0, 2), Vector3(-15, 0, 9), Vector3(16, 0, -2), Vector3(15.5, 0, 9), Vector3(-17, 0, -6), Vector3(17, 0, -9)]:
+    var fence := Color(0.8, 0.62, 0.42)
+    scenery.add_box(Vector3(0.25, 0.9, 16.5), fence, Vector3(12.4, 0.45, 4.0))
+    scenery.add_box(Vector3(0.25, 0.9, GATE_Z.x + 4.25), fence, Vector3(-12.4, 0.45, (GATE_Z.x - 4.25) / 2.0))
+    scenery.add_box(Vector3(0.25, 0.9, 12.25 - GATE_Z.y), fence, Vector3(-12.4, 0.45, (GATE_Z.y + 12.25) / 2.0))
+    scenery.add_box(Vector3(25, 0.9, 0.25), fence, Vector3(0, 0.45, 12.4))
+    for p in [Vector3(-25, 0, 8), Vector3(-15, 0, 9), Vector3(16, 0, -2), Vector3(15.5, 0, 9), Vector3(-17, 0, -6), Vector3(17, 0, -9)]:
         scenery.add_cylinder(0.2, 1.0, Color(0.45, 0.3, 0.2), p + Vector3(0, 0.5, 0))
         scenery.add_box(Vector3(1.6, 1.6, 1.6), Color(0.86, 0.92, 0.96), p + Vector3(0, 1.6, 0))
         scenery.add_box(Vector3(1.0, 1.2, 1.0), Color(0.86, 0.92, 0.96), p + Vector3(0, 2.8, 0))
+
+
+## 村外的武器店院子:沙地、矮柵欄與隱形牆、店屋 + 招牌、櫃台、老闆(人物模型,面向 +Z)
+func _build_outside() -> void:
+    var sand := Color(0.88, 0.76, 0.6)
+    scenery.add_box(Vector3(10.4, 0.05, 9.4), sand, Vector3(-18.0, -0.02, 2.0))
+    scenery.add_box(Vector3(1.2, 0.05, GATE_Z.y - GATE_Z.x), sand, Vector3(-12.6, -0.02, (GATE_Z.x + GATE_Z.y) / 2.0))
+    var fence := Color(0.8, 0.62, 0.42)
+    scenery.add_box(Vector3(0.25, 0.9, 9.4), fence, Vector3(-23.2, 0.45, 2.0))
+    scenery.add_box(Vector3(10.6, 0.9, 0.25), fence, Vector3(-18.0, 0.45, -2.7))
+    scenery.add_box(Vector3(10.6, 0.9, 0.25), fence, Vector3(-18.0, 0.45, 6.7))
+    _wall(Vector3(-23.4, 1, 2.0), Vector3(0.4, 2, 10.0))
+    _wall(Vector3(-18.0, 1, -2.9), Vector3(11.2, 2, 0.4))
+    _wall(Vector3(-18.0, 1, 6.9), Vector3(11.2, 2, 0.4))
+    # 顏色盡量沿用既有布景(StaticBatch 每種顏色一個 surface)
+    scenery.add_box(Vector3(4.2, 2.4, 2.6), Color(0.45, 0.3, 0.2), WEAPON_SHOP + Vector3(0, 1.2, 0))
+    scenery.add_box(Vector3(4.8, 0.3, 3.2), Color(0.55, 0.18, 0.15), WEAPON_SHOP + Vector3(0, 2.55, 0))
+    scenery.add_box(Vector3(3.2, 0.9, 0.6), fence, Vector3(WEAPON_SHOP.x, 0.45, 1.5))
+    scenery.add_box(Vector3(3.4, 0.08, 0.8), sand, Vector3(WEAPON_SHOP.x, 0.94, 1.5))
+    world.add_child(VisualFactory.label(tr("SIGN_WEAPON_SHOP"), WEAPON_SHOP + Vector3(0, 3.3, 0), 48, Color(1.0, 0.9, 0.7)))
+    shopkeeper = Node3D.new()
+    shopkeeper.name = "Shopkeeper"
+    shopkeeper.position = SHOPKEEPER_SPOT
+    world.add_child(shopkeeper)
+    var scene := ModelLibrary.character(ModelLibrary.shopkeeper_model())
+    if scene != null:
+        shopkeeper.add_child(CharacterModel.create(scene, ModelLibrary.character_height()))
+    else:
+        shopkeeper.add_child(VisualFactory.capsule(0.4, 1.6, Color(0.5, 0.25, 0.2), Vector3(0, 0.9, 0)))
+    shopkeeper.add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
 
 
 func _wall(pos: Vector3, size: Vector3) -> void:
@@ -258,6 +305,22 @@ func _assign_cashiers() -> void:
                 break
 
 
+## 幫手被北極熊吃掉:從名單移除、收銀員的櫃台空出來、GameState 角色計數 -1(牌子次數不退)、外觀縮小消失
+func helper_eaten(h: Helper, _bear: Node3D) -> void:
+    if h == null or not is_instance_valid(h) or h.eaten:
+        return
+    helpers.erase(h)
+    for c in counters:
+        if c.cashier == h:
+            c.cashier = null
+    GameState.lose_helper(h.role)
+    h.be_eaten()
+    EventBus.helper_eaten.emit(h.role, h)
+    EventBus.notice.emit(tr("NOTICE_BEAR_ATE") % tr("ROLE_%s" % h.role))
+    _assign_cashiers()
+    save_now()
+
+
 func _spawn_flash(pos: Vector3) -> void:
     var ring := VisualFactory.cylinder(0.9, 0.08, Color(0.75, 0.45, 1.0, 0.8), pos + Vector3(0, 0.1, 0))
     ring.material_override = VisualFactory.material(Color(0.75, 0.45, 1.0, 0.8), Color(0.6, 0.3, 1.0), true)
@@ -337,6 +400,9 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
             spawn_helper(str(effect.get("role", "fisher")))
         "unlock":
             _spawn_unlock(str(effect.get("target", "")))
+        "weapon":
+            if player != null:
+                player._refresh_weapon()
 
 
 ## --- 存檔 ---
@@ -356,6 +422,7 @@ func snapshot() -> Dictionary:
     return {
         "player": {"item": player.stack.item_id, "count": player.stack.count},
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d,
+        "bear": bears.snapshot() if bears != null else {},
     }
 
 
@@ -388,6 +455,9 @@ func restore_world(d: Dictionary) -> void:
         for id in pads:
             if price_pads.has(str(id)) and typeof(pads[id]) == TYPE_DICTIONARY:
                 (price_pads[str(id)] as PricePad).restore_state(int(pads[id].get("buys", 0)), int(pads[id].get("remaining", 0)))
+    var bear_d = d.get("bear", {})
+    if bears != null and typeof(bear_d) == TYPE_DICTIONARY:
+        bears.restore(bear_d)
 
 
 func save_now() -> bool:

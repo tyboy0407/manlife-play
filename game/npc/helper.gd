@@ -6,6 +6,7 @@ extends Carrier
 ##   只拿目的地放得下的量;卸不下去就換目的地,都沒有就放回來源工作站的輸出堆再走開(不抱著貨卡住);
 ## cashier 收銀員:走到被指派櫃台的收銀格站著(櫃台要有人站著才賣得出去)。
 ## 數值在 game.json helpers.<role>;不收錢、不用垃圾桶。
+## 北極熊:靠近時 set_panic(true) 嚇呆不動(頭上驚嘆號、emote-no),被吃掉 be_eaten() 規則上立刻消失、外觀縮小後釋放。
 
 const ROLE_COLORS := {"fisher": Color(0.5, 0.38, 0.6), "porter": Color(0.85, 0.55, 0.25), "cashier": Color(0.3, 0.6, 0.5)}
 
@@ -19,6 +20,8 @@ var deposited_total := 0    # 漁夫卸進工作站的魚
 var delivered_total := 0    # 搬運工送達的件數
 var returned_total := 0     # 搬運工送不出去、放回來源的件數
 var job := {}               # porter:{"from": Station, "to": Node3D, "item": String}
+var panicked := false       # 被北極熊盯上:原地不動
+var eaten := false          # 被吃掉了(等外觀縮完就釋放)
 
 var _dest: Node3D = null
 var _wander_timer := 0.0
@@ -27,6 +30,7 @@ var _wait_timer := 0.0
 var _last_count := 0
 var _stall := 0.0         # porter:卸貨時堆疊多久沒變
 var _stall_count := 0
+var _mark: Label3D = null   # 頭上的驚嘆號
 
 
 func _ready() -> void:
@@ -62,6 +66,9 @@ func _track_transfer() -> void:
 
 
 func _physics_process(delta: float) -> void:
+    if panicked:
+        move_toward_dir(Vector3.ZERO, delta)
+        return
     match role:
         "fisher":
             _fisher(delta)
@@ -71,6 +78,47 @@ func _physics_process(delta: float) -> void:
             _cashier(delta)
         _:
             move_toward_dir(Vector3.ZERO, delta)
+
+
+## --- 北極熊 ---
+
+## 嚇呆 / 解除:不動、頭上驚嘆號、模型一直搖頭(emote-no)
+func set_panic(on: bool) -> void:
+    if on == panicked or eaten:
+        return
+    panicked = on
+    if _mark == null:
+        _mark = VisualFactory.label("!", Vector3(0, stack_visual.position.y + 0.9, 0), 72, Color(1.0, 0.3, 0.25))
+        add_child(_mark)
+    _mark.visible = on
+    if model != null:
+        if on:
+            model.set_action("emote-no", true)
+        else:
+            model.clear_action()
+
+
+## 被吃掉:規則上立刻消失(分組 / 旗標 / 物理 / 格子都不再理它),外觀播 die 並縮小 0.5 秒後釋放
+func be_eaten() -> void:
+    if eaten:
+        return
+    eaten = true
+    panicked = false
+    remove_from_group("helper")
+    remove_from_group("helper_%s" % role)
+    can_fish = false
+    takes_output = false
+    can_serve = false
+    collision_layer = 0
+    set_physics_process(false)
+    if _mark != null:
+        _mark.visible = false
+    stack.clear()
+    if model != null:
+        model.set_action("die", false)
+    var tw := create_tween()
+    tw.tween_property(self, "scale", Vector3(0.05, 0.05, 0.05), 0.5).set_delay(0.15)
+    tw.tween_callback(queue_free)
 
 
 ## --- 漁夫 ---
