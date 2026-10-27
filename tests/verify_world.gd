@@ -206,8 +206,11 @@ func _run() -> void:
     await _step(12)
     var vx := _player.velocity.x
     _check(vx > 2.0 and absf(_player.velocity.z) < 0.5, "搖桿往右推,玩家往 +X 走(vx %.1f)" % vx)
+    _check(_player.model != null and _player.model.current() == "walk" and _player.body_mesh == null, "玩家用人物模型,走路時播 walk")
     _check(js.handle_event(lift) and not js.active and MoveInput.touch_dir == Vector2.ZERO, "放開搖桿:歸零")
     await _step(12)
+    _check(_player.model != null and _player.model.current() == "idle" and _player.stack_visual.position.y > _player.model.height,
+            "停下來播 idle;背上的堆疊在頭頂上方")
     _player.input_provider = _provide
     var menu_center := _level.hud.menu_button.get_global_rect().get_center()
     var press_menu := InputEventScreenTouch.new()
@@ -227,6 +230,8 @@ func _run() -> void:
             "教學第 1 步:指水邊,目標箭頭與頭上箭頭都亮著,HUD 顯示目標")
     await _step(30)
     _check(_level.fish_area.fish.size() >= 8, "水裡有魚(%d)" % _level.fish_area.fish.size())
+    var f0: Fish = _level.fish_area.fish[0]
+    _check(f0.has_model() and f0.anim_playing(), "水裡的魚用模型、游泳動畫在播")
     # 抓魚 -> 切 -> 取
     await _fish_until(8)
     _check(_player.stack.is_full() and _player.stack.item_id == "fish" and _count("fish") >= 8, "背包抓滿 8 條魚")
@@ -238,6 +243,8 @@ func _run() -> void:
     var emptied := await _wait_until(func() -> bool: return _player.stack.is_empty(), 120)
     _check(emptied and st.logic.input_count >= 1, "輸入格:魚卸進切魚台(%d)" % st.logic.input_count)
     await _step(8)
+    _check(st.logic.is_working() and st.worker_model != null and st.worker_model.current() == "interact-right",
+            "工人模型:處理中播 interact-right(%s)" % (st.worker_model.current() if st.worker_model != null else "無模型"))
     _check(GameState.tutorial_step == 2 and str(g.current.get("kind", "")) == "station_output"
             and g.target_pos.distance_to(st.output_pad.global_position) < 0.1, "教學第 3 步:指輸出格")
     var produced := await _wait_until(func() -> bool: return st.logic.output_count >= 8, 400)
@@ -258,6 +265,9 @@ func _run() -> void:
             and g.target_pos.distance_to(cnt.service_pad.global_position) < 0.1, "教學第 5 步:指收銀格")
     await _go(Vector3(0, 0, 7))
     var waiting := await _wait_until(func() -> bool: return cnt.waiting_customers() >= 1, 240)
+    var cust0: Customer = cnt.customers[0] if cnt.customers.size() > 0 else null
+    _check(cust0 != null and cust0.model != null and cust0.model.current() in ["idle", "walk"],
+            "顧客用人物模型(%s)" % (cust0.model.current() if cust0 != null and cust0.model != null else "無"))
     await _step(90)
     _check(waiting and _count("sale") == 0 and not cnt.has_server(), "有顧客在等,但沒人收銀就不賣")
     await _go(cnt.service_pad.global_position)

@@ -16,6 +16,7 @@ func _ready() -> void:
     _test_guide()
     _test_settings()
     _test_batching()
+    _test_models()
     _test_ring()
     _test_sfx()
     _test_input()
@@ -54,7 +55,7 @@ func _test_data() -> void:
             and GameData.section("nope").is_empty(), "子區塊 fish / customers;不存在的回空")
     _check(GameData.items().size() == 4 and GameData.item("fish").has("size") and GameData.item("cash").has("color"),
             "items.json:魚 / 魚片 / 現金 / 烤魚")
-    _check(GameData.item_size("fish") == Vector3(0.7, 0.22, 0.3) and GameData.item_color("cash") != Color(0.8, 0.8, 0.8)
+    _check(GameData.item_size("fish") == Vector3(0.7, 0.23, 0.36) and GameData.item_color("cash") != Color(0.8, 0.8, 0.8)
             and GameData.item_size("nope") == Vector3(0.5, 0.15, 0.4), "物品尺寸 / 顏色;未知物品用預設")
     _check(GameData.item_name("fish") != "fish" and GameData.item_name("fish") != "ITEM_fish", "物品名有翻譯(%s)" % GameData.item_name("fish"))
     var st := GameData.station("cutting_table")
@@ -456,6 +457,57 @@ func _test_batching() -> void:
     _check(surfaces == 2 and sb.mesh != null and sb.mesh.get_surface_count() == 2 and sb.mesh.surface_get_array_len(0) == 48,
             "三個零件兩種顏色 -> 兩個 surface(紅色兩個方塊 48 個頂點)")
     sb.free()
+
+
+## --- 模型:人物 GLB 與動畫、物品模型塞框、水裡的魚 ---
+
+func _test_models() -> void:
+    var scene := ModelLibrary.character("character-male-a")
+    _check(scene != null and ModelLibrary.character("") == null and ModelLibrary.role_model("fisher") != ""
+            and ModelLibrary.role_model("nope") == "" and ModelLibrary.customer_models().size() >= 3 and ModelLibrary.water_fish_count() == 3,
+            "models 設定:人物載得到、職業 / 顧客 / 水裡的魚都有設定")
+    var cm := CharacterModel.create(scene, 1.5)
+    add_child(cm)
+    var box := ModelLibrary.scene_aabb(cm)
+    _check(cm.anim != null and absf(box.size.y - 1.5) < 0.02 and absf(box.position.y) < 0.02 and absf(box.get_center().x) < 0.05
+            and cm.current() == "idle", "人物模型:縮到 1.5 高、腳底在 0、置中、預設 idle(高 %.2f)" % box.size.y)
+    cm.set_moving(1.0)
+    _check(cm.current() == "walk" and cm.anim.get_animation("walk").loop_mode == Animation.LOOP_LINEAR
+            and cm.anim.get_animation("idle").loop_mode == Animation.LOOP_LINEAR, "移動播 walk;idle / walk 設成循環")
+    cm.set_moving(0.05)
+    var idled := cm.current() == "idle"
+    cm.set_action("interact-right", true, 1.5)
+    cm.set_moving(1.0)
+    _check(idled and cm.current() == "interact-right" and is_equal_approx(cm.anim.speed_scale, 1.5), "停下回 idle;指定動作蓋過走路、倍速 1.5")
+    cm.clear_action()
+    cm.set_moving(0.0)
+    cm.set_action("emote-yes", false)
+    _check(cm.current() == "emote-yes" and cm.anim.get_animation("emote-yes").loop_mode == Animation.LOOP_NONE
+            and cm.anim.get_animation("interact-right").loop_mode == Animation.LOOP_LINEAR, "一次性動作不循環")
+    cm.free()
+    var mesh := ModelLibrary.item_mesh("fish")
+    var fit := ModelLibrary.item_fit("fish")
+    var size := GameData.item_size("fish")
+    var fitted := fit * mesh.get_aabb() if mesh != null else AABB()
+    _check(mesh is ArrayMesh and fitted.size.x <= size.x + 0.01 and fitted.size.y <= size.y + 0.01 and fitted.size.z <= size.z + 0.01
+            and fitted.size.x >= size.x * 0.9 and absf(fitted.position.y + size.y / 2.0) < 0.01 and absf(fitted.get_center().x) < 0.01
+            and absf(fitted.get_center().z) < 0.01, "魚的物品模型:等比例塞進尺寸框、底部貼框底、XZ 置中(%s)" % str(fitted.size))
+    _check(ModelLibrary.item_mesh("fillet") == null and ModelLibrary.item_fit("fillet") == Transform3D.IDENTITY, "魚片沒有模型:用方塊")
+    var sv := StackVisual.new()
+    add_child(sv)
+    sv.show_items("fish", 3)
+    var model_pile := sv.uses_model() and sv.visible_count() == 3
+    sv.show_items("fillet", 2)
+    _check(model_pile and not sv.uses_model() and sv.visible_count() == 2, "堆疊:魚用模型網格、魚片退回方塊")
+    sv.free()
+    var f := Fish.new()
+    f.variant = 1
+    add_child(f)
+    f.set_highlight(true)
+    var lit := f.overlay_on()
+    f.set_highlight(false)
+    _check(f.has_model() and f.anim_playing() and lit and not f.overlay_on(), "水裡的魚:FBX 模型、游泳動畫在播、盯上時蓋亮層")
+    f.free()
 
 
 ## --- 進度環 ---

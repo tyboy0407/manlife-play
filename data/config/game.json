@@ -34,6 +34,33 @@
       "capacity": 1
     }
   },
+  "models": {
+    "characterDir": "res://assets/models/game/characters/",
+    "characterHeight": 1.5,
+    "customerHeight": 1.3,
+    "player": "character-male-a",
+    "worker": "character-male-e",
+    "roles": {
+      "fisher": "character-male-b",
+      "porter": "character-male-f",
+      "cashier": "character-male-c"
+    },
+    "customers": [
+      "character-female-a",
+      "character-female-b",
+      "character-female-c",
+      "character-female-d",
+      "character-female-e",
+      "character-female-f",
+      "character-male-d"
+    ],
+    "waterFish": {
+      "dir": "res://assets/models/game/fish/",
+      "files": ["Fish1.fbx", "Fish2.fbx", "Fish3.fbx"],
+      "length": 0.9,
+      "yawDeg": 0
+    }
+  },
   "upgrades": {
     "worker_speed": {
       "perLevel": 0.5

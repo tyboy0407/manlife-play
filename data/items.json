@@ -4,10 +4,14 @@
       "name": "ITEM_fish",
       "size": [
         0.7,
-        0.22,
-        0.3
+        0.23,
+        0.36
       ],
-      "color": "#9cc4e8"
+      "color": "#9cc4e8",
+      "model": {
+        "file": "res://assets/models/game/props/fish.glb",
+        "rotationDeg": [90, 0, 0]
+      }
     },
     "fillet": {
       "name": "ITEM_fillet",

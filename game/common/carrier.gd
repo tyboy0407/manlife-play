@@ -3,6 +3,7 @@ extends CharacterBody3D
 ## 會搬東西的角色(玩家 / 幫手)基底:浮動模式(平面世界,不算重力)、物理層 2、只撞地形(層 1,互相穿過)。
 ## 身上一疊 ItemStack,背後 StackVisual 顯示並隨加速度微晃;旗標決定能不能抓魚 / 取成品 / 收錢(格子依此判斷)。
 ## 面向:local +Z 是前方(rotation.y = atan2(dir.x, dir.z)),背上的堆疊在 -Z。
+## 外觀:有人物模型(ModelLibrary.character(model_name))就用模型,依速度播 idle / walk;沒有就膠囊占位 + 鼻子方塊。
 
 const CARRIER_LAYER := 2
 const TERRAIN_LAYER := 1
@@ -16,9 +17,11 @@ var collects_cash := true     # 收錢:錢格的現金收進錢包(GameState.wal
 var can_serve := false        # 站在櫃台收銀格上能讓櫃台賣東西(玩家、收銀員)
 var can_use_trash := false    # 能用垃圾桶(玩家)
 var color := Color(0.4, 0.6, 1.0)
+var model_name := ""          # 人物模型名(子類別在 super() 之前設定);空字串或載不到就用膠囊占位
 var caught_total := 0
 var stack_visual: StackVisual
-var body_mesh: MeshInstance3D
+var body_mesh: MeshInstance3D   # 占位膠囊(有模型時為 null)
+var model: CharacterModel = null
 
 
 func _ready() -> void:
@@ -32,12 +35,19 @@ func _ready() -> void:
     shape.shape = cap
     shape.position = Vector3(0, 0.9, 0)
     add_child(shape)
-    body_mesh = VisualFactory.capsule(0.4, 1.6, color, Vector3(0, 0.9, 0))
-    add_child(body_mesh)
+    var top := 1.75
+    var scene := ModelLibrary.character(model_name)
+    if scene != null:
+        model = CharacterModel.create(scene, ModelLibrary.character_height())
+        add_child(model)
+        top = model.height + 0.05
+    else:
+        body_mesh = VisualFactory.capsule(0.4, 1.6, color, Vector3(0, 0.9, 0))
+        add_child(body_mesh)
+        add_child(VisualFactory.box(Vector3(0.22, 0.18, 0.18), Color(0.1, 0.1, 0.15), Vector3(0, 1.35, 0.38)))
     add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
-    add_child(VisualFactory.box(Vector3(0.22, 0.18, 0.18), Color(0.1, 0.1, 0.15), Vector3(0, 1.35, 0.38)))
     stack_visual = StackVisual.new()
-    stack_visual.position = Vector3(0, 1.75, -0.32)
+    stack_visual.position = Vector3(0, top, -0.3)
     add_child(stack_visual)
     stack.changed.connect(_on_stack_changed)
     _on_stack_changed()
@@ -57,6 +67,8 @@ func move_toward_dir(dir: Vector3, delta: float) -> void:
         rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, 14.0 * delta))
     move_and_slide()
     _sway(delta)
+    if model != null:
+        model.set_moving(Vector2(velocity.x, velocity.z).length() / maxf(speed, 0.01))
 
 
 ## 背上的堆疊依前進速度往後傾

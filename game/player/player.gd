@@ -8,6 +8,7 @@ var input_provider: Callable = Callable()
 
 func _ready() -> void:
     color = Color(0.35, 0.55, 0.95)
+    model_name = ModelLibrary.player_model()
     super()
     add_to_group("player")
     can_serve = true

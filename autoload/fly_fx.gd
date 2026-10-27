@@ -33,9 +33,16 @@ func _on_items_moved(kind: String, item: String, from: Vector3, to: Vector3, cou
 
 ## 生一個 item 外觀的幽靈從 from 拋到 to
 func fly(item: String, from: Vector3, to: Vector3, duration: float = DURATION, arc: float = ARC) -> void:
-    var ghost := MeshInstance3D.new()
-    ghost.mesh = _mesh_for(item)
-    ghost.material_override = VisualFactory.material(GameData.item_color(item))
+    var ghost := Node3D.new()
+    var mi := MeshInstance3D.new()
+    var mesh := ModelLibrary.item_mesh(item)
+    if mesh != null:
+        mi.mesh = mesh
+        mi.transform = ModelLibrary.item_fit(item)
+    else:
+        mi.mesh = _mesh_for(item)
+        mi.material_override = VisualFactory.material(GameData.item_color(item))
+    ghost.add_child(mi)
     add_child(ghost)
     ghost.global_position = from
     spawned_total += 1

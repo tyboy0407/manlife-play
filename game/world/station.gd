@@ -1,7 +1,8 @@
 class_name Station
 extends Node3D
 ## 工作站(切魚台 / 烤魚攤):桌子 + 工人占位 + 輸入格(朝水邊,local -Z)+ 輸出格(local +Z)。規則在 StationLogic,
-## 兩個格子上各有一堆外觀(StackVisual,排 3 列)。工人處理中會上下動。速度與堆疊上限吃 GameState 的升級。
+## 兩個格子上各有一堆外觀(StackVisual,排 3 列)。工人有人物模型就在處理中播 interact-right(占位膠囊則上下動)。
+## 速度與堆疊上限吃 GameState 的升級。
 
 var def := {}
 var spot_id := ""             # 關卡裡的位置 id(存檔用)
@@ -11,6 +12,7 @@ var output_pad: StationPad
 var input_pile: StackVisual
 var output_pile: StackVisual
 var worker: Node3D
+var worker_model: CharacterModel = null   # 有人物模型時的工人(models.worker)
 var ring: ProgressRing   # 工人頭上的處理進度環
 var _work_anim := 0.0
 
@@ -39,8 +41,13 @@ func _ready() -> void:
     worker.position = Vector3(0, 0, 1.1)
     worker.rotation.y = PI
     add_child(worker)
-    worker.add_child(VisualFactory.capsule(0.35, 1.4, Color(0.45, 0.3, 0.2), Vector3(0, 0.8, 0)))
-    worker.add_child(VisualFactory.box(Vector3(0.55, 0.2, 0.55), Color(0.3, 0.2, 0.12), Vector3(0, 1.62, 0)))
+    var scene := ModelLibrary.character(ModelLibrary.worker_model())
+    if scene != null:
+        worker_model = CharacterModel.create(scene, ModelLibrary.character_height() * 0.95)
+        worker.add_child(worker_model)
+    else:
+        worker.add_child(VisualFactory.capsule(0.35, 1.4, Color(0.45, 0.3, 0.2), Vector3(0, 0.8, 0)))
+        worker.add_child(VisualFactory.box(Vector3(0.55, 0.2, 0.55), Color(0.3, 0.2, 0.12), Vector3(0, 1.62, 0)))
     ring = ProgressRing.new()
     ring.inner = 0.28
     ring.outer = 0.4
@@ -93,8 +100,14 @@ func _physics_process(delta: float) -> void:
     ring.visible = logic.is_working()
     if logic.is_working():
         ring.set_progress(logic.work_progress())
-        _work_anim += delta * 12.0 * logic.speed_mult
-        worker.position.y = absf(sin(_work_anim)) * 0.12
+        if worker_model != null:
+            worker_model.set_action("interact-right", true, clampf(logic.speed_mult, 0.8, 2.5))
+        else:
+            _work_anim += delta * 12.0 * logic.speed_mult
+            worker.position.y = absf(sin(_work_anim)) * 0.12
+    elif worker_model != null:
+        worker_model.clear_action()
+        worker_model.set_moving(0.0)
     else:
         worker.position.y = lerpf(worker.position.y, 0.0, minf(1.0, 8.0 * delta))
 

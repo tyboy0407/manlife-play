@@ -7,3 +7,6 @@ Thumbs.db
 desktop.ini
 # Web export and the GitHub Pages clone
 build/
+# Raw model packs: only the curated copies in assets/models/game/ are used (see assets/models/game/CREDITS.md)
+assets/models/*/
+!assets/models/game/

@@ -1,6 +1,7 @@
 class_name StackVisual
 extends Node3D
-## 一疊物品的外觀:依 GameData 的物品尺寸 / 顏色疊方塊。columns = 1 是背上的單柱,> 1 是地上排成一列再往上疊。
+## 一疊物品的外觀:有模型(ModelLibrary.item_mesh)就用模型網格塞進物品尺寸框,沒有就依尺寸 / 顏色疊方塊。
+## columns = 1 是背上的單柱,> 1 是地上排成一列再往上疊。
 ## 整堆用一個 MultiMesh 畫(一次繪製呼叫,手機上才不會幾百個呼叫);位置只在換物品種類時重排,
 ## 之後只調 visible_instance_count。只顯示到 max_visible 個(數字多的用 HUD / 標籤表達)。
 
@@ -58,16 +59,29 @@ func _apply() -> void:
 ## 依物品尺寸把 max_visible 個位置排好(換種類才需要)
 func _layout() -> void:
     var size := GameData.item_size(item_id)
-    _box.size = size
-    _mmi.material_override = VisualFactory.material(GameData.item_color(item_id))
+    var fit := Transform3D.IDENTITY
+    var mesh := ModelLibrary.item_mesh(item_id)
+    if mesh != null:
+        _mm.mesh = mesh   # 模型網格帶自己的材質
+        _mmi.material_override = null
+        fit = ModelLibrary.item_fit(item_id)
+    else:
+        _box.size = size
+        _mm.mesh = _box
+        _mmi.material_override = VisualFactory.material(GameData.item_color(item_id))
     var cols := maxi(columns, 1)
     for i in max_visible:
         var col := i % cols
         var level := int(floor(float(i) / float(cols)))
         var pos := Vector3((float(col) - float(cols - 1) / 2.0) * (size.x + spacing), size.y / 2.0 + float(level) * (size.y + 0.02), 0.0)
-        _mm.set_instance_transform(i, Transform3D(Basis(), pos))
+        _mm.set_instance_transform(i, Transform3D(Basis(), pos) * fit)
     _laid_out_for = item_id
     _laid_out_cols = cols
+
+
+## 目前畫的是模型網格(不是占位方塊)
+func uses_model() -> bool:
+    return _mm != null and _mm.mesh != _box
 
 
 func top_height() -> float:

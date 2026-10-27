@@ -31,6 +31,7 @@ var _stall_count := 0
 
 func _ready() -> void:
     color = ROLE_COLORS.get(role, Color(0.5, 0.5, 0.5))
+    model_name = ModelLibrary.role_model(role)
     super()
     add_to_group("helper")
     add_to_group("helper_%s" % role)
@@ -44,8 +45,9 @@ func _ready() -> void:
     can_use_trash = false
     stack.changed.connect(_track_transfer)
     _last_count = stack.count
-    # 頭上的角色標記
-    add_child(VisualFactory.box(Vector3(0.5, 0.18, 0.5), color.darkened(0.35), Vector3(0, 1.72, 0)))
+    if model == null:
+        # 占位膠囊時用頭上的色塊標記職業(有模型時每種職業是不同人物)
+        add_child(VisualFactory.box(Vector3(0.5, 0.18, 0.5), color.darkened(0.35), Vector3(0, 1.72, 0)))
 
 
 ## 堆疊變少 = 卸貨(格子在走近時就開始搬,所以「走向目的地」狀態也算)

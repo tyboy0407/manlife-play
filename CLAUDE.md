@@ -22,6 +22,10 @@
 - 2026-10-26(里程碑 4,iPhone):照使用者的 taifex-signal 台股 App 作法走 PWA,不上 App Store。1a 放 GitHub Pages
   (tyboy0407/manlife-play,Cloudflare 單檔 25 MB 上限放不下 39.5 MB 的 wasm);2a 直式優先、橫式也能動;3a 浮動搖桿 + 右上角選單鈕
   (提示箭頭 / 音效 / 重新開始)取代 H / F9;匯出模板下載已獲同意。
+- 2026-10-27(模型):1a 免費 CC0 低多邊形、2b 人物 + 貨物、3a 要內建動畫。使用者自己下載了 Kenney Mini Characters、Kenney Survival Kit、
+  Quaternius Animated Fish Pack 放到 assets/models/;我只把用到的檔案複製到 assets/models/game/,原始套件加 .gdignore 且 git 不追蹤。
+  角色分配(game.json models):玩家 male-a、漁夫 male-b、搬運工 male-f、收銀員 male-c、工作站工人 male-e、顧客 7 種輪流;
+  魚用 Survival Kit 的 fish.glb 側躺疊,魚片 / 烤魚還是方塊(壽司店套件沒下載);水裡的魚用 Quaternius FBX + 游泳動畫。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -37,10 +41,10 @@
 - `core/economy/`:ItemStack(一疊同種物品,有容量)、StationLogic(輸入堆 -> 處理 -> 輸出堆,輸出滿停工,speed_mult)、PurchaseLogic(價格牌分期;repeatable / max_buys / cost_mult / buys,`complete()` 漲價、`restore()` 存檔還原)、CounterLogic(庫存 / 售價 / 賣出)、PorterPlanner(搬運工派工:need_of / plan / best_dest / best_source,吃字典清單)
 - `core/input/move_input.gd`:MoveInput(螢幕方向 -> 世界 XZ;from_actions 鍵盤手把 + 觸控搖桿(static touch_dir,有推就以搖桿為準)、toward 合成輸入)
 - `core/guidance/guide_logic.gd`:GuideLogic(教學七步的完成條件與指向、教學後的提示 hint();吃世界狀態字典,回 {kind, target, text, arg})
-- `game/common/`:Carrier(CharacterBody3D 浮動模式、背上 ItemStack + StackVisual、旗標 can_fish / takes_output / collects_cash / can_serve / can_use_trash、stack_top 給飛行動畫、腳下 blob_shadow)、StackVisual(整堆一個 MultiMesh:換物品種類才重排位置,之後只改 visible_instance_count)、StaticBatch(不會動的方塊 / 圓柱依顏色合併成一個 ArrayMesh,每色一個 surface)、VisualFactory(box / capsule / cylinder / cone / label / blob_shadow / 材質快取)、ProgressRing(平放進度環,ArrayMesh 弧,set_progress 量化重建)
+- `game/common/`:Carrier(CharacterBody3D 浮動模式、背上 ItemStack + StackVisual、旗標 can_fish / takes_output / collects_cash / can_serve / can_use_trash、stack_top 給飛行動畫、腳下 blob_shadow;model_name 有對應 GLB 就掛 CharacterModel 代替膠囊,move_toward_dir 每幀依速度餵 set_moving)、StackVisual(整堆一個 MultiMesh:物品在 items.json 有 model 就用 ModelLibrary.item_mesh / item_fit 的模型網格,否則方塊;換物品種類才重排位置,之後只改 visible_instance_count;uses_model 給測試)、ModelLibrary(靜態快取:character(name) / player_model / role_model / worker_model / customer_models 讀 game.json models;item_mesh / item_fit 把 items.json 的 model 等比例塞進尺寸框;water_fish;scene_aabb / first_mesh / mesh_instances / find_anim / local_xform 工具)、CharacterModel(人物 GLB:縮到身高、腳底貼 0、XZ 置中,idle / walk 循環;set_moving(速度比例)、set_action(動作, loop, speed)、clear_action、current())、StaticBatch(不會動的方塊 / 圓柱依顏色合併成一個 ArrayMesh,每色一個 surface)、VisualFactory(box / capsule / cylinder / cone / label / blob_shadow / 材質快取)、ProgressRing(平放進度環,ArrayMesh 弧,set_progress 量化重建)
 - `game/player/player.gd`:Player(input_provider 可餵合成輸入;容量 = 設定 + GameState.capacity_bonus;can_serve / can_use_trash)
-- `game/npc/helper.gd`:Helper(role 決定狀態機:fisher 水裡漫游被抓魚 -> 滿了去輸入格卸貨;porter 問 Harbor.find_porter_job(PorterPlanner)搬成品,狀態 to_pickup / picking / to_dropoff / dropping / returning / step_back;cashier 走到被指派櫃台的收銀格站著;數值 game.json helpers.<role>)、`customer.gd`(走到排隊位、等、買完離開,無物理;泡泡顯示物品名 ×數量)
-- `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad、Station(`Station.create(def)`,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品)、FishArea、Fish、Counter(`Counter.create(def)` 讀 counters.json;上架格 + 收銀格 ServicePad + 排隊位;`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付;可重複牌、付清後需離開再踏上(_blocked)、restore_state)、TrashPad(玩家站上丟掉背上所有貨物,GameState.add_trashed)
+- `game/npc/helper.gd`:Helper(role 決定狀態機:fisher 水裡漫游被抓魚 -> 滿了去輸入格卸貨;porter 問 Harbor.find_porter_job(PorterPlanner)搬成品,狀態 to_pickup / picking / to_dropoff / dropping / returning / step_back;cashier 走到被指派櫃台的收銀格站著;數值 game.json helpers.<role>)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
+- `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad、Station(`Station.create(def)`,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json;上架格 + 收銀格 ServicePad + 排隊位;`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付;可重複牌、付清後需離開再踏上(_blocked)、restore_state)、TrashPad(玩家站上丟掉背上所有貨物,GameState.add_trashed)
 - `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z);直式(高 >= 寬)KEEP_WIDTH、fov 40、偏移 (0, 13.5, 9.5),橫式 KEEP_HEIGHT、fov 42、偏移 (0, 17, 11.5),視窗轉向時重算
 - `game/ui/hud.gd`:Hud(class_name):錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
 - `game/ui/touch_joystick.gd`:TouchJoystick(鋪滿畫面最底層、mouse_filter IGNORE;_unhandled_input 收 ScreenTouch / ScreenDrag,按下點為中心、RADIUS 90、只跟第一根手指、exclusions 範圍不算;handle_event 給測試)
@@ -52,12 +56,16 @@
 - `autoload/fly_fx.gd`:Fx(聽 items_moved 生物品幽靈拋物線飛,掛在自己底下;kind "cash" 交給 HUD)
 - `tools/gen_sfx.py`:純 Python 合成占位音效(正弦 / 噪音 / 包絡),輸出 assets/sfx/*.wav(22050 Hz 16-bit mono)
 - `tools/gen_icons.py`:Pillow 畫占位圖示(assets/icons/icon_128 / 144 / 180 / 512.png)與啟動畫面 splash.png
+- `tools/inspect_models.gd`:headless 印出模型場景結構(節點、網格 AABB、材質、骨架 rest 位置、動畫清單);
+  `godot --headless --path . --script tools/inspect_models.gd -- res://assets/models/game/characters/character-male-a.glb`
+- `assets/models/game/`:遊戲實際載入的模型(characters/ Kenney Mini Characters 12 個人物 GLB + Textures/colormap.png、props/ Survival Kit 的 fish GLB、
+  fish/ Quaternius 魚 FBX ×3),來源與授權見裡面的 CREDITS.md;原始套件放 `assets/models/<套件名>/`,內含 `.gdignore`(不匯入、不匯出),git 不追蹤
 - `tools/serve_web.py`:本機預覽 build/web(0.0.0.0,印 iPhone 可用的區網網址;8080 被台股 App 佔著,用 8090);`.claude/launch.json` 的 `web`
 - `tools/deploy_web.py`:`--export-release Web` -> 同步到 build/pages(tyboy0407/manlife-play 的 clone)-> commit(沿用本 repo 的 git 身分)-> push main;`--export-only` / `--no-export`
 - `export_presets.cfg`:Web 預設(不開執行緒、PWA 開、直式、圖示指到 assets/icons);`assets/fonts/NotoSansTC-VF.ttf`(OFL,見 LICENSE.md)是遊戲內唯一的中文字型
 - `autoload/game_state.gd`:wallet(add_wallet / spend)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / 統計(含 items_trashed);apply_purchase(effect type:capacity / hire / unlock / upgrade)、upgrade_mult、to_dict / from_dict
 - `autoload/save_manager.gd`:存檔 IO(user://manlife_save.json,VERSION 2;has_save / write / read / delete;測試改 save_path)
-- `data/config/game.json`:速度、容量、搬運速率(transferPerSec / cashPickupPerSec / payPerSec / payDelaySec / trashPerSec)、魚群、顧客、autosaveSec、helpers、upgrades;`data/items.json`(fish / fillet / grilled / cash);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5);`data/shop.json`(八塊牌);`data/locale/strings.csv`
+- `data/config/game.json`:速度、容量、搬運速率(transferPerSec / cashPickupPerSec / payPerSec / payDelaySec / trashPerSec)、魚群、顧客、autosaveSec、helpers、upgrades、models(人物 GLB 資料夾與身高、player / worker / roles / customers 用哪個人物、waterFish);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5);`data/shop.json`(八塊牌);`data/locale/strings.csv`
 
 ## 世界慣例
 
@@ -73,6 +81,12 @@
 - 新站點 / 櫃台 / 購買:加 JSON + 在 harbor.gd 的 SPOTS / UNLOCKS 給座標;效果型別新增要同時改 GameState.apply_purchase 與 Harbor._on_purchased。
 - 表現層只聽事件:格子 / 水區 / 櫃台搬了東西就 `EventBus.items_moved.emit(kind, item, from, to, count)`(from / to 世界座標,堆頂用 Carrier.stack_top / Station.pile_top / Counter.pile_top);Fx 畫幽靈、Sfx 播音、HUD 畫 $ 飛向錢包。規則層不等動畫,所以測試數值不受影響;新的搬運行為記得發事件。
 - 進度環:PricePad.ring 顯示 logic.progress()(_update_label 時更新),Station.ring 顯示 work_progress()(只在工作時顯示)。
+- 模型:人物統一「腳底 0、local +Z 是臉」(Kenney Mini Characters 本來就朝 +Z,從 pick-up 動畫的 torso 往 +Z 彎確認過),
+  CharacterModel 把 GLB 等比例縮到 models.characterHeight(1.5;顧客 customerHeight 1.3;工人 ×0.95),背上堆疊放在 model.height + 0.05;
+  動畫只靠速度比例切 idle / walk,工作站工人 set_action("interact-right", true, speed_mult)、顧客買到 set_action("emote-yes", false)。
+  物品模型:items.json `model` 指定檔案與 rotationDeg,ModelLibrary.item_fit 等比例塞進 size 框、XZ 置中、底貼框底(魚側躺:rotationDeg [90, 0, 0],
+  size 改成模型比例 0.7 × 0.23 × 0.36);StackVisual 與 Fx 幽靈共用同一網格與變換,堆疊高度仍只看 size。水裡的魚:縮到 waterFish.length,頭朝 +Z
+  (Quaternius 魚的 Face 骨頭在 +Z)。沒有模型(或資料裡拿掉)一律退回方塊 / 膠囊,舊外觀與測試都還能跑。
 - 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
 
 ## 網頁 / 手機(PWA)
@@ -119,6 +133,14 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 - GDScript 迭代無型別陣列時元素是 Variant,`var x := CONST_STR + n` 會「無法推斷型別」;寫 `var x: String = ... + str(n)`。
 - 新加字型 / 圖片後第一次 `--import` 會因為資源還沒匯入而讓 preload 它的腳本解析失敗(整批「Failed to compile depended scripts」),再跑一次就好。
 - 靠右上角的 Control 不要用 `set_anchors_and_offsets_preset(..., MINSIZE)`(加進樹前量不到字,之後往右長出畫面);直接設 anchor 1 / offset_right -margin / offset_left -margin-width、grow_horizontal BEGIN,面板給 custom_minimum_size。
+- 原始模型套件一定要放 `.gdignore`:Kenney 一包 100 多個 GLB / FBX / OBJ + 預覽圖,Godot 會全部匯入,`all_resources` 也全部匯出到網頁版;
+  只把要用的檔案複製到 assets/models/game/。Kenney GLB 的貼圖是相對路徑 `Textures/colormap.png`,複製時連 Textures 資料夾一起(兩個套件的 colormap 不同,分開放)。
+- glTF / FBX 匯入的動畫預設不循環(loop_mode 0),執行期對 Animation 資源設 LOOP_LINEAR 即可(同一 PackedScene 的實例共用資源,設一次全部生效)。
+  Quaternius 舊版 FBX 的 Armature 帶 rotation -90° / scale 100,網格 AABB 要沿父節點累乘(ModelLibrary.scene_aabb)才是真實尺寸。
+- 模型朝向不用猜:看骨架 rest 位置(魚的 Face / Tail 骨頭)或動畫資料(pick-up 的 torso 往哪邊彎,scratchpad 的 glb_anim.py 作法:解析 GLB 的 JSON + BIN);
+  內建瀏覽器窗格的分頁只有 1 FPS,拖搖桿測不出朝向。
+- 節點上別用 `create_timer().timeout.connect(lambda 捕捉子節點)` 延後隱藏:關卡換場景時子節點先被 free,timer 觸發會印「Lambda capture was freed」;改在 _physics_process 倒數。
+- Git Bash 的 `grep -c $'\r'` 在這台機器會把 LF 檔也算成有 CR(誤判);看行尾用 `git ls-files --eol`。專案檔案都是 LF。
 - 本機 8080 是台股 App 的伺服器,網頁預覽用 8090;瀏覽器窗格的 launch.json 指向舊的 star-weaver 路徑,改用 `preview_start {url}` 配 Bash 背景伺服器。
 
 ## 里程碑
@@ -128,4 +150,8 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 3. 手感與引導(完成 2026-10-26):飛行動畫(物品拋物線、賣出飛向顧客、$ 飛向錢包、付款飛向牌子)、合成占位音效 + 環境音、價格牌付款進度環 + 工作站處理進度環、七步教學鏈 + 之後的提示箭頭(頭上小箭頭 + 目標大箭頭,H 開關)、顧客買到道謝泡泡。
 4. iPhone PWA(完成 2026-10-26):Compatibility 渲染器、直式相機、浮動觸控搖桿、右上角選單、Noto Sans TC 字型、占位圖示 / 啟動畫面、Web 匯出預設(PWA)、本機預覽與一鍵部署腳本,上線 https://tyboy0407.github.io/manlife-play/。
 
-之後候選:離線收益、幫手升級、顧客多樣化與耐心、關卡座標資料化與地圖擴張、更多貨物鏈(魚湯)、字型子集化縮小下載、換皮與美術。
+5. 模型(完成 2026-10-27):Kenney Mini Characters 人物(玩家 / 漁夫 / 搬運工 / 收銀員 / 工人各一種、顧客 7 種輪流)+ idle / walk / interact / emote 動畫、
+   Survival Kit 的魚當貨物模型(堆疊與飛行幽靈共用)、Quaternius 動畫魚在水裡游;ModelLibrary / CharacterModel 資料驅動,沒模型退回占位。
+   候選清單在 docs/model_candidates.md(魚片 / 烤魚模型可用 Quaternius Modular Sushi Restaurant Kit)。
+
+之後候選:魚片 / 烤魚 / 建築模型(壽司店套件)、離線收益、幫手升級、顧客多樣化與耐心、關卡座標資料化與地圖擴張、更多貨物鏈(魚湯)、字型子集化縮小下載。

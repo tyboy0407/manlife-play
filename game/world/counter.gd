@@ -89,7 +89,7 @@ func has_server() -> bool:
 
 
 func slot_position(index: int) -> Vector3:
-    return to_global(Vector3(1.6 + float(index) * 1.1, 0.0, 0.0))
+    return to_global(Vector3(1.6 + float(index) * 1.3, 0.0, 0.0))
 
 
 func waiting_customers() -> int:
