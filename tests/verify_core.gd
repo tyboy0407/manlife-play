@@ -297,6 +297,7 @@ func _test_state() -> void:
             and GameState.wallet == 0 and GameState.spend(1) == 0, "錢包:加錢 / 扣到 0 為止、負數不理")
     GameState.add_wallet(7)
     GameState.sound_on = false
+    GameState.play_time = 123.5
     var d := GameState.to_dict()
     GameState.reset()
     _check(GameState.hired_total() == 0 and GameState.capacity_bonus == 0 and GameState.upgrade_level("worker_speed") == 0
@@ -304,8 +305,8 @@ func _test_state() -> void:
     GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
     _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 1 and GameState.is_unlocked("grill_complex")
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher")
-            and GameState.wallet == 7 and not GameState.sound_on and GameState.weapon_level == 2 and GameState.helpers_lost == 2,
-            "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數)")
+            and GameState.wallet == 7 and not GameState.sound_on and GameState.weapon_level == 2 and GameState.helpers_lost == 2
+            and is_equal_approx(GameState.play_time, 123.5), "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數、遊戲時間)")
     GameState.reset()
 
 
@@ -474,14 +475,25 @@ func _test_bear() -> void:
     _check(is_equal_approx(b.bite_sec(), 4.0) and is_equal_approx(b.bite_radius(), 1.4)
             and b.panic_radius() >= b.bite_radius() and b.speed() > 0.0 and b.flee_speed() >= b.speed() and b.entries().size() == 2,
             "咬 4 秒、嚇呆半徑 >= 咬的半徑、兩個入口")
-    _check(b.weapon_max_level() == 3 and is_equal_approx(b.scare_radius(0), 0.0) and is_equal_approx(b.scare_radius(1), 1.8)
-            and is_equal_approx(b.scare_radius(2), 1.8) and is_equal_approx(b.scare_radius(3), 6.0) and is_equal_approx(b.scare_radius(9), 6.0),
-            "武器三級:沒武器嚇不走、Lv1 / Lv2 要靠到 1.8、Lv3 看到(6)就逃;超過最高級當最高級")
-    _check(not b.can_scare(0, 0.1) and b.can_scare(1, 1.8) and not b.can_scare(1, 2.0) and b.can_scare(3, 5.0), "can_scare:等級 × 距離")
-    _near(b.cooldown_mult(1), 1.0, "Lv1 冷卻倍率 1", 0.001)
-    _near(b.cooldown_mult(2), 1.7, "Lv2 冷卻倍率 1.7", 0.001)
-    _near(b.next_cooldown(0, 0.0), 35.0, "下次冷卻:最短 35", 0.001)
-    _near(b.next_cooldown(3, 1.0), 93.5, "下次冷卻:Lv3 最長 55 × 1.7", 0.001)
+    _check(b.weapon_max_level() == 3 and is_equal_approx(b.weapon_damage(0), 0.0) and is_equal_approx(b.weapon_damage(1), 10.0)
+            and is_equal_approx(b.weapon_damage(2), 20.0) and is_equal_approx(b.weapon_damage(3), 35.0) and is_equal_approx(b.weapon_damage(9), 35.0)
+            and is_equal_approx(b.attack_range(1), 1.8) and is_equal_approx(b.attack_interval(), 0.5),
+            "武器三級只加攻擊力:0 / 10 / 20 / 35,打擊距離 1.8、每 0.5 秒一下;超過最高級當最高級")
+    _check(not b.can_attack(0, 0.1) and b.can_attack(1, 1.8) and not b.can_attack(1, 2.0) and b.can_attack(3, 2.0), "can_attack:等級 × 距離")
+    _near(b.cooldown_mult(1), 1.0, "武器不再影響冷卻(倍率 1)", 0.001)
+    _near(b.next_cooldown(0, 0.0), 35.0, "下次冷卻:開局最短 35", 0.001)
+    _near(b.next_cooldown(3, 1.0), 55.0, "下次冷卻:開局最長 55", 0.001)
+    # 難度曲線:3 分鐘後 5 分鐘內縮到 15 ~ 25;血量每分鐘 +10
+    _check(b.interval(0.0) == Vector2(35.0, 55.0) and b.interval(180.0) == Vector2(35.0, 55.0) and b.interval(330.0) == Vector2(25.0, 40.0)
+            and b.interval(480.0) == Vector2(15.0, 25.0) and b.interval(9999.0) == Vector2(15.0, 25.0),
+            "出沒間隔:3 分鐘前 35 ~ 55,之後 5 分鐘內線性縮到 15 ~ 25(4.5 分鐘時 25 ~ 40)")
+    _near(b.next_cooldown(0, 0.0, 9999.0), 15.0, "後期最短 15 秒", 0.001)
+    _near(b.hp(0.0), 30.0, "血量:開局 30", 0.001)
+    _near(b.hp(180.0), 60.0, "血量:3 分鐘 60", 0.001)
+    _check(is_equal_approx(b.king_at_sec(), 300.0) and is_equal_approx(b.king_hp_mult(), 4.0) and is_equal_approx(b.king_scale(), 1.6)
+            and b.king_grow_helper() > b.king_grow_fish() and b.king_grow_fish() > 1.0 and b.king_max_scale() >= b.king_scale()
+            and b.king_fish_bite_sec() < b.king_bite_sec() and b.king_bite_sec() < b.bite_sec() and b.king_heal_fish() > 0.0 and b.king_respawn_sec() > 0.0,
+            "北極熊王:5 分鐘出場、血量 ×4、體型 1.6、吃幫手長得比吃魚多、咬得比一般熊快")
     _check(str(b.weapon_model(3).get("file", "")).contains("axe-upgraded") and b.weapon_model(0).is_empty(), "武器模型:Lv3 強化斧、Lv0 沒有")
     _check(b.pack_size(0.0) == 4 and b.pack_size(0.099) == 4 and b.pack_size(0.1) == 3 and b.pack_size(0.399) == 3 and b.pack_size(0.4) == 2
             and b.pack_size(0.899) == 2 and b.pack_size(0.9) == 1 and b.pack_size(1.0) == 1, "一次幾隻:10% 4 隻、30% 3 隻、50% 2 隻、10% 1 隻")
@@ -491,8 +503,9 @@ func _test_bear() -> void:
     _check(BearLogic.pick_target(Vector3.ZERO, prey) == 2 and BearLogic.pick_target(Vector3(-7, 0, 0), prey) == 3
             and BearLogic.pick_target(Vector3.ZERO, []) == -1, "盯上平面距離最近的幫手(忽略高度);沒幫手回 -1")
     var empty := BearLogic.from_config({}, {})
-    _check(empty.scare_radius(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0
-            and empty.pack_size(0.5) == 1, "沒設定也不會爆:沒武器等級、沒入口、用預設秒數、一次一隻")
+    _check(empty.weapon_damage(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0
+            and empty.pack_size(0.5) == 1 and empty.hp(60.0) > 0.0 and empty.interval(999.0) == empty.interval(0.0) and empty.king_at_sec() > 0.0,
+            "沒設定也不會爆:沒武器等級、沒入口、用預設秒數、一次一隻、血量與王有預設")
 
 
 ## --- 裝置偏好 ---

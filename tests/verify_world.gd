@@ -2,8 +2,8 @@ extends Node3D
 ## 世界整合 headless 驗證(3D 物理):建關卡 -> 抓魚到滿 -> 切魚台卸貨 / 切 / 取魚片 -> 櫃台上架 -> 沒人收銀不賣、玩家站收銀格才賣 ->
 ## 錢格收進錢包(不佔背包)、帶錢走過價格牌不付、站著才分期付 -> 僱收銀員(接手收銀)-> 垃圾桶丟魚 -> 僱搬運工(自己把成品送到櫃台)->
 ## 升級牌(工人速度 / 堆疊上限,越買越貴)-> 再僱漁夫(可重複牌)-> 增建烤魚攤(第二條貨物鏈:魚片 -> 烤魚 -> 烤魚櫃台 $5)->
-## 搬運工送不出去會放回來源、最缺貨的櫃台優先補 -> 北極熊(吃掉漁夫、買回 ×1.5、村外武器店買武器、趕跑、Lv3 一群三隻看到就逃)->
-## 擴建村莊 $1000(東門拆掉、第二個水區、第二組工作站與櫃台)->
+## 搬運工送不出去會放回來源、最缺貨的櫃台優先補 -> 北極熊(吃掉漁夫、買回 ×1.5、村外武器店買武器、打到血條歸零、Lv3 一群三隻)->
+## 擴建村莊 $1000(東門拆掉、第二個水區、第二組工作站與櫃台)-> 北極熊王(5 分鐘出場、吃魚回血變大、打死)->
 ## 存檔 / 重建關卡還原 -> 清存檔。玩家用合成輸入(朝目標走);買東西的錢用 money_pad.add_cash 補。
 ## 跑法:godot --headless --path . res://tests/verify_world.tscn(先 --import)
 
@@ -43,7 +43,10 @@ func _ready() -> void:
     EventBus.tutorial_finished.connect(func() -> void: _bump("tut_done"))
     EventBus.bear_appeared.connect(func(_b: Node3D) -> void: _bump("bear_appeared"))
     EventBus.bear_biting.connect(func(_h: Node3D) -> void: _bump("bear_biting"))
-    EventBus.bear_scared.connect(func(_b: Node3D, _by: Node3D) -> void: _bump("bear_scared"))
+    EventBus.bear_defeated.connect(func(_b: Node3D, _by: Node3D) -> void: _bump("bear_defeated"))
+    EventBus.bear_hit.connect(func(_b: Node3D, _d: float, _hp: float) -> void: _bump("bear_hit"))
+    EventBus.fish_eaten.connect(func(_b: Node3D) -> void: _bump("fish_eaten"))
+    EventBus.bear_fed.connect(func(_b: Node3D) -> void: _bump("bear_fed"))
     EventBus.bear_left.connect(func(reason: String) -> void: _bump("bear_left_" + reason))
     EventBus.helper_eaten.connect(func(role: String, _h: Node3D) -> void: _bump("eaten_" + role))
     await _run()
@@ -151,7 +154,7 @@ func _spawn_level() -> void:
     _level.bears.enabled = false   # 北極熊只在測試指定的時候出現(不然 45 秒後會自己來吃幫手)
 
 
-## 追著熊跑(熊會動,每幀更新目標)直到牠逃 / 消失或超時
+## 追著熊跑並打它(玩家帶武器靠近會自動攻擊;熊會動,每幀更新目標)直到牠血條歸零逃走 / 消失或超時
 func _chase_bear(bear: Bear, max_frames: int) -> void:
     _moving = true
     for i in max_frames:
@@ -513,6 +516,7 @@ func _run() -> void:
     _check(took and gstock and gsold and five, "烤魚上架、顧客以 $5 買走")
     await _bear_section(g, fisher_pad)
     await _expand_section()
+    await _king_section()
     # 表現層:飛行動畫事件、幽靈物件、音效
     _check(_count("moved") >= 30 and _count("moved_catch") >= 8 and _count("moved_to_station") >= 8 and _count("moved_from_station") >= 8
             and _count("moved_to_counter") >= 8 and _count("moved_sold") >= 3 and _count("moved_cash") >= 6 and _count("moved_pay") >= 20
@@ -557,6 +561,8 @@ func _run() -> void:
     var fstock := cnt.logic.stock
     var fp_rem := fisher_pad.logic.remaining
     var bear_cd := _level.bears.cooldown
+    var king_next_saved := _level.bears.king_next_sec
+    var play_time_saved := GameState.play_time
     var weapon_saved := GameState.weapon_level
     var lost_saved := GameState.helpers_lost
     _check(saved and SaveManager.has_save() and int(snap["money"]) == cash_saved and snap["stations"].has("grill")
@@ -587,8 +593,9 @@ func _run() -> void:
     var cashier2 := _find_helper("cashier")
     _check(cashier2 != null and cashier2.assigned_counter == cnt2 and is_equal_approx(st2.logic.speed_mult, 1.5), "重建關卡:收銀員指派、升級套回")
     _check(GameState.weapon_level == weapon_saved and GameState.helpers_lost == lost_saved and _player.weapon_prop != null
-            and _find_helper("fisher") != null and absf(_level.bears.cooldown - bear_cd) < 0.5 and fp2.logic.lost == 0,
-            "重建關卡:武器 Lv%d 掛回腰間、買回的漁夫還在、北極熊冷卻還原" % weapon_saved)
+            and _find_helper("fisher") != null and absf(_level.bears.cooldown - bear_cd) < 0.5 and fp2.logic.lost == 0
+            and absf(GameState.play_time - play_time_saved) < 0.5 and is_equal_approx(_level.bears.king_next_sec, king_next_saved),
+            "重建關卡:武器 Lv%d 掛回腰間、買回的漁夫還在、北極熊冷卻 / 遊戲時間 / 王的下次時間還原" % weapon_saved)
     # F9 新遊戲
     _level.clear_save_and_state()
     _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0, "新遊戲:武器與被吃數歸零")
@@ -617,6 +624,9 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     await _step(8)
     _check(bear != null and bs.has_bear() and bs.first_bear() == bear and bear.state == "hunting" and bear.target == fisher and GameState.weapon_level == 0
             and _count("bear_appeared") == 1 and bs.visits == 1, "北極熊從邊緣進來、盯上漁夫")
+    _check(absf(bear.hp_max - bs.logic.hp(GameState.play_time)) < 1.0 and bear.hp_max > 30.0 and bear.hp_max < 90.0 and bear.hp == bear.hp_max
+            and bear.hp_ratio() == 1.0 and GameState.play_time > 60.0, "熊的血量照遊戲時間算(%.0f 秒 -> %.0f 血)、血條滿" % [GameState.play_time, bear.hp_max])
+    _check(bs.logic.interval(GameState.play_time).x >= 15.0 and bs.logic.interval(GameState.play_time).x <= 35.0, "出沒間隔照遊戲時間縮短")
     _check(str(g.current.get("kind", "")) == "pad" and str(g.current.get("target", "")) == "weapon" and str(g.current.get("text", "")) == "HINT_BEAR_WEAPON"
             and g.target_pos.distance_to((_level.price_pads["weapon"] as PricePad).global_position) < 0.1, "提示:沒武器 -> 指村外武器店的牌")
     var panicked := await _wait_until(func() -> bool: return fisher.panicked, 900)
@@ -656,9 +666,11 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     bear.global_position = Vector3(-6.0, 0, 2.5)
     bear.set_physics_process(true)
     await _chase_bear(bear, 900)
-    _check(is_instance_valid(bear) and bear.state == "fleeing" and _count("bear_scared") == 1 and bear.scared_at_dist <= 1.9
+    var hits_needed := int(ceil(bear.hp_max / 10.0)) if is_instance_valid(bear) else 0
+    _check(is_instance_valid(bear) and bear.state == "fleeing" and _count("bear_defeated") == 1 and bear.hits_taken == hits_needed
+            and _player.hits_total == hits_needed and _count("bear_hit") == hits_needed and bear.hp == 0.0
             and _player.model != null and _player.model.current() == "attack-melee-right",
-            "靠到 %.2f 就把熊嚇跑、玩家揮一下武器" % (bear.scared_at_dist if is_instance_valid(bear) else -1.0))
+            "Lv1 每下 10:打了 %d 下血條歸零才逃、玩家揮武器" % (bear.hits_taken if is_instance_valid(bear) else -1))
     var gone := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
     _check(gone and _count("bear_left_fled") == 1 and bs.cooldown >= 33.0 and bs.cooldown <= 55.0 and _level.helpers.size() == helpers_before - 1,
             "熊逃到地圖邊緣消失,下一群 %.0f 秒後再來,沒有再損失幫手" % bs.cooldown)
@@ -695,19 +707,27 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
             and absf(pack[0].entry.z - pack[2].entry.z) > 4.0, "一群三隻從入口排開進來,各盯不同的幫手(%d 個目標)" % targets.size())
     _check(str(g.current.get("kind", "")) == "bear" and g.target_pos.distance_to(bs.nearest_bear(_player.global_position).global_position) < 0.5,
             "提示指最近的那隻熊")
-    await _chase_pack(bs, 900)
-    var all_fled := true
-    var min_dist := INF
+    var hits0 := _player.hits_total
+    await _chase_pack(bs, 1500)
+    var all_fled := true   # 逃走中,或已經逃到邊緣被釋放
+    var per_bear := 0
+    var states := []
     for b in pack:
-        if not is_instance_valid(b) or b.state != "fleeing":
-            all_fled = false
-        elif b.scared_at_dist < min_dist:
-            min_dist = b.scared_at_dist
-    _check(all_fled and min_dist > 2.5 and min_dist <= 6.1 and _count("bear_scared") == 4,
-            "Lv3:三隻熊在 %.1f 外看到玩家就逃(不用靠到 1.8)" % min_dist)
+        if is_instance_valid(b):
+            per_bear = int(ceil(b.hp_max / 35.0))
+            states.append("%s/%d" % [b.state, b.hits_taken])
+            if b.state != "fleeing":
+                all_fled = false
+        else:
+            states.append("freed")
+    if per_bear == 0:
+        per_bear = int(ceil(bs.logic.hp(GameState.play_time) / 35.0))
+    _check(all_fled and _count("bear_defeated") == 4 and _player.hits_total - hits0 == per_bear * 3,
+            "Lv3 每下 35:三隻各打 %d 下都打跑(武器升級只加攻擊力;%s,玩家揮 %d 下,打跑 %d)" % [per_bear, str(states), _player.hits_total - hits0, _count("bear_defeated")])
     var gone2 := await _wait_until(func() -> bool: return not bs.has_bear(), 900)
-    _check(gone2 and _count("bear_left_fled") == 4 and bs.cooldown >= 35.0 * 1.7 - 2.0 and bs.cooldown <= 55.0 * 1.7 + 0.01
-            and _level.helpers.size() == helpers_before, "三隻都逃光才重新倒數,Lv3 冷卻 ×1.7(%.0f 秒)" % bs.cooldown)
+    var iv := bs.logic.interval(GameState.play_time)
+    _check(gone2 and _count("bear_left_fled") == 4 and bs.cooldown >= iv.x - 2.0 and bs.cooldown <= iv.y + 0.01
+            and _level.helpers.size() == helpers_before, "三隻都逃光才重新倒數(%.0f 秒,此時間隔 %.0f ~ %.0f)" % [bs.cooldown, iv.x, iv.y])
     bs.enabled = false
     await _go(Vector3(0, 0, 7))
 
@@ -739,4 +759,66 @@ func _expand_section() -> void:
     _check(came and c2.logic.item_id == "fillet" and c2.logic.price == 2, "新櫃台也有顧客排隊")
     _check(_level.bears.logic.entries(_level.is_expanded())[1].x > 30.0, "擴建後熊的東邊入口在 annex 外")
     await _go(Vector3(11.0, 0, 0.5))
+    await _go(Vector3(0, 0, 7))
+
+
+## --- 北極熊王 ---
+## 把遊戲時間撥到 5 分鐘 -> 王出場(更大、血量 ×4)-> 盯上水裡的魚吃掉:回血、變大 -> 玩家用 Lv3 武器打到血條歸零 -> 王倒下、下一次在 5 分鐘後
+func _king_section() -> void:
+    var bs: BearSpawner = _level.bears
+    var fa: FishArea = _level.fish_areas[0]
+    var fish0 := fa.fish.size()
+    var t_before := GameState.play_time
+    GameState.play_time = bs.logic.king_at_sec() + 1.0
+    bs.cooldown = 999.0   # 這段只看王,一般熊先不要來
+    bs.enabled = true
+    await _step(3)
+    var king := bs.king
+    _check(king != null and bs.has_king() and king.is_king and bs.kings_total == 1 and bs.king_next_sec == INF
+            and king.size_scale > 1.5 and absf(king.hp_max - bs.logic.hp(GameState.play_time) * bs.logic.king_hp_mult()) < 2.0,
+            "5 分鐘:北極熊王出場(體型 %.1f、血 %.0f)" % [king.size_scale if king != null else 0.0, king.hp_max if king != null else 0.0])
+    if king == null:
+        bs.enabled = false
+        GameState.play_time = t_before
+        return
+    # 漁夫先調到擴建區的水,免得王順手把牠吃了(後面的存檔檢查要看漁夫)
+    var fisher := _find_helper("fisher")
+    if fisher != null:
+        fisher.fish_area = _level.fish_areas[1]
+        fisher.global_position = Vector3(22.0, 0, -7.0)
+        fisher.state = "idle"
+    # 先把王丟進水邊、血扣一半,看牠吃魚回血變大(玩家站遠一點不要打牠)
+    await _go(Vector3(0, 0, 9))
+    king.hp = king.hp_max * 0.5
+    king.global_position = Vector3(0, 0, -5.0)
+    var hp_before := king.hp
+    var scale_before := king.size_scale
+    var ate := await _wait_until(func() -> bool: return _count("fish_eaten") >= 1, 600)
+    await _step(2)
+    _check(ate and _count("bear_fed") >= 1 and king.hp > hp_before and king.size_scale > scale_before and fish0 > 0,
+            "王吃掉水裡的魚:回血(%.0f -> %.0f)、變大(%.2f -> %.2f)" % [hp_before, king.hp, scale_before, king.size_scale])
+    # 王也會盯幫手:把搬運工放到牠旁邊,咬 2.5 秒吃掉 -> 回滿血、變更大(後面的存檔檢查不看搬運工)
+    var porter := _find_helper("porter")
+    var helpers0 := _level.helpers.size()
+    if porter != null:
+        king.hp = king.hp_max * 0.3
+        king.target = porter
+        king.state = "hunting"
+        porter.global_position = king.global_position + Vector3(1.0, 0, 0)
+        var scale2 := king.size_scale
+        var eaten := await _wait_until(func() -> bool: return not is_instance_valid(porter) or porter.eaten, 600)
+        await _step(2)
+        _check(eaten and _level.helpers.size() == helpers0 - 1 and is_equal_approx(king.hp, king.hp_max) and king.size_scale > scale2
+                and (_level.price_pads["hire_porter"] as PricePad).logic.is_rebuy(), "王吃掉搬運工:血回滿、體型 %.2f -> %.2f、搬運工牌可買回" % [scale2, king.size_scale])
+    # 打死王
+    king.hp = minf(king.hp, 35.0 * 4.0)   # 測試不想打幾十下:留四下的血(牠在水邊還會邊吃魚邊回血,所以實際會多幾下)
+    var hp_left := king.hp
+    await _chase_bear(king, 1200)
+    var dead := await _wait_until(func() -> bool: return not bs.has_king(), 900)
+    _check(dead and _count("bear_defeated") >= 5 and not is_instance_valid(king) and bs.kings_total == 1
+            and bs.king_next_sec >= GameState.play_time + bs.logic.king_respawn_sec() - 5.0 and bs.king_next_sec < INF,
+            "王被打到血條歸零(剩 %.0f 血)倒下,下一隻 %.0f 秒後(狀態 %s)" % [hp_left, bs.king_next_sec - GameState.play_time,
+            (king.state + "/hp %.0f" % king.hp) if is_instance_valid(king) else "freed"])
+    _check(str(_level.hud.objective_text()) != "" and _level.hud._info.text.contains(":"), "HUD 顯示遊戲時間")
+    bs.enabled = false
     await _go(Vector3(0, 0, 7))

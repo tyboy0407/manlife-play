@@ -1,18 +1,21 @@
 class_name BearLogic
 extends RefCounted
-## 北極熊規則(純資料,可 headless 測試):多久來一次(冷卻)、盯上誰(最近的幫手)、咬多久吃掉、
-## 玩家的武器等級能在多遠把牠嚇跑、嚇跑後下次要隔多久(武器等級的 cooldownMult)。
-## 數值在 game.json:bear {firstDelaySec, intervalSec [min, max], speed, fleeSpeed, biteSec, biteRadius, panicRadius, entries [[x, z]...],
-## entriesExpanded(村莊擴建後的入口), packChances [[隻數, 機率]...](一次來幾隻)}
-## 與 weapon {levels: [{scareRadius, cooldownMult, model {file, length}}...]}(第 i 項 = 武器 Lv i+1;Lv0 = 沒武器,嚇不走)。
+## 北極熊規則(純資料,可 headless 測試):多久來一次(冷卻,遊戲時間越久越密)、盯上誰(最近的幫手)、咬多久吃掉、
+## 血量(遊戲時間越久越厚)、玩家武器各級的攻擊力與距離、北極熊王的參數。
+## 數值在 game.json:bear {firstDelaySec, intervalSec [min, max], intervalMin [min, max], rampStartSec, rampSec, hpBase, hpPerMin,
+## speed, fleeSpeed, biteSec, biteRadius, panicRadius, entries [[x, z]...], entriesExpanded, packChances [[隻數, 機率]...],
+## king {atSec, respawnSec, hpMult, biteSec, fishBiteSec, scale, growHelper, growFish, maxScale, healFish}}
+## 與 weapon {attackIntervalSec, levels: [{damage, range, model {file, length}}...]}(第 i 項 = 武器 Lv i+1;Lv0 = 沒武器,打不了)。
 
 var cfg := {}
+var weapon_cfg := {}
 var levels: Array = []
 
 
 static func from_config(bear_cfg: Dictionary, weapon_cfg: Dictionary) -> BearLogic:
     var b := BearLogic.new()
     b.cfg = bear_cfg.duplicate(true)
+    b.weapon_cfg = weapon_cfg.duplicate(true)
     var lv = weapon_cfg.get("levels", [])
     if typeof(lv) == TYPE_ARRAY:
         for e in lv:
@@ -28,18 +31,86 @@ func first_delay() -> float:
     return maxf(float(cfg.get("firstDelaySec", 45.0)), 0.0)
 
 
-## 之後每隔多久來一隻(最短、最長)
-func interval() -> Vector2:
-    var v = cfg.get("intervalSec", [60.0, 90.0])
+static func _range(v, fallback: Vector2) -> Vector2:
     if typeof(v) == TYPE_ARRAY and v.size() >= 2:
         return Vector2(maxf(float(v[0]), 0.0), maxf(float(v[1]), float(v[0])))
-    return Vector2(60.0, 90.0)
+    return fallback
 
 
-## 熊走掉後下次要等多久:在 interval 之間取 roll(0 ~ 1)的位置,再乘武器等級的 cooldownMult
-func next_cooldown(weapon_level: int, roll: float) -> float:
-    var r := interval()
+## 之後每隔多久來一群(最短、最長):遊戲時間 elapsed 秒;rampStartSec 之前用 intervalSec,之後在 rampSec 內線性縮到 intervalMin
+func interval(elapsed: float = 0.0) -> Vector2:
+    var base := _range(cfg.get("intervalSec", null), Vector2(60.0, 90.0))
+    var fast := _range(cfg.get("intervalMin", null), base)
+    var t := ramp(elapsed)
+    return Vector2(lerpf(base.x, fast.x, t), lerpf(base.y, fast.y, t))
+
+
+## 難度曲線 0 ~ 1:rampStartSec 之前 0,之後 rampSec 秒內升到 1
+func ramp(elapsed: float) -> float:
+    var start := maxf(float(cfg.get("rampStartSec", 180.0)), 0.0)
+    var dur := maxf(float(cfg.get("rampSec", 300.0)), 0.001)
+    return clampf((elapsed - start) / dur, 0.0, 1.0)
+
+
+## 熊走掉後下次要等多久:在 interval(elapsed) 之間取 roll(0 ~ 1)的位置
+func next_cooldown(weapon_level: int, roll: float, elapsed: float = 0.0) -> float:
+    var r := interval(elapsed)
     return lerpf(r.x, r.y, clampf(roll, 0.0, 1.0)) * cooldown_mult(weapon_level)
+
+
+## 一隻熊的血量:hpBase + hpPerMin × 遊戲分鐘
+func hp(elapsed: float) -> float:
+    return maxf(float(cfg.get("hpBase", 30.0)) + float(cfg.get("hpPerMin", 10.0)) * elapsed / 60.0, 1.0)
+
+
+## --- 北極熊王(cfg.king)---
+
+func _king() -> Dictionary:
+    var v = cfg.get("king", {})
+    return v if typeof(v) == TYPE_DICTIONARY else {}
+
+
+## 遊戲時間到幾秒出現
+func king_at_sec() -> float:
+    return maxf(float(_king().get("atSec", 300.0)), 0.0)
+
+
+## 被打死後隔多久再來
+func king_respawn_sec() -> float:
+    return maxf(float(_king().get("respawnSec", 300.0)), 1.0)
+
+
+func king_hp_mult() -> float:
+    return maxf(float(_king().get("hpMult", 4.0)), 1.0)
+
+
+func king_bite_sec() -> float:
+    return maxf(float(_king().get("biteSec", 2.5)), 0.1)
+
+
+func king_fish_bite_sec() -> float:
+    return maxf(float(_king().get("fishBiteSec", 0.6)), 0.05)
+
+
+func king_scale() -> float:
+    return maxf(float(_king().get("scale", 1.6)), 0.5)
+
+
+func king_grow_helper() -> float:
+    return maxf(float(_king().get("growHelper", 1.15)), 1.0)
+
+
+func king_grow_fish() -> float:
+    return maxf(float(_king().get("growFish", 1.03)), 1.0)
+
+
+func king_max_scale() -> float:
+    return maxf(float(_king().get("maxScale", 2.4)), king_scale())
+
+
+## 吃一條魚回多少血(血條上限的比例;吃幫手回滿)
+func king_heal_fish() -> float:
+    return clampf(float(_king().get("healFish", 0.15)), 0.0, 1.0)
 
 
 func bite_sec() -> float:
@@ -104,18 +175,28 @@ func weapon_level_cfg(level: int) -> Dictionary:
     return levels[mini(level, levels.size()) - 1]
 
 
-## 玩家帶著 level 級武器,離熊多近牠就逃;沒武器回 0(永遠嚇不走)
-func scare_radius(level: int) -> float:
-    return maxf(float(weapon_level_cfg(level).get("scareRadius", 0.0)), 0.0)
+## level 級武器每一下的攻擊力;沒武器 0
+func weapon_damage(level: int) -> float:
+    return maxf(float(weapon_level_cfg(level).get("damage", 0.0)), 0.0)
 
 
-## 熊被 level 級武器趕跑後,下次冷卻的倍率(沒武器 1)
+## 離熊多近才打得到
+func attack_range(level: int) -> float:
+    return maxf(float(weapon_level_cfg(level).get("range", 1.8)), 0.1)
+
+
+## 兩下之間隔幾秒
+func attack_interval() -> float:
+    return maxf(float(weapon_cfg.get("attackIntervalSec", 0.5)), 0.05)
+
+
+func can_attack(level: int, dist: float) -> bool:
+    return weapon_damage(level) > 0.0 and dist <= attack_range(level)
+
+
+## 熊被打跑後下次冷卻的倍率(武器等級可設 cooldownMult,預設 1)
 func cooldown_mult(level: int) -> float:
     return maxf(float(weapon_level_cfg(level).get("cooldownMult", 1.0)), 0.1)
-
-
-func can_scare(level: int, dist: float) -> bool:
-    return level > 0 and dist <= scare_radius(level)
 
 
 ## 第 level 級武器掛在玩家身上的模型 {file, length};沒有就空字典

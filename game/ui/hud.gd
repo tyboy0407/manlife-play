@@ -288,4 +288,4 @@ func _process(delta: float) -> void:
     _info.text = "%s\n%s" % [carry, tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
             GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
             GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"),
-            GameState.weapon_level, GameState.helpers_lost]]
+            GameState.weapon_level, GameState.helpers_lost, "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60]]]

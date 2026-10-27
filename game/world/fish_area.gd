@@ -103,6 +103,13 @@ func _catch(c: Carrier, f: Fish) -> void:
     EventBus.items_moved.emit("catch", "fish", from, c.stack_top(), 1)
 
 
+## 把一條魚拿掉(北極熊王吃掉)
+func remove_fish(f: Fish) -> void:
+    fish.erase(f)
+    if is_instance_valid(f):
+        f.queue_free()
+
+
 ## 位置(世界 XZ)在不在水裡
 func contains(pos: Vector3) -> bool:
     return rect.has_point(Vector2(pos.x, pos.z))

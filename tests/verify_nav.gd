@@ -1,0 +1,111 @@
+extends Node3D
+## 幫手走位 headless 驗證:擴建村莊後,搬運工 / 漁夫在主村與擴建區之間來回要繞東門走,不能卡在牆上。
+## 跑法:godot --headless --path . res://tests/verify_nav.tscn(先 --import)
+
+const HARBOR := preload("res://game/levels/harbor.tscn")
+
+var _fails := 0
+var _level: Harbor
+
+
+func _check(cond: bool, label: String) -> void:
+    if cond:
+        print("  OK   %s" % label)
+    else:
+        _fails += 1
+        print("  FAIL %s" % label)
+
+
+func _step(frames: int) -> void:
+    for i in frames:
+        await get_tree().physics_frame
+
+
+func _wait_until(pred: Callable, max_frames: int) -> bool:
+    for i in max_frames:
+        if pred.call():
+            return true
+        await get_tree().physics_frame
+    return pred.call()
+
+
+func _ready() -> void:
+    print("VERIFY NAV: begin")
+    SaveManager.save_path = "user://_verify_nav_save.json"
+    SaveManager.delete()
+    GameState.reset()
+    Settings.path = "user://_verify_nav_settings.json"
+    Settings.quality = Settings.FINE
+    _level = HARBOR.instantiate()
+    add_child(_level)
+    await _step(3)
+    _level.bears.enabled = false
+    _level.player.input_provider = func() -> MoveInput: return MoveInput.new()
+    GameState.tutorial_step = GuideLogic.tutorial_steps()
+    GameState.apply_purchase("expand_village", {"type": "unlock", "target": "village_2"})
+    await _step(3)
+    var c2 := _level.counter_by_id("fillet_counter_2")
+    var fa2: FishArea = _level.fish_areas[1] if _level.fish_areas.size() > 1 else null
+    _check(_level.is_expanded() and c2 != null and fa2 != null, "擴建好:東邊櫃台與第二個水區")
+    # 搬運工:在主村拿著魚片,目的地是擴建區的櫃台(直線會撞在東牆上)
+    var porter := _level.spawn_helper("porter", true)
+    porter.global_position = Vector3(-6.0, 0, 2.2)
+    for i in 4:
+        porter.stack.push("fillet")
+    porter.job = {"from": _level.stations[0], "to": c2, "item": "fillet", "amount": 4}
+    porter._start_dropoff(c2)
+    var crossed := await _wait_until(func() -> bool: return porter.global_position.x > 12.9, 600)
+    var delivered := await _wait_until(func() -> bool: return porter.delivered_total >= 1, 600)
+    _check(crossed and delivered, "搬運工繞東門把魚片送到擴建區的櫃台(x %.1f, 送達 %d)" % [porter.global_position.x, porter.delivered_total])
+    # 搬運工回來:擴建區的工作站成品送回主村的櫃台
+    var st3 := _level.station_at("station_3")
+    st3.logic.output_count = 6
+    st3.refresh_piles()
+    var c1 := _level.counter_by_id("fillet_counter")
+    c1.logic.stock = 0
+    c1.refresh_pile()
+    porter.stack.clear()
+    porter.state = "idle"
+    porter.job = {"from": st3, "to": c1, "item": "fillet", "amount": 4}
+    porter.target = st3.output_pad.global_position
+    porter.state = "to_pickup"
+    var back := await _wait_until(func() -> bool: return porter.global_position.x < 11.5 and not porter.stack.is_empty(), 900)
+    var delivered2 := await _wait_until(func() -> bool: return porter.delivered_total >= 5, 600)
+    _check(back and delivered2, "搬運工從擴建區拿成品繞東門送回主村(x %.1f, 送達 %d)" % [porter.global_position.x, porter.delivered_total])
+    # 漁夫:在主村,被派去擴建區的水
+    var fisher := _level.spawn_helper("fisher", true)
+    fisher.global_position = Vector3(-3.0, 0, -6.0)
+    fisher.fish_area = fa2
+    fisher.state = "idle"
+    var in_water := await _wait_until(func() -> bool: return fa2.contains(fisher.global_position), 900)
+    _check(in_water, "漁夫繞東門走進擴建區的水(x %.1f z %.1f)" % [fisher.global_position.x, fisher.global_position.z])
+    # 漁夫抓滿後回主村的切魚台卸貨(擴建區的切魚台先塞滿,逼它走回來)
+    st3.logic.input_count = st3.logic.input_cap
+    st3.refresh_piles()
+    fisher.stack.clear()
+    for i in fisher.stack.capacity:
+        fisher.stack.push("fish")
+    var st1: Station = _level.stations[0]
+    st1.logic.input_count = 0
+    st1.refresh_piles()
+    var dep0 := fisher.deposited_total
+    var deposited := await _wait_until(func() -> bool: return fisher.deposited_total > dep0 and st1.logic.input_count >= 1, 1200)
+    _check(deposited and fisher.global_position.x < 12.0, "漁夫背著魚繞東門回主村的切魚台卸貨(x %.1f, state %s, dest %s, 卸 %d, st1 %d)" % [
+            fisher.global_position.x, fisher.state, str(fisher._dest), fisher.deposited_total, st1.logic.input_count])
+    _check(_level.route(Vector3(-5, 0, 8), Vector3(20, 0, 8)).size() == 2 and _level.route(Vector3(-5, 0, 8), Vector3(5, 0, 8)).is_empty()
+            and _level.route(Vector3(20, 0, 8), Vector3(-5, 0, 8))[0].x > 12.6, "route:跨東牆才給兩個門口中途點,從擴建區出發先經門外側")
+    _level.queue_free()
+    await _step(2)
+    SaveManager.delete()
+    SaveManager.save_path = SaveManager.DEFAULT_PATH
+    Settings.delete_file()
+    Settings.path = Settings.DEFAULT_PATH
+    Settings.load_settings()
+    GameState.reset()
+    Sfx.stop_all()
+    await _step(10)
+    if _fails == 0:
+        print("VERIFY NAV: ALL OK")
+    else:
+        print("VERIFY NAV: %d FAILURES" % _fails)
+    get_tree().quit(1 if _fails > 0 else 0)

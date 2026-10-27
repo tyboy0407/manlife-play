@@ -67,7 +67,24 @@
     "enabled": true,
     "firstDelaySec": 40,
     "intervalSec": [35, 55],
+    "intervalMin": [15, 25],
+    "rampStartSec": 180,
+    "rampSec": 300,
+    "hpBase": 30,
+    "hpPerMin": 10,
     "packChances": [[4, 0.10], [3, 0.30], [2, 0.50], [1, 0.10]],
+    "king": {
+      "atSec": 300,
+      "respawnSec": 300,
+      "hpMult": 4,
+      "biteSec": 2.5,
+      "fishBiteSec": 1.0,
+      "scale": 1.6,
+      "growHelper": 1.15,
+      "growFish": 1.02,
+      "maxScale": 2.4,
+      "healFish": 0.05
+    },
     "speed": 4.0,
     "fleeSpeed": 7.5,
     "biteSec": 4.0,
@@ -78,10 +95,11 @@
     "length": 2.6
   },
   "weapon": {
+    "attackIntervalSec": 0.5,
     "levels": [
-      {"scareRadius": 1.8, "cooldownMult": 1.0, "model": {"file": "res://assets/models/game/props/tool-hammer.glb", "length": 0.7}},
-      {"scareRadius": 1.8, "cooldownMult": 1.7, "model": {"file": "res://assets/models/game/props/tool-axe.glb", "length": 0.9}},
-      {"scareRadius": 6.0, "cooldownMult": 1.7, "model": {"file": "res://assets/models/game/props/tool-axe-upgraded.glb", "length": 1.0}}
+      {"damage": 10, "range": 1.8, "model": {"file": "res://assets/models/game/props/tool-hammer.glb", "length": 0.7}},
+      {"damage": 20, "range": 1.8, "model": {"file": "res://assets/models/game/props/tool-axe.glb", "length": 0.9}},
+      {"damage": 35, "range": 2.0, "model": {"file": "res://assets/models/game/props/tool-axe-upgraded.glb", "length": 1.0}}
     ]
   },
   "upgrades": {

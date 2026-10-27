@@ -2,11 +2,15 @@ class_name Player
 extends Carrier
 ## 玩家:輸入來自 MoveInput(鍵盤 / 手把;測試可指定 input_provider 餵合成輸入;之後加觸控搖桿)。
 ## 背包容量 = 設定值 + GameState 的擴充。武器(GameState.weapon_level)掛在右側腰間:weapon.levels[等級-1].model,沒模型就木棒占位。
+## 攻擊:有武器時每 attackIntervalSec 自動打離自己最近、在 range 內的北極熊一下(damage 看等級),揮一下 attack-melee-right。
 
 var input_provider: Callable = Callable()
 var weapon_prop: Node3D = null
+var hits_total := 0
 
 var _weapon_shown := 0
+var _attack_timer := 0.0
+var _bear_logic: BearLogic = null
 
 
 func _ready() -> void:
@@ -61,3 +65,31 @@ func _refresh_weapon() -> void:
 func _physics_process(delta: float) -> void:
     var mi: MoveInput = input_provider.call() if input_provider.is_valid() else MoveInput.from_actions()
     move_toward_dir(mi.world_dir(), delta)
+    _attack(delta)
+
+
+## 帶著武器靠近北極熊就自動攻擊(跟格子一樣不用按鍵)
+func _attack(delta: float) -> void:
+    _attack_timer = maxf(_attack_timer - delta, 0.0)
+    var lv := GameState.weapon_level
+    if lv <= 0 or _attack_timer > 0.0:
+        return
+    if _bear_logic == null:
+        _bear_logic = BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
+    var best: Bear = null
+    var best_d := INF
+    for n in get_tree().get_nodes_in_group("bear"):
+        var b := n as Bear
+        if b == null or not b.alive():
+            continue
+        var d := b.planar_distance_to(global_position)
+        if d < best_d:
+            best_d = d
+            best = b
+    if best == null or not _bear_logic.can_attack(lv, best_d):
+        return
+    _attack_timer = _bear_logic.attack_interval()
+    hits_total += 1
+    if model != null:
+        model.set_action("attack-melee-right", false, 1.4)
+    best.take_hit(_bear_logic.weapon_damage(lv), self)

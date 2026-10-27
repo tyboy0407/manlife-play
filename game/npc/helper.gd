@@ -31,6 +31,9 @@ var _last_count := 0
 var _stall := 0.0         # porter:卸貨時堆疊多久沒變
 var _stall_count := 0
 var _mark: Label3D = null   # 頭上的驚嘆號
+var _route: Array[Vector3] = []     # 去目的地要先經過的中途點(東門內外側)
+var _route_dest := Vector3(INF, 0, 0)
+var _stuck := 0.0                   # 走向目標卻沒前進的秒數
 
 
 func _ready() -> void:
@@ -78,6 +81,46 @@ func _physics_process(delta: float) -> void:
             _cashier(delta)
         _:
             move_toward_dir(Vector3.ZERO, delta)
+
+
+## --- 走位 ---
+
+## 走向 p:跨越東牆就先繞東門(Harbor.route 給中途點);目的地變了就重算。卡住(1 秒沒前進)就重算一次路線,
+## 還是卡就往門的方向沿牆滑。
+func go_to(p: Vector3, delta: float, stop: float = 0.35) -> bool:
+    if level == null:
+        return super(p, delta, stop)
+    if _route_dest.x == INF or Vector2(_route_dest.x - p.x, _route_dest.z - p.z).length() > 0.5:
+        _route = level.route(global_position, p)
+        _route_dest = p
+        _stuck = 0.0
+    while not _route.is_empty():
+        if planar_distance_to(_route[0]) < 0.8:
+            _route.pop_front()
+            continue
+        _walk(_route[0], delta, 0.8)
+        return false
+    if planar_distance_to(p) < stop:
+        move_toward_dir(Vector3.ZERO, delta)
+        _stuck = 0.0
+        return true
+    _walk(p, delta, stop)
+    return false
+
+
+func _walk(p: Vector3, delta: float, stop: float) -> void:
+    super.go_to(p, delta, stop)
+    if Vector2(velocity.x, velocity.z).length() < speed * 0.2:
+        _stuck += delta
+        if _stuck > 1.0:
+            _stuck = 0.0
+            _route = level.route(global_position, _route_dest)
+            if _route.is_empty():
+                # 同一側卻卡住(貼著牆角):往門的方向滑一步
+                var gate := level.gate_point(global_position)
+                global_position += Vector3(0.0, 0.0, signf(gate.z - global_position.z)) * 0.6
+    else:
+        _stuck = 0.0
 
 
 ## --- 北極熊 ---

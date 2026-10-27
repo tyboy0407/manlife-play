@@ -31,7 +31,7 @@ NOTICE_HIRED_porter,A porter joined you!,搬運工加入了!
 NOTICE_HIRED_cashier,A cashier joined you!,收銀員加入了!
 NOTICE_SAVED,Game saved,已存檔
 NOTICE_NEW_GAME,New game started,已重新開始
-HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d\nweapon Lv%d | eaten by bear %d,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d\n武器 Lv%d|被北極熊吃掉 %d
+HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d\nweapon Lv%d | eaten by bear %d | time %s,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d\n武器 Lv%d|被北極熊吃掉 %d|時間 %s
 HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / trash. Cash on the money pad goes into your wallet; stand on a price pad for a moment to pay. H toggles the hint arrow. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、丟棄。錢格的錢會收進錢包;在價格牌上站一下就開始付錢。H 開關提示箭頭。每 10 秒自動存檔;F9 重新開始。
 CUSTOMER_THANKS,Thanks!,謝謝!
 HUD_OBJECTIVE,Goal %d/%d: %s,目標 %d/%d:%s
@@ -80,10 +80,12 @@ ROLE_porter,porter,搬運工
 ROLE_cashier,cashier,收銀員
 NOTICE_BEAR_APPEARED,A polar bear is coming!,北極熊來了!
 NOTICE_BEAR_ATE,The polar bear ate your %s!,北極熊把%s吃掉了!
-NOTICE_BEAR_FLED,You drove the polar bear away!,北極熊被趕跑了!
+NOTICE_BEAR_FLED,You beat the polar bear!,北極熊被打跑了!
 NOTICE_BEAR_LEFT,The polar bear left: nobody was left to eat,北極熊走了:沒人可吃
 HINT_BEAR_WEAPON,A polar bear! Buy a weapon at the shop outside the village (west gate),北極熊來了!快去村外(西邊出口)的武器店買武器
-HINT_BEAR_CHASE,Run at the polar bear with your weapon to drive it off,拿著武器衝向北極熊把牠趕走
+HINT_BEAR_CHASE,Run at the polar bear and hit it until its health bar is empty,拿著武器衝向北極熊打到牠的血條歸零
 SHOP_expand_village,Expand the village,擴建村莊
 PAD_REBUY,Rebuy ×%s,買回 ×%s
 NOTICE_BEAR_PACK,%d polar bears are coming!,%d 隻北極熊來了!
+NOTICE_BEAR_KING,The Polar Bear King is here! It eats fish and every helper and grows with each bite. Kill it!,北極熊王來了!牠會吃魚和所有幫手、越吃越大，快打死牠!
+NOTICE_BEAR_KING_DEAD,The Polar Bear King is down!,北極熊王倒下了!

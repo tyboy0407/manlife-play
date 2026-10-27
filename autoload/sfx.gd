@@ -4,9 +4,9 @@ extends Node
 ## 純表現層:headless 測試時照常呼叫(Dummy 音訊驅動),用 played 計數驗證。
 
 const SFX_DIR := "res://assets/sfx/"
-const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "ambient_waves"]
-const MIN_GAP := {"coin": 0.05, "pay": 0.05, "drop": 0.04, "pick": 0.04, "catch": 0.06, "sale": 0.1, "roar": 0.5, "chomp": 0.3}
-const VOLUMES := {"coin": -6.0, "pay": -8.0, "drop": -4.0, "pick": -6.0, "catch": -3.0, "trash": -4.0, "roar": -2.0, "chomp": -2.0,
+const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "hit", "ambient_waves"]
+const MIN_GAP := {"coin": 0.05, "pay": 0.05, "drop": 0.04, "pick": 0.04, "catch": 0.06, "sale": 0.1, "roar": 0.5, "chomp": 0.3, "hit": 0.1}
+const VOLUMES := {"coin": -6.0, "pay": -8.0, "drop": -4.0, "pick": -6.0, "catch": -3.0, "trash": -4.0, "roar": -2.0, "chomp": -2.0, "hit": -3.0,
     "ambient_waves": -16.0}
 const POOL := 10
 
@@ -39,8 +39,10 @@ func _ready() -> void:
         play("hire" if str(effect.get("type", "")) == "hire" else "unlock"))
     EventBus.tutorial_step_done.connect(func(_step: int) -> void: play("goal"))
     EventBus.bear_appeared.connect(func(_b: Node3D) -> void: play("roar"))
-    EventBus.bear_scared.connect(func(_b: Node3D, _by: Node3D) -> void: play("roar", 0.2))
+    EventBus.bear_defeated.connect(func(_b: Node3D, _by: Node3D) -> void: play("roar", 0.2))
+    EventBus.bear_hit.connect(func(_b: Node3D, _d: float, _hp: float) -> void: play("hit"))
     EventBus.helper_eaten.connect(func(_role: String, _h: Node3D) -> void: play("chomp"))
+    EventBus.fish_eaten.connect(func(_b: Node3D) -> void: play("chomp", 0.2))
 
 
 func has(name: String) -> bool:

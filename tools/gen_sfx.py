@@ -117,6 +117,9 @@ def main():
     # 咬一口:短促的悶噪音 + 低音撞擊
     write("chomp", normalize(mix(noise(0.12, 1.0, decay=30, lowpass=0.2), tone(120, 0.18, 0.8, decay=25, sweep_to=60),
                                  delay(noise(0.08, 0.6, decay=50, lowpass=0.3), 0.09))))
+    # 打到熊:短促的悶擊 + 一點高頻
+    write("hit", normalize(mix(noise(0.07, 1.0, decay=45, lowpass=0.35), tone(220, 0.09, 0.7, decay=40, sweep_to=140),
+                               tone(1800, 0.03, 0.3, decay=90))))
     write("ambient_waves", normalize(ambient(), peak=0.6))
 
 

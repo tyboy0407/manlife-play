@@ -36,6 +36,11 @@
   (packChances:10% 4 隻、30% 3 隻、50% 2 隻、10% 1 隻,各盯不同幫手,整群走光才重新倒數);3 擴建村莊牌 $1000(unlock village_2:
   拆東門、往東多一塊地:第二個水區、切魚台 + 烤魚攤、第二組櫃台所以顧客變多;大額牌付款速度 × 價格/payScaleCost);
   4 顧客要 1 ~ 5 件(customers.wantWeights 45 / 25 / 15 / 10 / 5,庫存不夠就買得到幾件算幾件)。
+- 2026-10-27(使用者點名四項,沒開問題):1 擴建後幫手卡牆 -> Helper.go_to 走 Harbor.route 的東門中途點 + 卡住偵測(tests/verify_nav 先重現再修);
+  2 熊改成有血條,玩家帶武器靠近自動攻擊(每 0.5 秒一下),血條歸零才逃;武器三級只加攻擊力 10 / 20 / 35(不再有嚇跑距離 / 冷卻倍率);
+  3 血量 = 30 + 每分鐘 10;3 分鐘後出沒間隔在 5 分鐘內從 35 ~ 55 線性縮到 15 ~ 25(GameState.play_time 遊戲時間,存檔);
+  4 5 分鐘出北極熊王:血 ×4、體型 1.6、連水裡的魚也吃,吃幫手回滿血、體型 ×1.15,吃魚回 5%、×1.02(上限 2.4 倍),
+  不會自己走,打死後 300 秒再來(我定的)。吃魚回血曾設 15% 讓 Lv3 也打不死(每秒回 80 > 打 70),調成 5% / 咬 1 秒。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -54,18 +59,22 @@
 - `core/guidance/guide_logic.gd`:GuideLogic(教學七步的完成條件與指向、教學後的提示 hint();吃世界狀態字典,回 {kind, target, text, arg};
   北極熊在村裡(state.bear)最優先:沒武器指武器牌 WEAPON_PAD、有武器 kind "bear")
 - `core/threat/bear_logic.gd`:BearLogic(北極熊規則:first_delay / interval / next_cooldown(等級, roll)/ bite_sec / bite_radius / panic_radius /
-  speed / flee_speed / entries(expanded)/ pack_size(roll);武器 weapon_level_cfg / scare_radius / cooldown_mult / can_scare / weapon_model;static pick_target 最近的獵物)
+  speed / flee_speed / entries(expanded)/ pack_size(roll);難度曲線 ramp(elapsed) / interval(elapsed) / hp(elapsed);
+  武器 weapon_level_cfg / weapon_damage / attack_range / attack_interval / can_attack / weapon_model;王 king_at_sec / king_respawn_sec / king_hp_mult /
+  king_bite_sec / king_fish_bite_sec / king_scale / king_grow_helper / king_grow_fish / king_max_scale / king_heal_fish;static pick_target 最近的獵物)
 - `game/common/`:Carrier(CharacterBody3D 浮動模式、背上 ItemStack + StackVisual、旗標 can_fish / takes_output / collects_cash / can_serve / can_use_trash、stack_top 給飛行動畫、腳下 blob_shadow;model_name 有對應 GLB 就掛 CharacterModel 代替膠囊,move_toward_dir 每幀依速度餵 set_moving)、StackVisual(整堆一個 MultiMesh:物品在 items.json 有 model 就用 ModelLibrary.item_mesh / item_fit 的模型網格,否則方塊;換物品種類才重排位置,之後只改 visible_instance_count;uses_model 給測試)、ModelLibrary(靜態快取:character(name) / player_model / role_model / worker_model / customer_models 讀 game.json models;item_mesh / item_fit 把 items.json 的 model 等比例塞進尺寸框;water_fish;scene_aabb / first_mesh / mesh_instances / find_anim / local_xform 工具)、CharacterModel(人物 GLB:縮到身高、腳底貼 0、XZ 置中,idle / walk 循環;set_moving(速度比例)、set_action(動作, loop, speed)、clear_action、current())、StaticBatch(不會動的方塊 / 圓柱依顏色合併成一個 ArrayMesh,每色一個 surface)、VisualFactory(box / capsule / cylinder / cone / label / blob_shadow / 材質快取)、ProgressRing(平放進度環,ArrayMesh 弧,set_progress 量化重建)
 - `game/player/player.gd`:Player(input_provider 可餵合成輸入;容量 = 設定 + GameState.capacity_bonus;can_serve / can_use_trash;
-  weapon_prop 腰間武器,_refresh_weapon 依 GameState.weapon_level 換 weapon.levels[].model)
+  weapon_prop 腰間武器,_refresh_weapon 依 GameState.weapon_level 換 weapon.levels[].model;_attack 每 attackIntervalSec 自動打最近、在 range 內的熊,hits_total)
 - `game/npc/helper.gd`:Helper(role 決定狀態機:fisher 水裡漫游被抓魚 -> 滿了去輸入格卸貨;porter 問 Harbor.find_porter_job(PorterPlanner)搬成品,狀態 to_pickup / picking / to_dropoff / dropping / returning / step_back;cashier 走到被指派櫃台的收銀格站著;數值 game.json helpers.<role>;北極熊:set_panic 嚇呆不動 + 驚嘆號 + emote-no、
-  be_eaten 規則上立刻消失(分組 / 旗標 / 物理 / 格子)外觀縮小後釋放)、`bear.gd`(Bear:從 entry 進來,hunting 盯最近的幫手 -> 靠到 panicRadius 幫手嚇呆 ->
-  biteRadius 內 biting 咬 biteSec 秒 -> Harbor.helper_eaten -> 找下一個;帶武器的玩家靠到 scareRadius 內 scare() 逃回 entry(fleeing);沒人可吃 leaving;
-  白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
+  be_eaten 規則上立刻消失(分組 / 旗標 / 物理 / 格子)外觀縮小後釋放;go_to 覆寫:Harbor.route 的東門中途點、卡住 1 秒重算 / 往門口滑)、
+  `bear.gd`(Bear:從 entry 進來,hunting 盯最近的幫手 -> 靠到 panicRadius 幫手嚇呆 -> biteRadius 內 biting 咬 biteSec 秒 -> Harbor.helper_eaten -> 找下一個;
+  hp / hp_max = BearLogic.hp(play_time),take_hit 扣血閃紅、頭上血條,歸零 defeat 逃回 entry(fleeing);沒人可吃 leaving;is_king:體型 size_scale、
+  連 Fish 也當獵物、_feast 回血變大、沒獵物就在村中間等;白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
 - `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad、Station(`Station.create(def)`,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json;上架格 + 收銀格 ServicePad + 排隊位;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
   on_helper_lost 退名額重新開放並標「買回 ×1.5」、restore_state)、TrashPad(玩家站上丟掉背上所有貨物,GameState.add_trashed)、BearSpawner(掛在關卡下:村裡有幫手才倒數,第一群 firstDelaySec、
-  整群走光才 next_cooldown;一次 pack_size 隻從同一入口排開;bears / has_bear / first_bear / nearest_bear / targeted_ids;spawn(prefer) / spawn_pack(n)
-  強制出現、enabled 給測試關掉;snapshot / restore 只記冷卻秒數,熊在場時存 8 秒)
+  整群走光才 next_cooldown(遊戲時間越久越密);一次 pack_size 隻從同一入口排開;bears / has_bear / has_pack / first_bear / nearest_bear / targeted_ids;
+  王:king / king_next_sec,play_time 到 king.atSec 自動 spawn_king,打死後 respawnSec 再來;spawn(prefer) / spawn_pack(n) / spawn_king() 強制出現、
+  enabled 給測試關掉;snapshot / restore 記冷卻秒數(熊在場時存 8 秒)與 kingNextSec)
 - `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z);直式(高 >= 寬)KEEP_WIDTH、fov 40、偏移 (0, 13.5, 9.5),橫式 KEEP_HEIGHT、fov 42、偏移 (0, 17, 11.5),視窗轉向時重算
 - `game/ui/hud.gd`:Hud(class_name):錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
 - `game/ui/touch_joystick.gd`:TouchJoystick(鋪滿畫面最底層、mouse_filter IGNORE;_unhandled_input 收 ScreenTouch / ScreenDrag,按下點為中心、RADIUS 90、只跟第一根手指、exclusions 範圍不算;handle_event 給測試)
@@ -73,12 +82,13 @@
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
   西牆缺口 GATE_Z、_build_outside 村外武器店院子(店屋 WEAPON_SHOP、老闆 shopkeeper、武器牌 PAD_SPOTS.weapon)、bears(BearSpawner)、
   helper_eaten 結算被吃的幫手(hire_pad_for(role).on_helper_lost);東門 east_gate / east_gate_mesh(EAST_GATE_Z)、_build_annex 擴建區
-  (ANNEX_RECT:沙地、柵欄、隱形牆、深水池、FishArea2)、fish_areas / nearest_fish_area / pick_fish_area(漁夫挑人少的水區)、is_expanded
+  (ANNEX_RECT:沙地、柵欄、隱形牆、深水池、FishArea2)、fish_areas / nearest_fish_area / pick_fish_area(漁夫挑人少的水區)、is_expanded、
+  route(from, to) 跨東牆的中途點 / gate_point、fish_eaten(王吃魚)、_physics_process 累加 GameState.play_time
 - `autoload/event_bus.gd`:fish_caught / items_processed / sale_made / cash_collected / purchase_progress / purchased / helper_hired / notice / items_moved(kind, item, from, to, count)/ tutorial_step_done / tutorial_finished /
-  bear_appeared / bear_biting / bear_scared / bear_left(reason fled | no_prey)/ helper_eaten(role, helper)
+  bear_appeared / bear_biting / bear_hit(bear, damage, hp_left)/ bear_defeated / bear_left(reason fled | no_prey)/ helper_eaten(role, helper)/ fish_eaten / bear_fed
 - `autoload/settings.gd`:Settings(裝置偏好,user://settings.json 與存檔分開:quality smooth / fine、show_fps;沒檔案時觸控裝置預設 smooth;is_touch_device、scaling_3d、toggle_quality、changed 訊號)
 - `autoload/sfx.gd`:Sfx(聽事件播 assets/sfx/<name>.wav,10 個 player 輪播、每種最短間隔、環境音執行期開 loop;played 計數給測試;
-  北極熊 roar(出現 / 被嚇跑)、chomp(吃掉幫手))
+  北極熊 roar(出現 / 被打跑)、chomp(吃掉幫手 / 魚)、hit(打到熊))
 - `autoload/fly_fx.gd`:Fx(聽 items_moved 生物品幽靈拋物線飛,掛在自己底下;kind "cash" 交給 HUD)
 - `tools/gen_sfx.py`:純 Python 合成占位音效(正弦 / 噪音 / 包絡),輸出 assets/sfx/*.wav(22050 Hz 16-bit mono)
 - `tools/gen_icons.py`:Pillow 畫占位圖示(assets/icons/icon_128 / 144 / 180 / 512.png)與啟動畫面 splash.png
@@ -91,13 +101,14 @@
 - `tools/serve_web.py`:本機預覽 build/web(0.0.0.0,印 iPhone 可用的區網網址;8080 被台股 App 佔著,用 8090);`.claude/launch.json` 的 `web`
 - `tools/deploy_web.py`:`--export-release Web` -> 同步到 build/pages(tyboy0407/manlife-play 的 clone)-> commit(沿用本 repo 的 git 身分)-> push main;`--export-only` / `--no-export`
 - `export_presets.cfg`:Web 預設(不開執行緒、PWA 開、直式、圖示指到 assets/icons);`assets/fonts/NotoSansTC-VF.ttf`(OFL,見 LICENSE.md)是遊戲內唯一的中文字型
-- `autoload/game_state.gd`:wallet(add_wallet / spend)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost /
+- `autoload/game_state.gd`:wallet(add_wallet / spend)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost / play_time /
   統計(含 items_trashed);apply_purchase(effect type:capacity / hire / unlock / upgrade / weapon)、lose_helper(role)、upgrade_mult、to_dict / from_dict
 - `autoload/save_manager.gd`:存檔 IO(user://manlife_save.json,VERSION 2;has_save / write / read / delete;測試改 save_path)
 - `data/config/game.json`:速度、容量、搬運速率(transferPerSec / cashPickupPerSec / payPerSec / payDelaySec / trashPerSec)、魚群、顧客、autosaveSec、helpers、upgrades、models(人物 GLB 資料夾與身高、player / worker / roles / customers / shopkeeper 用哪個人物、waterFish、
-  bear.file 可選的熊模型)、bear(enabled / firstDelaySec / intervalSec / packChances / speed / fleeSpeed / biteSec / biteRadius / panicRadius /
-  entries / entriesExpanded / length)、payScaleCost、customers.wantWeights、
-  weapon.levels[](scareRadius / cooldownMult / model);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5,擴建區的 fillet_counter_2 / grill_counter_2);`data/shop.json`(十塊牌:含村外的 weapon、$1000 的 expand_village;僱用牌 rebuyMult 1.5);`data/locale/strings.csv`
+  bear.file 可選的熊模型)、bear(enabled / firstDelaySec / intervalSec / intervalMin / rampStartSec / rampSec / hpBase / hpPerMin / packChances /
+  speed / fleeSpeed / biteSec / biteRadius / panicRadius / entries / entriesExpanded / length / king {atSec, respawnSec, hpMult, biteSec, fishBiteSec, scale,
+  growHelper, growFish, maxScale, healFish})、weapon(attackIntervalSec、levels[] damage / range / model)、payScaleCost、customers.wantWeights、
+  (weapon.levels 見上);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5,擴建區的 fillet_counter_2 / grill_counter_2);`data/shop.json`(十塊牌:含村外的 weapon、$1000 的 expand_village;僱用牌 rebuyMult 1.5);`data/locale/strings.csv`
 
 ## 世界慣例
 
@@ -120,12 +131,17 @@
   size 改成模型比例 0.7 × 0.23 × 0.36);StackVisual 與 Fx 幽靈共用同一網格與變換,堆疊高度仍只看 size。水裡的魚:縮到 waterFish.length,頭朝 +Z
   (Quaternius 魚的 Face 骨頭在 +Z)。沒有模型(或資料裡拿掉)一律退回方塊 / 膠囊,舊外觀與測試都還能跑。
 - 北極熊:規則在 BearLogic、節點 Bear(無物理,穿牆)、出沒由 BearSpawner;幫手被吃 = Harbor.helper_eaten(名單移除、櫃台 cashier 清掉、
-  GameState.lose_helper 角色計數 -1、僱用牌不退)。嚇跑只看「玩家與熊的平面距離 <= scare_radius(武器等級)」,每幀在 Bear._hunt 最前面檢查;
-  Lv0 半徑 0 永遠趕不走。被咬的幫手 panicked 時 _physics_process 直接停住(旗標照舊,所以站在收銀格的收銀員仍會賣)。
+  GameState.lose_helper 角色計數 -1、僱用牌退名額)。打熊:Player._attack 每幀找群組 "bear" 裡 alive() 且最近的,距離 <= attack_range 且計時到就
+  take_hit(weapon_damage);Lv0 攻擊力 0 永遠打不了。血條歸零 -> defeat -> fleeing 回 entry -> left("fled")。被咬的幫手 panicked 時
+  _physics_process 直接停住(旗標照舊,所以站在收銀格的收銀員仍會賣)。遊戲時間 GameState.play_time 由 Harbor 每幀累加(存檔),
+  BearLogic.hp / interval / ramp 都吃它;王的出場也看它(king_next_sec)。王吃魚:Harbor.fish_eaten -> FishArea.remove_fish。
   熊出沒前提是 level.helpers 非空(教學期間不會來);存檔只記冷卻秒數。村外院子:西牆缺口 GATE_Z、院子有自己的隱形牆;
   走到村外要先到缺口(測試 _go_outside),直線會撞牆。新增武器等級只加 weapon.levels 一項並把 shop.json 的 maxBuys 加一。
   成群:BearSpawner 一次 spawn_pack(pack_size(randf())) 隻,同一入口沿 z 每 2.2 排開,Bear._retarget 先避開別隻已盯的幫手;
-  每隻各自 left -> bear_left 事件,最後一隻走了才設冷卻、才發 NOTICE_BEAR_FLED / LEFT。
+  每隻各自 left -> bear_left 事件,最後一隻(不含王)走了才設冷卻、才發 NOTICE_BEAR_FLED / LEFT;王走了發 NOTICE_BEAR_KING_DEAD 並排 respawn。
+- 幫手走位:Carrier.go_to 是直線;Helper.go_to 覆寫成「目的地變了就向 Harbor.route 要中途點(跨東牆 -> 門內側、門外側)」,
+  中途點 0.8 內換下一個;速度低於 20% 超過 1 秒算卡住:重算路線,同側還卡就往門口 z 方向滑 0.6。新的牆 / 門口都要在 route 裡補規則,
+  tests/verify_nav 用擴建後的搬運工 / 漁夫來回驗證。
 - 買回:幫手被吃 -> Harbor.hire_pad_for(role).on_helper_lost() -> PurchaseLogic.lose()(buys -1、lost +1、價格 × rebuy_mult、已付保留)
   -> 牌子 _enable 重新出現。complete() 時 lost -1 回正常階梯。存檔 pads 多記 lost。
 - 擴建(village_2):UNLOCKS 的 `annex: true` 讓 _spawn_unlock 先 _build_annex(拆東門、蓋 annex StaticBatch、FishArea2),再生 station_3 / grill_2 /
@@ -159,9 +175,11 @@
 powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 ```
 
-先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻、成群機率、武器等級、盯最近的 / PurchaseLogic 買回 / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
-追著熊靠到 1.8 內趕跑、冷卻 35 ~ 55 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、在 6 格外看到就逃、冷卻 ×1.7)->
-擴建村莊(錢包直接 +1000、7 秒付清 -> 東門拆、第二水區有魚、第二組建築、新櫃台有顧客)-> items_moved / 幽靈 / 音效計數、畫質切換(陰影 / 圓影 / 3D 縮放)、FPS 開關、布景合併 -> 存檔 / 重建關卡還原(含武器等級、買回的漁夫、擴建區、熊的冷卻)-> 新遊戲,約 4 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
+先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_nav`(擴建後幫手繞東門:搬運工送到擴建區櫃台再送回、
+漁夫去擴建區的水再回主村卸貨、route 規則,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數、盯最近的 / PurchaseLogic 買回 / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
+追著熊 Lv1 每下 10 打到血條歸零才逃 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、每隻兩下打跑、冷卻照當時的間隔)->
+擴建村莊(錢包直接 +1000、7 秒付清 -> 東門拆、第二水區有魚、第二組建築、新櫃台有顧客)-> 北極熊王(把 play_time 撥到 5 分鐘 -> 王出場血 ×4 體型 1.6 ->
+吃魚回血變大 -> 吃搬運工回滿血更大、牌可買回 -> Lv3 打死、300 秒後再來)-> items_moved / 幽靈 / 音效計數、畫質切換(陰影 / 圓影 / 3D 縮放)、FPS 開關、布景合併 -> 存檔 / 重建關卡還原(含武器等級、買回的漁夫、擴建區、熊的冷卻、遊戲時間、王的下次時間)-> 新遊戲,約 4.5 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
 
 - 新增腳本或資源後要先 `--import`,否則 class_name 找不到;第一次 import 會因為 .translation 還沒產生而印錯誤,第二次就正常。
 - 測試指令一定加 timeout:測試場景若編譯失敗,headless 永遠不會結束。
@@ -169,6 +187,8 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
   北極熊在 `_spawn_level` 後一律 `bears.enabled = false`(headless 也是即時走,不關的話 45 秒後熊會自己來吃幫手),要測再 `spawn(prefer)`;
   買武器期間把熊 `set_physics_process(false)` 定住、再挪到缺口附近,不然它會先把收銀員吃掉讓後面的存檔檢查失敗。
   顧客一次買好幾件後錢格的錢常常收不完,記錢包數字前先等 `money_pad.cash == 0`;Guide 每 0.1 秒才重算,查提示前 `_step(8)`。
+  血量跟著 play_time 連續變,比對 hp_max 用 1.0 的容差;逃走的熊到邊緣就 free,群體檢查要把 freed 也算逃走;王在水邊會邊吃魚邊回血,
+  測試先把漁夫調去擴建區的水、讓王吃搬運工(存檔檢查不看搬運工)。
 
 ## 踩過的坑
 
@@ -208,7 +228,8 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
    候選清單在 docs/model_candidates.md(魚片 / 烤魚模型可用 Quaternius Modular Sushi Restaurant Kit)。
 
 6. 北極熊與武器店(完成 2026-10-27;同日追加:被吃幫手 1.5 倍買回、熊成群且更頻繁、$1000 擴建村莊(東邊 annex:第二水區 / 工作站 / 櫃台)、
-   顧客要 1 ~ 5 件):BearLogic / Bear / BearSpawner(有幫手才來、第一隻 45 秒、之後 60 ~ 90 秒;盯最近的幫手、嚇呆、咬 4 秒吃掉,
+   顧客要 1 ~ 5 件;再追加:幫手繞東門不卡牆(verify_nav)、熊有血條要打到歸零、武器只加攻擊力、血量與出沒頻率隨遊戲時間變難、
+   5 分鐘出北極熊王(吃魚吃幫手、回血變大、打死 300 秒後再來)):BearLogic / Bear / BearSpawner(有幫手才來、第一隻 45 秒、之後 60 ~ 90 秒;盯最近的幫手、嚇呆、咬 4 秒吃掉,
    被吃永久消失且僱用牌不退、熊留著找下一個直到被趕跑或沒人可吃)、西牆缺口 + 村外武器店(老闆 + 三級武器牌 $35 ×1.7:趕跑 / 冷卻 ×1.7 / 看到就逃)、
    玩家腰間武器模型、提示箭頭優先指武器牌或熊、roar / chomp 音效、HUD 武器等級與被吃數、存檔含武器等級與熊冷卻、tools/snap_scene 截圖工具。
 

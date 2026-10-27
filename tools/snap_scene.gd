@@ -1,7 +1,7 @@
 extends Node3D
 ## 開一個小視窗跑主場景、把鏡頭移到幾個地方截圖存成 PNG(接新東西時用來看外觀;headless 畫不出來,所以會短暫跳出視窗)。
 ## 跑法:godot --path . --resolution 900x900 res://tools/snap_scene.tscn -- <輸出資料夾>(要用場景跑,Autoload 才會在)
-## 會截:村子(玩家出生點)、西邊缺口與村外武器店、北極熊咬幫手、帶著 Lv3 武器的玩家、擴建區、一群三隻熊。
+## 會截:村子(玩家出生點)、西邊缺口與村外武器店、北極熊咬幫手、帶著 Lv3 武器的玩家、擴建區、一群三隻熊、北極熊王。
 
 const HARBOR := preload("res://game/levels/harbor.tscn")
 
@@ -57,6 +57,17 @@ func _run() -> void:
     level.player.global_position = Vector3(24.0, 0, -2.0)
     await _frames(45)
     await _shot("06_bear_pack")
+    # 北極熊王在水邊吃魚,玩家打牠(血條扣一半)
+    for b in level.bears.bears:
+        b.queue_free()
+    await _frames(2)
+    var king := level.bears.spawn_king()
+    king.global_position = Vector3(0, 0, -4.5)
+    king.hp = king.hp_max * 0.45
+    king._update_hp_bar()
+    level.player.global_position = Vector3(1.5, 0, -2.0)
+    await _frames(30)
+    await _shot("07_bear_king")
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()

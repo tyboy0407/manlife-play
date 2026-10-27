@@ -16,6 +16,7 @@ var hired := {}                # 幫手角色 -> 人數
 var upgrades := {}             # 升級鍵(worker_speed / pile_cap)-> 等級
 var weapon_level := 0          # 武器等級(0 = 沒有;北極熊只怕有武器的玩家)
 var helpers_lost := 0          # 被北極熊吃掉的幫手數
+var play_time := 0.0           # 遊戲時間(秒,關卡每幀累加;北極熊的難度曲線與王的出場看它)
 var cash_earned := 0
 var fish_caught := 0
 var items_sold := 0
@@ -40,6 +41,7 @@ func reset() -> void:
     upgrades = {}
     weapon_level = 0
     helpers_lost = 0
+    play_time = 0.0
     cash_earned = 0
     fish_caught = 0
     items_sold = 0
@@ -123,7 +125,7 @@ func to_dict() -> Dictionary:
     return {
         "wallet": wallet, "tutorial_step": tutorial_step, "hints_on": hints_on, "sound_on": sound_on,
         "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
-        "upgrades": upgrades.duplicate(), "weapon_level": weapon_level, "helpers_lost": helpers_lost,
+        "upgrades": upgrades.duplicate(), "weapon_level": weapon_level, "helpers_lost": helpers_lost, "play_time": play_time,
         "cash_earned": cash_earned, "fish_caught": fish_caught, "items_sold": items_sold, "items_trashed": items_trashed,
     }
 
@@ -157,4 +159,5 @@ func from_dict(d: Dictionary) -> void:
     items_trashed = int(d.get("items_trashed", 0))
     weapon_level = maxi(int(d.get("weapon_level", 0)), 0)
     helpers_lost = maxi(int(d.get("helpers_lost", 0)), 0)
+    play_time = maxf(float(d.get("play_time", 0.0)), 0.0)
     changed.emit()

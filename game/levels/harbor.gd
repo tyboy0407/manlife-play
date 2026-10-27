@@ -253,6 +253,33 @@ func is_expanded() -> bool:
     return annex != null
 
 
+## 幫手從 from 走到 to 要經過的中途點(不含終點):跨越東牆(x = 12.6)就先走到門內側再到門外側,不然會卡在牆上;同一側回空陣列
+func route(from: Vector3, to: Vector3) -> Array[Vector3]:
+    var out: Array[Vector3] = []
+    if not is_expanded():
+        return out
+    var gate_x := 12.6
+    var gate_z := (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0
+    var from_east := from.x > gate_x
+    var to_east := to.x > gate_x
+    if from_east == to_east:
+        return out
+    var inner := Vector3(gate_x - 1.3, 0.0, gate_z)
+    var outer := Vector3(gate_x + 1.3, 0.0, gate_z)
+    if from_east:
+        out.append(outer)
+        out.append(inner)
+    else:
+        out.append(inner)
+        out.append(outer)
+    return out
+
+
+## 離 pos 最近的門口點(東門中心;卡住時往這邊滑)
+func gate_point(pos: Vector3) -> Vector3:
+    return Vector3(12.6, 0.0, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0) if is_expanded() else pos
+
+
 ## 離 pos 最近的水區(站在某個水區裡就是它)
 func nearest_fish_area(pos: Vector3) -> FishArea:
     var best: FishArea = null
@@ -421,6 +448,18 @@ func helper_eaten(h: Helper, _bear: Node3D) -> void:
     EventBus.notice.emit(tr("NOTICE_BEAR_ATE") % tr("ROLE_%s" % h.role))
     _assign_cashiers()
     save_now()
+
+
+## 北極熊王吃掉水裡的魚:從它的水區移除
+func fish_eaten(f: Fish, bear: Node3D) -> void:
+    if f == null or not is_instance_valid(f):
+        return
+    for fa in fish_areas:
+        if fa.fish.has(f):
+            fa.remove_fish(f)
+            EventBus.fish_eaten.emit(bear)
+            return
+    f.queue_free()
 
 
 ## 僱用 role 的那塊牌(沒有回 null)
@@ -600,6 +639,7 @@ func _load_save() -> void:
 
 
 func _physics_process(delta: float) -> void:
+    GameState.play_time += delta
     _autosave_timer -= delta
     if _autosave_timer <= 0.0:
         _autosave_timer = autosave_sec
