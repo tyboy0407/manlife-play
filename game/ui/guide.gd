@@ -93,6 +93,11 @@ func _hint_text(h: Dictionary) -> String:
     if key == "":
         return ""
     var s := tr(key)
+    if h.has("args") and typeof(h["args"]) == TYPE_ARRAY:
+        var vals := []
+        for a in h["args"]:
+            vals.append(tr(str(a)) if typeof(a) == TYPE_STRING else a)
+        return s % vals
     if h.has("arg") and str(h["arg"]) != "" and s.contains("%s"):
         s = s % tr(str(h["arg"]))
     return s
@@ -110,7 +115,7 @@ func build_state() -> Dictionary:
         if s.is_broken():
             continue   # 廢墟不收貨也不出貨,提示只看完好的
         stations.append({"id": s.spot_id, "input": s.logic.input_id, "input_count": s.logic.input_count, "input_cap": s.logic.input_cap,
-                "output": s.logic.output_id, "output_count": s.logic.output_count})
+                "output": s.logic.output_id, "output_count": s.logic.output_count, "blocked": s.logic.is_blocked()})
     var pads := []
     for id in level.price_pads:
         var pad: PricePad = level.price_pads[id]

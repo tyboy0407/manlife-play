@@ -35,6 +35,8 @@ var _real_start := 0
 var _last_stack := 0
 var _unloading := 0.0        # 背上的數量剛變少:像真人一樣先站著卸完再走
 var _hold_target := Vector3.ZERO
+var _commit_t := 0.0          # 真人不會每 0.1 秒換目標:目標至少跟 1.5 秒(熊 / 到了除外),免得在價格牌排上來回站著付錢
+var _commit_target := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -150,6 +152,11 @@ func _physics_process(delta: float) -> void:
                 if w != Vector3.INF:
                     tp = w
                     _hint_sec["(牌子沒錢改去做工)"] = float(_hint_sec.get("(牌子沒錢改去做工)", 0.0)) + delta
+        if kind != "bear" and _commit_t > 0.0 and _commit_target != Vector3.ZERO and player.planar_distance_to(_commit_target) > 0.5:
+            tp = _commit_target
+        elif tp != _commit_target:
+            _commit_target = tp
+            _commit_t = 1.5
         _target = _route(tp)
         _idle_tick(false, delta)
     else:
@@ -168,6 +175,8 @@ func _physics_process(delta: float) -> void:
             _last_pos = player.global_position
     if _sidestep > 0.0:
         _sidestep -= delta
+    if _commit_t > 0.0:
+        _commit_t -= delta
     _report_t += delta
     if _report_t >= REPORT_SEC:
         _report_t = 0.0

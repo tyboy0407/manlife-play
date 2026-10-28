@@ -7,6 +7,7 @@ extends Carrier
 var input_provider: Callable = Callable()
 var weapon_prop: Node3D = null
 var hits_total := 0
+var busy_with_bear := false   # 有武器且熊在 busyRadius 內:暫停抓魚 / 拿貨
 
 var _weapon_shown := 0
 var _attack_timer := 0.0
@@ -72,20 +73,25 @@ func _physics_process(delta: float) -> void:
 func _attack(delta: float) -> void:
     _attack_timer = maxf(_attack_timer - delta, 0.0)
     var lv := GameState.weapon_level
-    if lv <= 0 or _attack_timer > 0.0:
-        return
     if _bear_logic == null:
         _bear_logic = BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
     var best: Bear = null
     var best_d := INF
-    for n in get_tree().get_nodes_in_group("bear"):
-        var b := n as Bear
-        if b == null or not b.alive():
-            continue
-        var d := b.planar_distance_to(global_position)
-        if d < best_d:
-            best_d = d
-            best = b
+    if lv > 0:
+        for n in get_tree().get_nodes_in_group("bear"):
+            var b := n as Bear
+            if b == null or not b.alive():
+                continue
+            var d := b.planar_distance_to(global_position)
+            if d < best_d:
+                best_d = d
+                best = b
+    # 帶著武器、熊就在附近:專心打熊,穿過水區 / 輸出格不順手抓魚拿貨(免得背包被塞滿)
+    busy_with_bear = best != null and best_d <= _bear_logic.busy_radius()
+    can_fish = not busy_with_bear
+    takes_output = not busy_with_bear
+    if lv <= 0 or _attack_timer > 0.0:
+        return
     if best == null or not _bear_logic.can_attack(lv, best_d):
         return
     _attack_timer = _bear_logic.attack_interval()

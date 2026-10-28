@@ -34,7 +34,7 @@ static func from_def(d: Dictionary) -> PurchaseLogic:
     p.repeatable = bool(d.get("repeatable", false))
     p.max_buys = maxi(int(d.get("maxBuys", 1)), 1) if p.repeatable else 1
     p.cost_mult = maxf(float(d.get("costMult", 1.5)), 1.0)
-    p.rebuy_mult = maxf(float(d.get("rebuyMult", 1.5)), 1.0)
+    p.rebuy_mult = maxf(float(d.get("rebuyMult", 1.5)), 0.0)   # 修復牌可以比原價便宜(守衛塔 0.5)
     p.expand_buys = maxi(int(d.get("expandBuys", 0)), 0)
     p.base_max_buys = p.max_buys
     p.currency = str(d.get("currency", "cash"))

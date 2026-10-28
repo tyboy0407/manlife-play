@@ -23,6 +23,7 @@ var _quality_btn: Button
 var _fps_btn: Button
 var _new_game_btn: Button
 var _fps: Label
+var _stats: Label            # 詳細統計(收進選單面板)
 var _notice_timer := 0.0
 var _objective_text := ""
 var _chips := 0
@@ -144,6 +145,13 @@ func _build_menu() -> void:
     var box := VBoxContainer.new()
     box.add_theme_constant_override("separation", 8)
     menu_panel.add_child(box)
+    _stats = Label.new()
+    _stats.name = "Stats"
+    _stats.add_theme_font_size_override("font_size", 14)
+    _stats.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
+    _stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _stats.custom_minimum_size = Vector2(236, 0)
+    box.add_child(_stats)
     _hints_btn = _make_button("", "hints")
     box.add_child(_hints_btn)
     _sound_btn = _make_button("", "sound")
@@ -170,6 +178,15 @@ func menu_open() -> bool:
     return menu_panel.visible
 
 
+## 詳細統計(選單面板裡)
+func stats_text() -> String:
+    return tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
+            GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
+            GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"),
+            GameState.weapon_level, GameState.helpers_lost, "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60],
+            GameState.pelts, GameState.teeth, GameState.shop_level]
+
+
 func confirming_new_game() -> bool:
     return _confirm_new_game
 
@@ -179,6 +196,8 @@ func menu_action(id: String) -> void:
     match id:
         "toggle":
             menu_panel.visible = not menu_panel.visible
+            if menu_panel.visible:
+                _stats.text = stats_text()
             _confirm_new_game = false
         "close":
             menu_panel.visible = false
@@ -285,8 +304,6 @@ func _process(delta: float) -> void:
         carry = tr("HUD_CARRY") % [GameData.item_name(player.stack.item_id), player.stack.count, player.stack.capacity]
     else:
         carry = "%s(%d)" % [carry, player.stack.capacity]
-    _info.text = "%s\n%s" % [carry, tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
-            GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
-            GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"),
-            GameState.weapon_level, GameState.helpers_lost, "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60],
-            GameState.pelts, GameState.teeth, GameState.shop_level]]
+    _info.text = "%s\n%s" % [carry, tr("HUD_RES") % [GameState.pelts, GameState.teeth, GameState.weapon_level]]
+    if menu_panel.visible:
+        _stats.text = stats_text()

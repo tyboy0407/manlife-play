@@ -67,7 +67,10 @@
   },
   "bear": {
     "enabled": true,
-    "firstDelaySec": 40,
+    "firstAtSec": 180,
+    "firstDelaySec": 5,
+    "packMaxEats": 2,
+    "busyRadius": 6.0,
     "intervalSec": [35, 55],
     "intervalMin": [30, 40],
     "rampStartSec": 180,
@@ -76,7 +79,7 @@
     "hpPerMin": 10,
     "packChances": [[4, 0.10], [3, 0.30], [2, 0.50], [1, 0.10]],
     "king": {
-      "atSec": 300,
+      "atSec": 480,
       "respawnSec": 300,
       "hpMult": 4,
       "biteSec": 2.5,
@@ -88,17 +91,19 @@
       "healFish": 0,
       "healHelper": 0,
       "buildingBiteSec": 10,
-      "drop": "tooth"
+      "drop": "tooth",
+      "dropCount": 3
     },
     "speed": 4.0,
     "fleeSpeed": 7.5,
-    "biteSec": 4.0,
+    "biteSec": 8.0,
     "biteRadius": 1.4,
     "panicRadius": 2.6,
     "entries": [[-16, -8], [16, -8]],
     "entriesExpanded": [[-16, -8], [35, -8]],
     "length": 2.6,
-    "drop": "pelt"
+    "drop": "pelt",
+    "dropCount": [1, 2]
   },
   "tower": {
     "hp": 800,

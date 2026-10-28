@@ -107,3 +107,11 @@ NOTICE_LOOT_pelt,Picked up a polar bear pelt (%d total). Bring pelts to the weap
 NOTICE_LOOT_tooth,Picked up a Bear King tooth (%d total). Stand under a guard tower to reinforce it!,撿到熊王牙(共 %d)，站到守衛塔下強化它!
 NOTICE_SHOP_UPGRADED,Weapon shop is now Lv%d! A stronger weapon is for sale,武器店升到 Lv%d!可以買更強的武器了
 NOTICE_TOWER_STRONG,Guard tower reinforced! HP %d and %d damage per arrow,守衛塔強化了!血 %d、每箭 %d 傷
+HUD_RES,Pelts %d | king teeth %d | weapon Lv%d,毛皮 %d|熊王牙 %d|武器 Lv%d
+NOTICE_BEAR_FULL,The polar bears are full and retreat!,北極熊吃飽了，撤退!
+HINT_counter_full_serve,The counter is full and nobody is serving. Stand on the serve pad and sell,櫃台滿了、沒人收銀：站到收銀格賣掉
+HINT_station_jammed,The station is jammed (products piled up). Trash what you carry then take the products,工作站塞住了（成品堆滿）：先丟掉手上的貨，再去拿成品
+HINT_take_jammed,A station is jammed. Take its products so the worker can continue,工作站塞住了：去拿成品，工人才能繼續
+TUT_earn,Earn $%d more to buy %s,再賺 $%d 就能買「%s」，先去做工
+HINT_BEAR_MONEY,A polar bear! Grab the cash on the money pad for a weapon,北極熊來了!先去錢格收錢，去武器店買武器
+HINT_BEAR_EARN,A polar bear! Earn $%d more to buy a weapon at the shop outside the village,北極熊來了!還差 $%d 才買得起武器，先賣貨賺錢

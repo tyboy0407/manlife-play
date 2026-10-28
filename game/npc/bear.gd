@@ -8,7 +8,7 @@ extends Node3D
 ## 守衛塔(Tower):一般熊靠近塔(aggroRadius)或被塔的箭射中時會改去拆塔,咬一口扣 TowerLogic.bite_damage,塔塌了再找下一個。
 ## 規則在 BearLogic;吃掉幫手 / 魚由 Harbor.helper_eaten / fish_eaten 結算。外觀:白色方塊占位(models.bear 有模型就用模型)。
 
-signal left(reason: String)   # "fled" 被打跑 / "no_prey" 沒人可吃
+signal left(reason: String)   # "fled" 被打跑 / "no_prey" 沒人可吃 / "full" 整群吃飽撤退
 
 var level: Harbor = null
 var logic: BearLogic = null
@@ -32,6 +32,9 @@ var _hp_bar: Node3D = null
 var _hp_fill: MeshInstance3D = null
 var _flash := 0.0
 var _t := 0.0
+var _leave_reason := "no_prey"
+var _wander := Vector3.ZERO     # 吃過東西、暫時沒獵物時在村裡晃(被打跑才走)
+var _wander_t := 0.0
 
 static var _hit_overlay: StandardMaterial3D = null
 
@@ -138,7 +141,7 @@ func _physics_process(delta: float) -> void:
         "fleeing", "leaving":
             var spd := logic.flee_speed() if state == "fleeing" else logic.speed()
             if _move_to(entry, spd, delta, 0.6):
-                var reason := "fled" if state == "fleeing" else "no_prey"
+                var reason := "fled" if state == "fleeing" else _leave_reason
                 left.emit(reason)
                 queue_free()
         _:
@@ -155,6 +158,8 @@ func _hunt(delta: float) -> void:
         if target == null:
             if is_king:
                 _move_to(Vector3.ZERO, logic.speed() * 0.5, delta, 1.0)   # 王不走:沒東西吃就在村子中間等
+            elif eaten_total > 0:
+                _linger(delta)   # 吃過了就不走:在村裡晃,等下一個獵物,直到被打跑(或整群吃飽撤退)
             else:
                 _leave()
             return
@@ -332,6 +337,27 @@ func _leave() -> void:
         return
     _release()
     state = "leaving"
+
+
+## 整群吃飽了:放開獵物、往入口撤退(理由 "full")
+func retreat() -> void:
+    if not alive():
+        return
+    _leave_reason = "full"
+    _leave()
+
+
+## 吃過東西但暫時沒獵物:在村子中間一帶慢慢晃,每 2 ~ 4 秒換個點
+func _linger(delta: float) -> void:
+    _wander_t -= delta
+    if _wander_t <= 0.0 or _wander == Vector3.ZERO:
+        _wander_t = randf_range(2.0, 4.0)
+        _wander = Vector3(randf_range(-9.0, 9.0), 0.0, randf_range(-3.0, 9.0))
+    _move_to(_wander, logic.speed() * 0.4, delta, 0.8)
+
+
+func is_lingering() -> bool:
+    return alive() and state == "hunting" and target == null and eaten_total > 0 and not is_king
 
 
 func _release() -> void:

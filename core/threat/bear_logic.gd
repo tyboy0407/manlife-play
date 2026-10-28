@@ -32,6 +32,33 @@ func first_delay() -> float:
     return maxf(float(cfg.get("firstDelaySec", 45.0)), 0.0)
 
 
+## 遊戲時間到幾秒之前完全不來(第一群的最早時間)
+func first_at_sec() -> float:
+    return maxf(float(cfg.get("firstAtSec", 0.0)), 0.0)
+
+
+## 一群熊總共最多吃幾個幫手就撤退(0 = 不限)
+func pack_max_eats() -> int:
+    return maxi(int(cfg.get("packMaxEats", 0)), 0)
+
+
+## 玩家帶武器時,熊在這個距離內就先不抓魚 / 不拿貨(專心打熊)
+func busy_radius() -> float:
+    return maxf(float(cfg.get("busyRadius", 0.0)), 0.0)
+
+
+## 掉幾個:一般熊 dropCount [最少, 最多] 用 roll 抽;王 king.dropCount 固定
+func drop_count(king: bool, roll: float) -> int:
+    if king:
+        return maxi(int(_king().get("dropCount", 1)), 0)
+    var dc = cfg.get("dropCount", 1)
+    if typeof(dc) == TYPE_ARRAY and dc.size() >= 2:
+        var lo := int(dc[0])
+        var hi := int(dc[1])
+        return clampi(lo + int(clampf(roll, 0.0, 0.999) * float(hi - lo + 1)), lo, hi)
+    return maxi(int(dc), 0)
+
+
 static func _range(v, fallback: Vector2) -> Vector2:
     if typeof(v) == TYPE_ARRAY and v.size() >= 2:
         return Vector2(maxf(float(v[0]), 0.0), maxf(float(v[1]), float(v[0])))

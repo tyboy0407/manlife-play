@@ -518,9 +518,17 @@ func _apply_shop_level() -> void:
 func _on_bear_defeated(bear: Node3D, _by: Node3D) -> void:
     if bear == null or not is_instance_valid(bear) or bears == null or bears.logic == null:
         return
-    var kind := bears.logic.drop(bear is Bear and (bear as Bear).is_king)
-    if kind != "":
-        drop_loot(kind, bear.global_position)
+    var king := bear is Bear and (bear as Bear).is_king
+    var kind := bears.logic.drop(king)
+    if kind == "":
+        return
+    var n := bears.logic.drop_count(king, randf())
+    for i in n:
+        var off := Vector3.ZERO
+        if i > 0:
+            var a := TAU * float(i) / float(n)
+            off = Vector3(cos(a), 0.0, sin(a)) * 0.8
+        drop_loot(kind, bear.global_position + off)
 
 
 func drop_loot(kind: String, pos: Vector3) -> Loot:
@@ -575,7 +583,7 @@ func _assign_cashiers() -> void:
 
 
 ## 幫手被北極熊吃掉:從名單移除、收銀員的櫃台空出來、GameState 角色計數 -1、僱用牌退一個名額(買回價 ×1.5)、外觀縮小消失
-func helper_eaten(h: Helper, _bear: Node3D) -> void:
+func helper_eaten(h: Helper, bear: Node3D) -> void:
     if h == null or not is_instance_valid(h) or h.eaten:
         return
     helpers.erase(h)
@@ -588,6 +596,8 @@ func helper_eaten(h: Helper, _bear: Node3D) -> void:
         pad.on_lost()
     h.be_eaten()
     EventBus.helper_eaten.emit(h.role, h)
+    if bears != null:
+        bears.on_helper_eaten(bear)   # 整群吃滿 packMaxEats 個就撤退
     EventBus.notice.emit(tr("NOTICE_BEAR_ATE") % tr("ROLE_%s" % h.role))
     _assign_cashiers()
     save_now()

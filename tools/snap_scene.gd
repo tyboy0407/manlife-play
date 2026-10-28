@@ -120,6 +120,11 @@ func _run() -> void:
     level.player.global_position = Vector3(0.0, 0, 1.5)
     await _frames(30)
     await _shot("11_center_towers")
+    # 選單打開:詳細統計收在面板裡,左上角只剩錢包 / 背包 / 毛皮 / 牙 / 武器
+    level.hud.menu_action("toggle")
+    await _frames(5)
+    await _shot("12_menu_stats")
+    level.hud.menu_action("close")
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()

@@ -4,7 +4,7 @@ extends RefCounted
 ## 世界狀態用字典餵進來:
 ## {"carry_item", "carry_count", "wallet", "money_on_pad", "fish_caught", "items_sold", "purchases", "hired": {role: n},
 ##  "counters": [{"id", "item", "stock", "cap", "has_server", "has_cashier"}],
-##  "stations": [{"id", "input", "input_count", "input_cap", "output", "output_count"}],
+##  "stations": [{"id", "input", "input_count", "input_cap", "output", "output_count", "blocked"(成品堆滿停工)}],
 ##  "pads": [{"id", "name", "remaining", "visible"}], "bear": 北極熊在不在, "weapon_level": 武器等級}
 ## 回傳的提示:{"kind": water / station_input / station_output / counter_deposit / service / money / pad / trash / bear / none,
 ##  "target": 目標 id(工作站 spot_id / 櫃台 def_id / 價格牌 id), "text": 翻譯鍵, "arg": 翻譯鍵 %s 要帶的翻譯鍵(可省)}
@@ -64,7 +64,14 @@ static func tutorial_hint(step: int, state: Dictionary) -> Dictionary:
             return {"kind": "money", "target": "", "text": text}
         6:
             var p := _cheapest_pad(state, -1)
-            return {"kind": "pad", "target": str(p.get("id", "")), "text": text, "arg": str(p.get("name", ""))}
+            var need := int(p.get("remaining", 0)) - int(state.get("wallet", 0))
+            if p.is_empty() or need <= 0:
+                return {"kind": "pad", "target": str(p.get("id", "")), "text": text, "arg": str(p.get("name", ""))}
+            # 錢不夠:箭頭回到工作循環,文字說還差多少
+            var w := _work_hint(state, false)
+            w["text"] = "TUT_earn"
+            w["args"] = [need, str(p.get("name", ""))]
+            return w
     return {}
 
 
@@ -75,8 +82,22 @@ static func hint(state: Dictionary) -> Dictionary:
         if int(state.get("weapon_level", 0)) <= 0:
             var wp := _pad_by_id(state, WEAPON_PAD)
             if not wp.is_empty():
-                return {"kind": "pad", "target": WEAPON_PAD, "text": "HINT_BEAR_WEAPON"}
+                var need := int(wp.get("remaining", 0)) - int(state.get("wallet", 0))
+                if need <= 0:
+                    return {"kind": "pad", "target": WEAPON_PAD, "text": "HINT_BEAR_WEAPON"}
+                if int(state.get("money_on_pad", 0)) >= 1:
+                    return {"kind": "money", "target": "", "text": "HINT_BEAR_MONEY"}
+                # 錢不夠買武器:先照工作循環賺錢(不指牌子),文字說還差多少
+                var w := _work_hint(state, false)
+                w["text"] = "HINT_BEAR_EARN"
+                w["args"] = [need]
+                return w
         return {"kind": "bear", "target": "", "text": "HINT_BEAR_CHASE"}
+    return _work_hint(state, true)
+
+
+## 工作循環的提示(沒有熊的時候的全部規則);allow_pads = false 時不提買牌子(教學 / 熊來了錢不夠時用)
+static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
     var item := str(state.get("carry_item", ""))
     var count := int(state.get("carry_count", 0))
     if count > 0 and item != "":
@@ -88,14 +109,27 @@ static func hint(state: Dictionary) -> Dictionary:
             return {"kind": "station_input", "target": str(st["id"]), "text": "HINT_to_station" if item == "fish" else "HINT_to_next_station"}
         var any_ct := _counter_selling(state, item)
         if not any_ct.is_empty():
+            # 櫃台滿了:沒人收銀就自己去收銀格賣,有人收銀才是等顧客
+            if not bool(any_ct.get("has_server", false)) and not bool(any_ct.get("has_cashier", false)):
+                return {"kind": "service", "target": str(any_ct["id"]), "text": "HINT_counter_full_serve"}
             return {"kind": "counter_deposit", "target": str(any_ct["id"]), "text": "HINT_counter_full"}
         var any_st := _station_with_input(state, item)
         if not any_st.is_empty():
+            # 工作站塞住(成品堆滿、停工):背著原料站在輸入格永遠放不進去,先丟掉再去拿成品
+            if bool(any_st.get("blocked", false)):
+                return {"kind": "trash", "target": "", "text": "HINT_station_jammed"}
             return {"kind": "station_input", "target": str(any_st["id"]), "text": "HINT_station_full"}
         return {"kind": "trash", "target": "", "text": "HINT_trash"}
-    var pad := _cheapest_pad(state, int(state.get("wallet", 0)))
+    var jam := _station_jammed(state)
+    if not jam.is_empty():
+        return {"kind": "station_output", "target": str(jam["id"]), "text": "HINT_take_jammed"}
+    var pad := _cheapest_pad(state, int(state.get("wallet", 0))) if allow_pads else {}
     if not pad.is_empty():
         return {"kind": "pad", "target": str(pad["id"]), "text": "HINT_buy", "arg": str(pad.get("name", ""))}
+    # 錢格的錢加上錢包就買得起牌子了:先去收錢(不然一直幫櫃台收銀,錢格的錢永遠收不到)
+    var on_pad := int(state.get("money_on_pad", 0))
+    if allow_pads and on_pad >= 1 and not _cheapest_pad(state, int(state.get("wallet", 0)) + on_pad).is_empty():
+        return {"kind": "money", "target": "", "text": "HINT_money"}
     for c in state.get("counters", []):
         if int(c.get("stock", 0)) > 0 and not bool(c.get("has_server", false)) and not bool(c.get("has_cashier", false)):
             return {"kind": "service", "target": str(c["id"]), "text": "HINT_serve"}
@@ -136,6 +170,14 @@ static func _any_counter_stocked(state: Dictionary) -> bool:
 static func _station_with_input(state: Dictionary, item: String) -> Dictionary:
     for s in state.get("stations", []):
         if str(s.get("input", "")) == item:
+            return s
+    return {}
+
+
+## 成品堆滿而停工(blocked)且堆裡有成品的工作站(空手時最該先去拿)
+static func _station_jammed(state: Dictionary) -> Dictionary:
+    for s in state.get("stations", []):
+        if bool(s.get("blocked", false)) and int(s.get("output_count", 0)) > 0:
             return s
     return {}
 

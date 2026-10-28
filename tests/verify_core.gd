@@ -67,15 +67,15 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 23 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200, 200, 200, 5, 1, 1, 1, 1, 1, 1],
+    _check(shop.size() == 23 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200, 200, 200, 3, 1, 1, 1, 1, 1, 1],
             "shop.json:十四塊牌(含村外武器店、擴建村莊、四座守衛塔)%s" % str(costs))
     _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 2 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
             and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),
             "擴建後多開放的名額:漁夫 +2、搬運工 +4、收銀員 +2")
     _check(str(GameData.purchase("tower_3").get("effect", {}).get("type", "")) == "tower"
             and str(GameData.purchase("tower_3").get("effect", {}).get("target", "")) == "tower_3"
-            and is_equal_approx(float(GameData.purchase("tower_3").get("rebuyMult", 0.0)), 1.0) and GameData.section("tower").has("damage")
-            and ModelLibrary.guard_model() != "", "守衛塔牌:效果 tower、修復同價;tower 設定與守衛的人物")
+            and is_equal_approx(float(GameData.purchase("tower_3").get("rebuyMult", 0.0)), 0.5) and GameData.section("tower").has("damage")
+            and ModelLibrary.guard_model() != "", "守衛塔牌:效果 tower、修復半價 $100;tower 設定與守衛的人物")
     _check(str(GameData.purchase("expand_village").get("effect", {}).get("target", "")) == "village_2"
             and is_equal_approx(float(GameData.purchase("hire_fisher").get("rebuyMult", 0.0)), 1.5), "擴建村莊牌解鎖 village_2;僱用牌買回 ×1.5")
     _check(str(GameData.purchase("weapon").get("effect", {}).get("type", "")) == "weapon" and int(GameData.purchase("weapon").get("maxBuys", 0)) == 3,
@@ -220,22 +220,22 @@ func _test_purchase() -> void:
     _check(not PurchaseLogic.from_def(GameData.purchase("capacity_1")).expand(), "沒 expandBuys 的牌 expand 回 false")
     # 守衛塔牌:一次性 $200,塔被拆 lose -> 修復同價(rebuyMult 1)
     var tp := PurchaseLogic.from_def(GameData.purchase("tower_1"))
-    _check(not tp.repeatable and tp.max_buys == 1 and tp.current_cost() == 200 and is_equal_approx(tp.rebuy_mult, 1.0) and not tp.lose(),
+    _check(not tp.repeatable and tp.max_buys == 1 and tp.current_cost() == 200 and is_equal_approx(tp.rebuy_mult, 0.5) and not tp.lose(),
             "守衛塔牌:$200 一次性,沒蓋過沒得修")
     tp.pay(200)
     tp.complete()
     var su := PurchaseLogic.from_def(GameData.purchase("shop_upgrade"))
-    _check(su.currency == "pelt" and not su.is_cash() and su.repeatable and su.max_buys == 3 and su.current_cost() == 5 and su.remaining == 5,
+    _check(su.currency == "pelt" and not su.is_cash() and su.repeatable and su.max_buys == 3 and su.current_cost() == 3 and su.remaining == 3,
             "武器店升級牌:收毛皮、三次")
-    _check(su.pay(5) == 5 and su.is_paid(), "付 5 張毛皮")
+    _check(su.pay(3) == 3 and su.is_paid(), "付 3 張毛皮")
     su.complete()
-    _check(su.current_cost() == 10 and su.remaining == 10 and su.buys == 1, "第二次 10 張(逐次價格 costs)")
-    su.pay(10)
+    _check(su.current_cost() == 8 and su.remaining == 8 and su.buys == 1, "第二次 8 張(逐次價格 costs)")
+    su.pay(8)
     su.complete()
-    _check(su.current_cost() == 20 and su.remaining == 20, "第三次 20 張")
-    su.pay(20)
+    _check(su.current_cost() == 15 and su.remaining == 15, "第三次 15 張")
+    su.pay(15)
     su.complete()
-    _check(su.is_exhausted() and su.current_cost() == 20, "三次買滿;超過 costs 長度用最後一個")
+    _check(su.is_exhausted() and su.current_cost() == 15, "三次買滿;超過 costs 長度用最後一個")
     var wl := PurchaseLogic.from_def(GameData.purchase("weapon"))
     for i in 3:
         wl.pay(wl.remaining)
@@ -246,7 +246,7 @@ func _test_purchase() -> void:
     var tt := PurchaseLogic.from_def(GameData.purchase("tooth_tower_1"))
     _check(tt.currency == "tooth" and tt.current_cost() == 1 and tt.effect.get("type", "") == "tower_upgrade" and tt.effect.get("target", "") == "tower_1",
             "熊王牙牌:1 顆、強化 tower_1")
-    _check(tp.is_exhausted() and tp.lose() and not tp.is_exhausted() and tp.is_rebuy() and tp.current_cost() == 200 and tp.remaining == 200,
+    _check(tp.is_exhausted() and tp.lose() and not tp.is_exhausted() and tp.is_rebuy() and tp.current_cost() == 100 and tp.remaining == 100,
             "塔被拆:牌重開、修復 $200")
     tp.pay(200)
     tp.complete()
@@ -450,6 +450,10 @@ func _test_guide() -> void:
     state["items_sold"] = 1
     _check(GuideLogic.tutorial_step_done(4, state) and GuideLogic.tutorial_hint(5, state)["kind"] == "money", "賣出了 -> 第 6 步:指錢格")
     state["wallet"] = 2
+    var h6e := GuideLogic.tutorial_hint(6, state)
+    _check(GuideLogic.tutorial_step_done(5, state) and h6e["text"] == "TUT_earn" and h6e["kind"] == "service" and h6e["args"] == [8, "SHOP_hire_fisher"],
+            "收了 $2 -> 第 7 步:錢不夠買 $10 的牌,箭頭回工作循環(櫃台有貨去收銀)、文字說還差 $8")
+    state["wallet"] = 10
     var h6 := GuideLogic.tutorial_hint(6, state)
     _check(GuideLogic.tutorial_step_done(5, state) and h6["kind"] == "pad" and h6["target"] == "hire_fisher" and h6["arg"] == "SHOP_hire_fisher",
             "收了錢 -> 第 7 步:指最便宜的牌(僱漁夫)")
@@ -479,9 +483,29 @@ func _test_guide() -> void:
     h = GuideLogic.hint(state)
     _check(h["kind"] == "station_input" and h["target"] == "grill" and h["text"] == "HINT_to_next_station", "櫃台滿、烤魚攤收魚片:指烤魚攤")
     state["stations"][1]["input_count"] = 12
-    _check(GuideLogic.hint(state)["text"] == "HINT_counter_full", "都滿了:提示等顧客")
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "service" and h["target"] == "fillet_counter" and h["text"] == "HINT_counter_full_serve", "都滿了、沒人收銀:指收銀格自己賣")
+    state["counters"][0]["has_cashier"] = true
+    _check(GuideLogic.hint(state)["text"] == "HINT_counter_full" and GuideLogic.hint(state)["kind"] == "counter_deposit", "都滿了、有收銀員:提示等顧客")
+    state["counters"][0]["has_cashier"] = false
     state["carry_item"] = "soup"
     _check(GuideLogic.hint(state)["kind"] == "trash", "背著沒人收的東西:指垃圾桶")
+    # 工作站塞住(成品堆滿停工):背著魚先丟、空手先去拿成品(比買牌子優先)
+    state = _guide_state()
+    state["carry_item"] = "fish"
+    state["carry_count"] = 3
+    state["stations"][0]["input_count"] = 12
+    state["stations"][0]["output_count"] = 24
+    state["stations"][0]["blocked"] = true
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "trash" and h["text"] == "HINT_station_jammed", "切魚台塞住、背著魚:先指垃圾桶")
+    state["carry_item"] = ""
+    state["carry_count"] = 0
+    state["wallet"] = 50
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "station_output" and h["target"] == "station_1" and h["text"] == "HINT_take_jammed", "切魚台塞住、空手:先去拿成品(比買牌優先)")
+    state["stations"][0]["blocked"] = false
+    _check(GuideLogic.hint(state)["kind"] == "pad", "沒塞住:回到買得起的牌")
     # 提示:空手的優先序
     state = _guide_state()
     state["counters"][0]["stock"] = 5
@@ -491,8 +515,11 @@ func _test_guide() -> void:
     h = GuideLogic.hint(state)
     _check(h["kind"] == "pad" and h["target"] == "hire_fisher" and h["arg"] == "SHOP_hire_fisher", "錢夠買最便宜的牌:先去買")
     state["wallet"] = 9
-    _check(GuideLogic.hint(state)["kind"] == "service", "錢不夠:櫃台有貨沒人收銀 -> 去收銀")
+    _check(GuideLogic.hint(state)["kind"] == "money", "錢包 $9 不夠、但加上錢格的 $8 就買得起:先去收錢")
+    state["money_on_pad"] = 0
+    _check(GuideLogic.hint(state)["kind"] == "service", "錢不夠、錢格沒錢:櫃台有貨沒人收銀 -> 去收銀")
     state["counters"][0]["has_cashier"] = true
+    state["money_on_pad"] = 8
     _check(GuideLogic.hint(state)["kind"] == "money", "有收銀員:去收錢格的錢")
     state["money_on_pad"] = 0
     h = GuideLogic.hint(state)
@@ -512,7 +539,14 @@ func _test_guide() -> void:
     state["bear"] = true
     state["pads"].append({"id": "weapon", "name": "SHOP_weapon", "remaining": 35, "visible": true})
     h = GuideLogic.hint(state)
-    _check(h["kind"] == "pad" and h["target"] == "weapon" and h["text"] == "HINT_BEAR_WEAPON", "北極熊來了、沒武器:就算背著魚也先指武器店的牌")
+    _check(h["kind"] == "station_input" and h["text"] == "HINT_BEAR_EARN" and h["args"] == [35], "北極熊來了、沒武器、錢不夠:照工作循環賺錢(背著魚指切魚台)、文字說還差 $35")
+    state["money_on_pad"] = 5
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "money" and h["text"] == "HINT_BEAR_MONEY", "錢格有錢:先去收錢")
+    state["money_on_pad"] = 0
+    state["wallet"] = 35
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "pad" and h["target"] == "weapon" and h["text"] == "HINT_BEAR_WEAPON", "錢夠了:就算背著魚也先指武器店的牌")
     state["weapon_level"] = 1
     h = GuideLogic.hint(state)
     _check(h["kind"] == "bear" and h["text"] == "HINT_BEAR_CHASE", "有武器:指向北極熊")
@@ -527,9 +561,12 @@ func _test_guide() -> void:
 
 func _test_bear() -> void:
     var b := BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
-    _check(is_equal_approx(b.bite_sec(), 4.0) and is_equal_approx(b.bite_radius(), 1.4)
+    _check(is_equal_approx(b.bite_sec(), 8.0) and is_equal_approx(b.bite_radius(), 1.4)
             and b.panic_radius() >= b.bite_radius() and b.speed() > 0.0 and b.flee_speed() >= b.speed() and b.entries().size() == 2,
-            "咬 4 秒、嚇呆半徑 >= 咬的半徑、兩個入口")
+            "咬 8 秒、嚇呆半徑 >= 咬的半徑、兩個入口")
+    _check(b.drop_count(false, 0.0) == 1 and b.drop_count(false, 0.49) == 1 and b.drop_count(false, 0.5) == 2 and b.drop_count(false, 1.0) == 2
+            and b.drop_count(true, 0.3) == 3, "掉落數:一般熊 1 ~ 2 張毛皮、王 3 顆牙")
+    _check(b.pack_max_eats() == 2 and is_equal_approx(b.busy_radius(), 6.0), "一群最多吃 2 個就撤退;熊在 6 格內暫停抓魚 / 拿貨")
     _check(b.weapon_max_level() == 6 and is_equal_approx(b.weapon_damage(0), 0.0) and is_equal_approx(b.weapon_damage(1), 10.0)
             and is_equal_approx(b.weapon_damage(2), 20.0) and is_equal_approx(b.weapon_damage(3), 35.0) and is_equal_approx(b.weapon_damage(4), 55.0)
             and is_equal_approx(b.weapon_damage(5), 80.0) and is_equal_approx(b.weapon_damage(6), 120.0) and is_equal_approx(b.weapon_damage(9), 120.0)
@@ -549,7 +586,7 @@ func _test_bear() -> void:
     _near(b.next_cooldown(0, 0.0, 9999.0), 30.0, "後期最短 30 秒", 0.001)
     _near(b.hp(0.0), 30.0, "血量:開局 30", 0.001)
     _near(b.hp(180.0), 60.0, "血量:3 分鐘 60", 0.001)
-    _check(is_equal_approx(b.king_at_sec(), 300.0) and is_equal_approx(b.king_hp_mult(), 4.0) and is_equal_approx(b.king_scale(), 1.6)
+    _check(is_equal_approx(b.king_at_sec(), 480.0) and is_equal_approx(b.king_hp_mult(), 4.0) and is_equal_approx(b.king_scale(), 1.6)
             and b.king_grow_helper() > b.king_grow_fish() and b.king_grow_fish() > 1.0 and b.king_max_scale() >= b.king_scale()
             and b.king_fish_bite_sec() < b.king_bite_sec() and b.king_bite_sec() < b.bite_sec() and b.king_respawn_sec() > 0.0,
             "北極熊王:5 分鐘出場、血量 ×4、體型 1.6、吃幫手長得比吃魚多、咬得比一般熊快")
@@ -558,7 +595,8 @@ func _test_bear() -> void:
     _check(str(b.weapon_model(3).get("file", "")).contains("axe-upgraded") and b.weapon_model(0).is_empty(), "武器模型:Lv3 強化斧、Lv0 沒有")
     _check(b.pack_size(0.0) == 4 and b.pack_size(0.099) == 4 and b.pack_size(0.1) == 3 and b.pack_size(0.399) == 3 and b.pack_size(0.4) == 2
             and b.pack_size(0.899) == 2 and b.pack_size(0.9) == 1 and b.pack_size(1.0) == 1, "一次幾隻:10% 4 隻、30% 3 隻、50% 2 隻、10% 1 隻")
-    _check(b.interval() == Vector2(35.0, 55.0) and is_equal_approx(b.first_delay(), 40.0), "出沒更頻繁:第一群 40 秒、之後 35 ~ 55 秒")
+    _check(b.interval() == Vector2(35.0, 55.0) and is_equal_approx(b.first_delay(), 5.0) and is_equal_approx(b.first_at_sec(), 180.0),
+            "第一群 3 分鐘後(再倒數 5 秒)才來、之後 35 ~ 55 秒")
     _check(b.entries(true).size() == 2 and b.entries(true)[1].x > 30.0 and b.entries(false)[1].x < 20.0, "擴建後東邊入口移到 annex 外")
     var prey := [{"id": 1, "pos": Vector3(10, 0, 0)}, {"id": 2, "pos": Vector3(3, 5, 4)}, {"id": 3, "pos": Vector3(-8, 0, 1)}]
     _check(BearLogic.pick_target(Vector3.ZERO, prey) == 2 and BearLogic.pick_target(Vector3(-7, 0, 0), prey) == 3
@@ -566,7 +604,8 @@ func _test_bear() -> void:
     var empty := BearLogic.from_config({}, {})
     _check(empty.weapon_damage(1) == 0.0 and empty.weapon_max_level() == 0 and empty.entries().is_empty() and empty.first_delay() > 0.0
             and empty.pack_size(0.5) == 1 and empty.hp(60.0) > 0.0 and empty.interval(999.0) == empty.interval(0.0) and empty.king_at_sec() > 0.0
-            and empty.king_building_bite_sec() > 0.0 and is_equal_approx(empty.king_heal_fish(), 0.0),
+            and empty.king_building_bite_sec() > 0.0 and is_equal_approx(empty.king_heal_fish(), 0.0)
+            and empty.first_at_sec() == 0.0 and empty.pack_max_eats() == 0 and empty.drop_count(false, 0.5) == 1 and empty.drop_count(true, 0.5) == 1,
             "沒設定也不會爆:沒武器等級、沒入口、用預設秒數、一次一隻、血量與王有預設")
 
 
@@ -581,7 +620,7 @@ func _test_tower() -> void:
     _check(t.max_tier() == 1 and is_equal_approx(t.hp(1), 2000.0) and is_equal_approx(t.damage(1), 25.0) and t.bites_to_break(1) == 50
             and is_equal_approx(t.dps(1), 31.25) and t.shots_to_kill(100.0, 1) == 4 and is_equal_approx(t.hp(0), 800.0),
             "強力守衛塔(熊王牙):血 2000 = 扛 50 口、每箭 25")
-    _check(int(GameData.repair_station().get("cost", 0)) == 200, "工作站修復牌 $200(shop.json repairStation)")
+    _check(int(GameData.repair_station().get("cost", 0)) == 100, "工作站修復牌 $100(shop.json repairStation)")
     _near(t.dps(), 12.5, "每秒傷害 12.5", 0.001)
     _check(t.shots_to_kill(30.0) == 3 and t.shots_to_kill(31.0) == 4 and t.shots_to_kill(0.0) == 0 and t.in_range(9.0) and not t.in_range(9.01),
             "幾箭射死 / 射程判斷")

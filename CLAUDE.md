@@ -64,6 +64,14 @@
   切魚台輸入格之間的空地(x ±3 是 3.8 寬的空隙;屋頂只遮到水面不遮格子)。理由:四角塔射程 9 照不到村中央(station_2 離最近的角塔 14.5),
   熊咬搬運工 / 工人、王拆切魚台都在這裡;加上這兩座後主村每個點都在某座塔射程內(水中央 5.5、價格牌排 8.5、櫃台由南角塔管)。
   牌與熊王牙牌(tooth_tower_5 / 6)照舊同位置,shop.json 共 23 塊牌。
+- 2026-10-28(試玩報告 docs/playtest_2026-10-28.md 後,使用者逐項裁示,14 項改):1 第一群熊 3 分鐘後才來(bear.firstAtSec 180 + firstDelaySec 5);
+  2 一群熊最多吃 2 個幫手就整群撤退(packMaxEats,BearSpawner.on_helper_eaten -> Bear.retreat,理由 "full"、NOTICE_BEAR_FULL);4 工作站塞住(成品滿停工)
+  提示改指輸出格 / 背著原料先指垃圾桶(HINT_take_jammed / HINT_station_jammed,state.stations[].blocked);5 櫃台滿又沒人收銀提示指收銀格(HINT_counter_full_serve);
+  6 王 8 分鐘才來(king.atSec 480);7 教學第 7 步錢不夠時箭頭回工作循環、文字「再賺 $N 就能買」(TUT_earn,args);9 熊來了沒武器又錢不夠:
+  指錢格(HINT_BEAR_MONEY)或工作循環(HINT_BEAR_EARN 還差 $N);11 咬人 8 秒(biteSec),熊吃過東西後沒獵物不走、在村裡晃(Bear._linger)直到被打跑或整群吃飽;
+  12 一般熊掉 1 ~ 2 張毛皮、王掉 3 顆牙(dropCount,BearLogic.drop_count),武器店升級 3 / 8 / 15 張;15 修復 $100(守衛塔牌 rebuyMult 0.5、repairStation 100);
+  16 有武器且熊在 6 格內(bear.busyRadius)暫停抓魚 / 拿貨(Player.busy_with_bear 關 can_fish / takes_output);18 HUD 左上只留背包 / 毛皮 / 熊王牙 / 武器(HUD_RES),
+  詳細統計(HUD_STATS)收進選單面板(Hud._stats / stats_text())。不改:#3 塔價、#8 提示挑最便宜、#10、#13 烤魚攤價、#14 擴建價、#17 顧客耐心、#19 武器店位置、#20。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -170,11 +178,12 @@
   物品模型:items.json `model` 指定檔案與 rotationDeg,ModelLibrary.item_fit 等比例塞進 size 框、XZ 置中、底貼框底(魚側躺:rotationDeg [90, 0, 0],
   size 改成模型比例 0.7 × 0.23 × 0.36);StackVisual 與 Fx 幽靈共用同一網格與變換,堆疊高度仍只看 size。水裡的魚:縮到 waterFish.length,頭朝 +Z
   (Quaternius 魚的 Face 骨頭在 +Z)。沒有模型(或資料裡拿掉)一律退回方塊 / 膠囊,舊外觀與測試都還能跑。
-- 北極熊:規則在 BearLogic、節點 Bear(無物理,穿牆)、出沒由 BearSpawner;幫手被吃 = Harbor.helper_eaten(名單移除、櫃台 cashier 清掉、
+- 北極熊:規則在 BearLogic、節點 Bear(無物理,穿牆)、出沒由 BearSpawner(遊戲時間 < firstAtSec 不來;一群吃滿 packMaxEats 個 -> 全部 retreat);幫手被吃 = Harbor.helper_eaten(名單移除、櫃台 cashier 清掉、
   GameState.lose_helper 角色計數 -1、僱用牌退名額)。打熊:Player._attack 每幀找群組 "bear" 裡 alive() 且最近的,距離 <= attack_range 且計時到就
   take_hit(weapon_damage);Lv0 攻擊力 0 永遠打不了。血條歸零 -> defeat -> fleeing 回 entry -> left("fled")。被咬的幫手 panicked 時
   _physics_process 直接停住(旗標照舊,所以站在收銀格的收銀員仍會賣)。遊戲時間 GameState.play_time 由 Harbor 每幀累加(存檔),
-  BearLogic.hp / interval / ramp 都吃它;王的出場也看它(king_next_sec)。王吃魚:Harbor.fish_eaten -> FishArea.remove_fish。
+  BearLogic.hp / interval / ramp 都吃它;王的出場也看它(king_next_sec)。熊吃過東西後沒獵物不走(_linger 在村裡晃),沒吃過才 leaving;
+  玩家有武器且熊在 busyRadius 內 Player 關掉 can_fish / takes_output(追熊不順手抓魚)。掉落數 BearLogic.drop_count(king, roll)。王吃魚:Harbor.fish_eaten -> FishArea.remove_fish。
   熊出沒前提是 level.helpers 非空(教學期間不會來);存檔只記冷卻秒數。村外院子:西牆缺口 GATE_Z、院子有自己的隱形牆;
   走到村外要先到缺口(測試 _go_outside),直線會撞牆。新增武器等級只加 weapon.levels 一項並把 shop.json 的 maxBuys 加一。
   成群:BearSpawner 一次 spawn_pack(pack_size(randf())) 隻,同一入口沿 z 每 2.2 排開,Bear._retarget 先避開別隻已盯的幫手;

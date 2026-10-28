@@ -16,6 +16,8 @@ var bears: Array[Bear] = []   # 在場的熊(含王)
 var king: Bear = null
 var king_next_sec := -1.0      # 王下次出現的遊戲時間(-1 = 用 king.atSec)
 var visits := 0        # 來過幾群
+var pack_eaten := 0    # 這一群總共吃了幾個幫手(到 packMaxEats 就整群撤退)
+var leave_reason_last := ""
 var spawned_total := 0
 var kings_total := 0
 
@@ -92,6 +94,8 @@ func _physics_process(delta: float) -> void:
         spawn_king()
     if has_pack() or level.helpers.is_empty():
         return
+    if GameState.play_time < logic.first_at_sec():
+        return   # 開局前幾分鐘不來(firstAtSec),讓玩家先把經濟做起來
     if cooldown < 0.0:
         cooldown = logic.first_delay()
     cooldown -= delta
@@ -129,6 +133,8 @@ func _pick_entry() -> Vector3:
 func _spawn_one(prefer: Helper, index: int, total: int, entry: Vector3 = Vector3(INF, 0, 0)) -> Bear:
     if entry.x == INF:
         entry = _pick_entry()
+    if not has_pack():
+        pack_eaten = 0
     var b := Bear.new()
     b.name = "Bear_%d" % (spawned_total + 1)
     b.level = level
@@ -172,8 +178,27 @@ func spawn_king() -> Bear:
     return b
 
 
+## 一般熊吃掉一個幫手:整群吃到 packMaxEats 個就全部撤退(王不算、不受限)
+func on_helper_eaten(by: Node3D) -> void:
+    if by is Bear and (by as Bear).is_king:
+        return
+    pack_eaten += 1
+    var cap := logic.pack_max_eats()
+    if cap <= 0 or pack_eaten < cap:
+        return
+    _prune()
+    var any := false
+    for b in bears:
+        if not b.is_king and b.alive():
+            b.retreat()
+            any = true
+    if any:
+        EventBus.notice.emit(tr("NOTICE_BEAR_FULL"))
+
+
 func _on_left(reason: String, b: Bear) -> void:
     bears.erase(b)
+    leave_reason_last = reason
     EventBus.bear_left.emit(reason)
     if b == king:
         king = null
@@ -183,7 +208,9 @@ func _on_left(reason: String, b: Bear) -> void:
     if has_pack():
         return
     cooldown = logic.next_cooldown(GameState.weapon_level, randf(), GameState.play_time)
-    EventBus.notice.emit(tr("NOTICE_BEAR_FLED" if reason == "fled" else "NOTICE_BEAR_LEFT"))
+    pack_eaten = 0
+    if reason != "full":   # 吃飽撤退的通知在 on_helper_eaten 發過了
+        EventBus.notice.emit(tr("NOTICE_BEAR_FLED" if reason == "fled" else "NOTICE_BEAR_LEFT"))
 
 
 ## --- 存檔 ---
