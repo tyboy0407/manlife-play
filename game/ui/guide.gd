@@ -115,13 +115,14 @@ func build_state() -> Dictionary:
     for id in level.price_pads:
         var pad: PricePad = level.price_pads[id]
         pads.append({"id": str(id), "name": pad.logic.name_key, "remaining": pad.logic.remaining,
-                "visible": pad.visible and not pad.logic.is_exhausted()})
+                "visible": pad.visible and not pad.logic.is_exhausted(), "currency": pad.logic.currency})
     return {
         "carry_item": p.stack.item_id, "carry_count": p.stack.count, "wallet": GameState.wallet,
         "money_on_pad": level.money_pad.cash if level.money_pad != null else 0,
         "fish_caught": GameState.fish_caught, "items_sold": GameState.items_sold, "purchases": GameState.unlocked.size(),
         "hired": GameState.hired.duplicate(), "counters": counters, "stations": stations, "pads": pads,
         "bear": level.bears != null and level.bears.has_bear(), "weapon_level": GameState.weapon_level,
+        "resources": {"pelt": GameState.pelts, "tooth": GameState.teeth},
     }
 
 

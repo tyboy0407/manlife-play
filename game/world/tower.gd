@@ -6,6 +6,7 @@ extends Node3D
 ## 北極熊王不看血量,咬滿 buildingBiteSec 秒直接拆(wreck),
 ## 牌子重新出現標「修復」(rebuyMult 1 = 同價),付清再蓋回來。沒買過是 state none(只有牌子)。沒有物理(熊 / 玩家都穿得過)。
 ## 規則在 TowerLogic;蓋 / 塌的結算在 Harbor(_on_purchased "tower" / tower_destroyed)。外觀:方塊占位 + models.guard 的人物當守衛。
+## tier 1 = 強力守衛塔(熊王牙牌 tooth_<id> 強化,Harbor._on_purchased "tower_upgrade" -> upgrade()):血 2000(50 口)、每箭 25;拆掉修好後還是強力的。
 
 signal destroyed(by: Node3D)
 
@@ -13,6 +14,7 @@ var id := ""
 var level: Harbor = null
 var logic: TowerLogic = null
 var state := "none"       # none / alive / broken
+var tier := 0             # 0 一般、1 強力(熊王牙)
 var hp := 0.0
 var hp_max := 120.0
 var shots_total := 0
@@ -29,6 +31,8 @@ var _guard: CharacterModel = null
 var _hp_bar: Node3D = null
 var _hp_fill: MeshInstance3D = null
 var _ring: ProgressRing = null
+var _flag: MeshInstance3D = null
+var _strong_band: MeshInstance3D = null
 var _cooldown := 0.0
 var _flash := 0.0
 var _meshes: Array[MeshInstance3D] = []
@@ -40,7 +44,7 @@ func _ready() -> void:
     add_to_group("tower")
     if logic == null:
         logic = TowerLogic.from_config(GameData.section("tower"))
-    hp_max = logic.hp()
+    hp_max = logic.hp(tier)
     _build_visuals()
     _apply_state()
 
@@ -65,7 +69,11 @@ func _build_visuals() -> void:
             _built.add_child(VisualFactory.box(Vector3(0.14, 1.6, 0.14), wood.darkened(0.25), Vector3(x, 3.4, z)))
     _built.add_child(VisualFactory.cone(1.45, 1.1, roof, Vector3(0, 4.25, 0)))
     _built.add_child(VisualFactory.box(Vector3(0.06, 0.9, 0.06), wood.darkened(0.3), Vector3(0, 5.2, 0)))
-    _built.add_child(VisualFactory.box(Vector3(0.5, 0.3, 0.04), Color(0.9, 0.25, 0.2), Vector3(0.27, 5.45, 0)))
+    _flag = VisualFactory.box(Vector3(0.5, 0.3, 0.04), Color(0.9, 0.25, 0.2), Vector3(0.27, 5.45, 0))
+    _built.add_child(_flag)
+    _strong_band = VisualFactory.cylinder(0.9, 0.25, Color(1.0, 0.82, 0.2), Vector3(0, 2.3, 0))
+    _strong_band.visible = false
+    _built.add_child(_strong_band)
     _guard_pivot = Node3D.new()
     _guard_pivot.name = "GuardPivot"
     _guard_pivot.position = Vector3(0, 2.61, 0)
@@ -114,6 +122,10 @@ func _build_visuals() -> void:
 
 func _apply_state() -> void:
     var alive := state == "alive"
+    if _flag != null:
+        _flag.material_override = VisualFactory.material(Color(1.0, 0.82, 0.2) if tier >= 1 else Color(0.9, 0.25, 0.2))
+    if _strong_band != null:
+        _strong_band.visible = tier >= 1
     if _built != null:
         _built.visible = alive
     if _rubble != null:
@@ -145,6 +157,10 @@ func is_broken() -> bool:
     return state == "broken"
 
 
+func is_strong() -> bool:
+    return tier >= 1
+
+
 func planar_distance_to(p: Vector3) -> float:
     return Vector2(p.x - global_position.x, p.z - global_position.z).length()
 
@@ -154,13 +170,27 @@ func planar_distance_to(p: Vector3) -> float:
 ## 蓋好(或修好):血回滿;silent = 存檔還原不發事件
 func build(silent: bool = false) -> void:
     state = "alive"
-    hp_max = logic.hp()
+    hp_max = logic.hp(tier)
     hp = hp_max
     _cooldown = 0.0
     times_built += 1
     _apply_state()
     if not silent:
         EventBus.tower_built.emit(self)
+
+
+## 熊王牙強化成強力守衛塔:血上限 / 每箭傷害換成 strong 的,血回滿(只能升一次);回傳有沒有升
+func upgrade(silent: bool = false) -> bool:
+    if tier >= logic.max_tier():
+        return false
+    tier += 1
+    hp_max = logic.hp(tier)
+    if is_alive():
+        hp = hp_max
+    _apply_state()
+    if not silent:
+        EventBus.tower_upgraded.emit(self)
+    return true
 
 
 ## 熊咬一口:扣血、閃紅;歸零就塌。回傳是否塌了
@@ -238,7 +268,7 @@ func _shoot(target: Bear) -> void:
     a.tower = self
     a.target = target
     a.speed = logic.arrow_speed()
-    a.damage = logic.damage()
+    a.damage = logic.damage(tier)
     var parent := get_parent() if get_parent() != null else self
     parent.add_child(a)
     a.global_position = global_position + Vector3(0, logic.height(), 0)
@@ -286,10 +316,12 @@ static func _hit_material() -> StandardMaterial3D:
 ## --- 存檔 ---
 
 func snapshot() -> Dictionary:
-    return {"state": state, "hp": hp}
+    return {"state": state, "hp": hp, "tier": tier}
 
 
 func restore(d: Dictionary) -> void:
+    tier = clampi(int(d.get("tier", 0)), 0, logic.max_tier())
+    hp_max = logic.hp(tier)
     var s := str(d.get("state", "none"))
     if s == "alive":
         build(true)

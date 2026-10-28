@@ -16,6 +16,9 @@ var hired := {}                # 幫手角色 -> 人數
 var upgrades := {}             # 升級鍵(worker_speed / pile_cap)-> 等級
 var weapon_level := 0          # 武器等級(0 = 沒有;北極熊只怕有武器的玩家)
 var helpers_lost := 0          # 被北極熊吃掉的幫手數
+var pelts := 0                 # 北極熊毛皮(打跑熊掉的,武器店升級用)
+var teeth := 0                 # 熊王牙(打死王掉的,強化守衛塔用)
+var shop_level := 0            # 武器店等級(0 ~ 3,每級多賣一級武器)
 var play_time := 0.0           # 遊戲時間(秒,關卡每幀累加;北極熊的難度曲線與王的出場看它)
 var cash_earned := 0
 var fish_caught := 0
@@ -41,6 +44,9 @@ func reset() -> void:
     upgrades = {}
     weapon_level = 0
     helpers_lost = 0
+    pelts = 0
+    teeth = 0
+    shop_level = 0
     play_time = 0.0
     cash_earned = 0
     fish_caught = 0
@@ -65,6 +71,8 @@ func apply_purchase(id: String, effect: Dictionary) -> void:
                 upgrades[key] = upgrade_level(key) + 1
         "weapon":
             weapon_level += 1
+        "shop_upgrade":
+            shop_level += 1
     changed.emit()
     EventBus.purchased.emit(id, effect)
 
@@ -74,6 +82,48 @@ func lose_helper(role: String) -> void:
     hired[role] = maxi(int(hired.get(role, 0)) - 1, 0)
     helpers_lost += 1
     changed.emit()
+
+
+## --- 掉落物資源(毛皮 / 熊王牙,不佔背包)---
+
+func resource(kind: String) -> int:
+    match kind:
+        "pelt":
+            return pelts
+        "tooth":
+            return teeth
+        "cash":
+            return wallet
+    return 0
+
+
+## 資源 +n,回傳現有數量
+func add_resource(kind: String, n: int) -> int:
+    match kind:
+        "pelt":
+            pelts = maxi(pelts + n, 0)
+        "tooth":
+            teeth = maxi(teeth + n, 0)
+        "cash":
+            add_wallet(n)
+    changed.emit()
+    return resource(kind)
+
+
+## 扣 n 個(不夠就扣到 0),回傳實際扣掉幾個
+func spend_resource(kind: String, n: int) -> int:
+    var have := resource(kind)
+    var used := clampi(n, 0, have)
+    match kind:
+        "pelt":
+            pelts -= used
+        "tooth":
+            teeth -= used
+        "cash":
+            spend(used)
+            return used
+    changed.emit()
+    return used
 
 
 func is_unlocked(id: String) -> bool:
@@ -126,6 +176,7 @@ func to_dict() -> Dictionary:
         "wallet": wallet, "tutorial_step": tutorial_step, "hints_on": hints_on, "sound_on": sound_on,
         "capacity_bonus": capacity_bonus, "unlocked": unlocked.duplicate(), "hired": hired.duplicate(),
         "upgrades": upgrades.duplicate(), "weapon_level": weapon_level, "helpers_lost": helpers_lost, "play_time": play_time,
+        "pelts": pelts, "teeth": teeth, "shop_level": shop_level,
         "cash_earned": cash_earned, "fish_caught": fish_caught, "items_sold": items_sold, "items_trashed": items_trashed,
     }
 
@@ -160,4 +211,7 @@ func from_dict(d: Dictionary) -> void:
     weapon_level = maxi(int(d.get("weapon_level", 0)), 0)
     helpers_lost = maxi(int(d.get("helpers_lost", 0)), 0)
     play_time = maxf(float(d.get("play_time", 0.0)), 0.0)
+    pelts = maxi(int(d.get("pelts", 0)), 0)
+    teeth = maxi(int(d.get("teeth", 0)), 0)
+    shop_level = maxi(int(d.get("shop_level", 0)), 0)
     changed.emit()

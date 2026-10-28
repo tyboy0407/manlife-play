@@ -157,6 +157,63 @@
         "type": "tower",
         "target": "tower_4"
       }
+    },
+    {
+      "id": "shop_upgrade",
+      "name": "SHOP_shop_upgrade",
+      "cost": 5,
+      "costs": [
+        5,
+        10,
+        20
+      ],
+      "currency": "pelt",
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 1.0,
+      "effect": {
+        "type": "shop_upgrade"
+      }
+    },
+    {
+      "id": "tooth_tower_1",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_1"
+      }
+    },
+    {
+      "id": "tooth_tower_2",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_2"
+      }
+    },
+    {
+      "id": "tooth_tower_3",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_3"
+      }
+    },
+    {
+      "id": "tooth_tower_4",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_4"
+      }
     }
   ],
   "repairStation": {

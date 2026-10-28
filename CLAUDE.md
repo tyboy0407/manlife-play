@@ -54,6 +54,12 @@
   (不限距離,挑最近的),咬滿 king.buildingBiteSec(10 秒)就直接拆掉不看血量;被拆的工作站變廢墟、工人不見、格子停用(堆裡的貨留著),
   廢墟位置出現 $200 修復牌(shop.json repairStation,Harbor._add_station 時就生好藏著、effect repair),付清修好。我定的配套:
   修復牌沿用守衛塔牌的 lose / on_lost(買回價 ×1)流程,存檔 world.stations 多記 broken;被拆的工作站不進搬運工 / 漁夫 / 提示的名單。
+- 2026-10-28(使用者點名三項,沒開問題):1 熊出沒最快 30 ~ 40 秒一群(bear.intervalMin,開局 35 ~ 55 不變);
+  2 打跑的熊掉毛皮(Loot pelt),撿起來進 GameState.pelts,村外武器店旁的「升級武器店」牌收毛皮 5 / 10 / 20(shop.json shop_upgrade:currency pelt、costs 逐次價),
+  每升一級武器牌多賣一級(weapon.levels 加到 6 級:Lv4 55 / Lv5 80 / Lv6 120,鎬 / 強化鎬模型;shopBaseLevels 3 + shop_level,PurchaseLogic.raise_max);
+  3 打死王掉熊王牙(Loot tooth),站到完好守衛塔底下的熊王牙牌(tooth_tower_n,收 1 顆)付掉 -> 強力守衛塔(tower.strong:血 2000 = 扛 50 口、每箭 25,
+  Tower.tier 1,拆了修好還是強力的)。我定的配套:掉落物掉在熊被打倒的地方、玩家走到 1.3 內自動撿;熊王牙牌只在塔完好且還沒強化時出現;
+  存檔記 pelts / teeth / shop_level(GameState)、towers.tier、地上的 loot。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -67,17 +73,18 @@
 
 - `core/data/game_data.gd`:GameData(靜態載入 game.json / items.json / stations.json / counters.json / shop.json;`section(key)`、`helper(role)`、物品尺寸 / 顏色 / 翻譯名)
 - `core/economy/`:ItemStack(一疊同種物品,有容量)、StationLogic(輸入堆 -> 處理 -> 輸出堆,輸出滿停工,speed_mult)、PurchaseLogic(價格牌分期;repeatable / max_buys / cost_mult / buys,`complete()` 漲價、`restore(buys, remaining, lost)` 存檔還原;
-  僱用牌 `lose()` 退名額、lost / rebuy_mult 買回價、is_rebuy;expand_buys / `expand()` 擴建村莊多開放名額)、CounterLogic(庫存 / 售價 / 賣出;static roll_want(權重, roll) 顧客要幾件)、PorterPlanner(搬運工派工:need_of / plan / best_dest / best_source,吃字典清單)
+  僱用牌 `lose()` 退名額、lost / rebuy_mult 買回價、is_rebuy;expand_buys / `expand()` 擴建村莊多開放名額;currency cash / pelt / tooth、costs 逐次價、
+  base_max_buys / `raise_max(n)` 武器店升級多開名額)、CounterLogic(庫存 / 售價 / 賣出;static roll_want(權重, roll) 顧客要幾件)、PorterPlanner(搬運工派工:need_of / plan / best_dest / best_source,吃字典清單)
 - `core/input/move_input.gd`:MoveInput(螢幕方向 -> 世界 XZ;from_actions 鍵盤手把 + 觸控搖桿(static touch_dir,有推就以搖桿為準)、toward 合成輸入)
 - `core/guidance/guide_logic.gd`:GuideLogic(教學七步的完成條件與指向、教學後的提示 hint();吃世界狀態字典,回 {kind, target, text, arg};
   北極熊在村裡(state.bear)最優先:沒武器指武器牌 WEAPON_PAD、有武器 kind "bear")
-- `core/threat/tower_logic.gd`:TowerLogic(守衛塔規則:hp / damage / attack_range / attack_interval / arrow_speed / bite_damage / bites_to_break / bite_sec /
+- `core/threat/tower_logic.gd`:TowerLogic(守衛塔規則:hp(tier) / damage(tier) / max_tier(強力塔 tower.strong)/ attack_range / attack_interval / arrow_speed / bite_damage / bites_to_break(tier) / bite_sec /
   aggro_radius / height / dps / shots_to_kill;static pick_target(from, [{id, pos, alive}], range) 射程內最近的活熊;數值 game.json tower)
 - `core/threat/bear_logic.gd`:BearLogic(北極熊規則:first_delay / interval / next_cooldown(等級, roll)/ bite_sec / bite_radius / panic_radius /
   speed / flee_speed / entries(expanded)/ pack_size(roll);難度曲線 ramp(elapsed) / interval(elapsed) / hp(elapsed);
   武器 weapon_level_cfg / weapon_damage / attack_range / attack_interval / can_attack / weapon_model;王 king_at_sec / king_respawn_sec / king_hp_mult /
   king_bite_sec / king_fish_bite_sec / king_building_bite_sec / king_scale / king_grow_helper / king_grow_fish / king_max_scale / king_heal_fish /
-  king_heal_helper;static pick_target 最近的獵物)
+  king_heal_helper;drop(king) 掉什麼、shop_base_levels / weapon_levels_for_sale(shop_level) 武器店等級賣到第幾級;static pick_target 最近的獵物)
 - `game/common/`:Carrier(CharacterBody3D 浮動模式、背上 ItemStack + StackVisual、旗標 can_fish / takes_output / collects_cash / can_serve / can_use_trash、stack_top 給飛行動畫、腳下 blob_shadow;model_name 有對應 GLB 就掛 CharacterModel 代替膠囊,move_toward_dir 每幀依速度餵 set_moving)、StackVisual(整堆一個 MultiMesh:物品在 items.json 有 model 就用 ModelLibrary.item_mesh / item_fit 的模型網格,否則方塊;換物品種類才重排位置,之後只改 visible_instance_count;uses_model 給測試)、ModelLibrary(靜態快取:character(name) / player_model / role_model / worker_model / customer_models 讀 game.json models;item_mesh / item_fit 把 items.json 的 model 等比例塞進尺寸框;water_fish;scene_aabb / first_mesh / mesh_instances / find_anim / local_xform 工具)、CharacterModel(人物 GLB:縮到身高、腳底貼 0、XZ 置中,idle / walk 循環;set_moving(速度比例)、set_action(動作, loop, speed)、clear_action、current())、StaticBatch(不會動的方塊 / 圓柱依顏色合併成一個 ArrayMesh,每色一個 surface)、VisualFactory(box / capsule / cylinder / cone / label / blob_shadow / 材質快取)、ProgressRing(平放進度環,ArrayMesh 弧,set_progress 量化重建)
 - `game/player/player.gd`:Player(input_provider 可餵合成輸入;容量 = 設定 + GameState.capacity_bonus;can_serve / can_use_trash;
   weapon_prop 腰間武器,_refresh_weapon 依 GameState.weapon_level 換 weapon.levels[].model;_attack 每 attackIntervalSec 自動打最近、在 range 內的熊,hits_total)
@@ -87,8 +94,10 @@
   hp / hp_max = BearLogic.hp(play_time),take_hit 扣血閃紅、頭上血條,歸零 defeat 逃回 entry(fleeing);沒人可吃 leaving;is_king:體型 size_scale、
   連 Fish 也當獵物、_feast 回血變大、沒獵物就在村中間等;白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
 - `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad、Station(`Station.create(def)`,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json;上架格 + 收銀格 ServicePad + 排隊位;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
-  on_lost 退名額重新開放並標「買回 ×1.5」(守衛塔牌標「修復」)、expand() 擴建多開名額、is_tower_pad、restore_state)、
-  Tower(守衛塔,Node3D 無物理:state none / alive / broken,build(silent) / take_bite(damage, by) / wreck(by)(王直接拆)-> 塌了叫 Harbor.tower_destroyed、
+  on_lost 退名額重新開放並標「買回 ×1.5」(守衛塔牌標「修復」)、expand() 擴建多開名額、raise_max(n)、set_open(開關)、is_tower_pad / is_repair_pad、restore_state;
+  currency 不是 cash 的牌從 GameState.resource 扣、標籤用 COST_<currency>)、Loot(掉落物 pelt / tooth:浮動旋轉,玩家走到 lootPickupRadius 內 collect -> GameState.add_resource、
+  EventBus.loot_collected、Harbor.loot_collected;snapshot {kind, x, z})、
+  Tower(守衛塔,Node3D 無物理:state none / alive / broken、tier 0 / 1(upgrade() 熊王牙強化:血 2000、每箭 25、金環金旗,is_strong),build(silent) / take_bite(damage, by) / wreck(by)(王直接拆)-> 塌了叫 Harbor.tower_destroyed、
   每 attackIntervalSec 對射程內最近的活熊射 Arrow(內部類別,追著熊飛,到了 _arrow_hit -> Bear.take_hit + on_tower_hit)、
   血條 / 射程環 / 守衛(models.guard 人物)/ 廢墟外觀、snapshot / restore)、TrashPad(玩家站上丟掉背上所有貨物,GameState.add_trashed)、BearSpawner(掛在關卡下:村裡有幫手才倒數,第一群 firstDelaySec、
   整群走光才 next_cooldown(遊戲時間越久越密);一次 pack_size 隻從同一入口排開;bears / has_bear / has_pack / first_bear / nearest_bear / targeted_ids;
@@ -101,14 +110,16 @@
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
   西牆缺口 GATE_Z、_build_outside 村外武器店院子(店屋 WEAPON_SHOP、老闆 shopkeeper、武器牌 PAD_SPOTS.weapon)、bears(BearSpawner)、
   helper_eaten 結算被吃的幫手(hire_pad_for(role).on_lost);守衛塔 TOWER_SPOTS 四角(牌 PAD_SPOTS.tower_n 同位置)、towers / _build_towers /
-  tower_by_id / tower_pad_for / alive_towers / tower_destroyed(牌 on_lost 修復價),_on_purchased "tower" 蓋 / 修;東牆 east_walls(三段隱形牆 + 柵欄,擴建時整面拆;east_gate / east_gate_mesh 是門那段)、_build_annex 擴建區
+  tower_by_id / tower_pad_for / tooth_pad_for / alive_towers / tower_destroyed(牌 on_lost 修復價)/ _refresh_tower_pads(熊王牙牌只在塔完好未強化時開),_on_purchased "tower" 蓋 / 修、
+  "tower_upgrade" 強化、"shop_upgrade" -> _apply_shop_level(武器牌 raise_max、招牌 shop_sign 顯示等級);掉落物 loot / drop_loot / loot_collected / _on_bear_defeated(熊被打跑掉毛皮、王掉熊王牙);東牆 east_walls(三段隱形牆 + 柵欄,擴建時整面拆;east_gate / east_gate_mesh 是門那段)、_build_annex 擴建區
   (ANNEX_RECT:沙地、柵欄、隱形牆、深水池、FishArea2)、fish_areas / nearest_fish_area / pick_fish_area(漁夫挑人少的水區)、is_expanded、
   route / gate_point(東牆拆了之後回空 / 原點,留給 Helper.go_to 以後補規則)、fish_eaten(王吃魚)、_physics_process 累加 GameState.play_time
 - `autoload/event_bus.gd`:fish_caught / items_processed / sale_made / cash_collected / purchase_progress / purchased / helper_hired / notice / items_moved(kind, item, from, to, count)/ tutorial_step_done / tutorial_finished /
-  bear_appeared / bear_biting / bear_hit(bear, damage, hp_left)/ bear_defeated / bear_left(reason fled | no_prey)/ helper_eaten(role, helper)/ fish_eaten / bear_fed
+  bear_appeared / bear_biting / bear_hit(bear, damage, hp_left)/ bear_defeated / bear_left(reason fled | no_prey)/ helper_eaten(role, helper)/ fish_eaten / bear_fed /
+  tower_built / tower_shot / tower_damaged / tower_destroyed / station_destroyed / station_repaired / loot_dropped(kind, pos)/ loot_collected(kind, total)/ shop_upgraded(level)/ tower_upgraded(tower)
 - `autoload/settings.gd`:Settings(裝置偏好,user://settings.json 與存檔分開:quality smooth / fine、show_fps;沒檔案時觸控裝置預設 smooth;is_touch_device、scaling_3d、toggle_quality、changed 訊號)
 - `autoload/sfx.gd`:Sfx(聽事件播 assets/sfx/<name>.wav,10 個 player 輪播、每種最短間隔、環境音執行期開 loop;played 計數給測試;
-  北極熊 roar(出現 / 被打跑)、chomp(吃掉幫手 / 魚)、hit(打到熊)、arrow(守衛塔射箭)、crash(塔塌 / 工作站被拆))
+  北極熊 roar(出現 / 被打跑)、chomp(吃掉幫手 / 魚)、hit(打到熊)、arrow(守衛塔射箭)、crash(塔塌 / 工作站被拆)、pick(撿掉落物)、unlock(武器店升級 / 塔強化))
 - `autoload/fly_fx.gd`:Fx(聽 items_moved 生物品幽靈拋物線飛,掛在自己底下;kind "cash" 交給 HUD)
 - `tools/gen_sfx.py`:純 Python 合成占位音效(正弦 / 噪音 / 包絡),輸出 assets/sfx/*.wav(22050 Hz 16-bit mono)
 - `tools/gen_icons.py`:Pillow 畫占位圖示(assets/icons/icon_128 / 144 / 180 / 512.png)與啟動畫面 splash.png
@@ -122,13 +133,16 @@
 - `tools/deploy_web.py`:`--export-release Web` -> 同步到 build/pages(tyboy0407/manlife-play 的 clone)-> commit(沿用本 repo 的 git 身分)-> push main;`--export-only` / `--no-export`
 - `export_presets.cfg`:Web 預設(不開執行緒、PWA 開、直式、圖示指到 assets/icons);`assets/fonts/NotoSansTC-VF.ttf`(OFL,見 LICENSE.md)是遊戲內唯一的中文字型
 - `autoload/game_state.gd`:wallet(add_wallet / spend)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost / play_time /
-  統計(含 items_trashed);apply_purchase(effect type:capacity / hire / unlock / upgrade / weapon)、lose_helper(role)、upgrade_mult、to_dict / from_dict
+  pelts / teeth / shop_level(resource(kind) / add_resource / spend_resource,kind cash / pelt / tooth)/ 統計(含 items_trashed);
+  apply_purchase(effect type:capacity / hire / unlock / upgrade / weapon / shop_upgrade;tower / repair / tower_upgrade 只記 unlocked)、lose_helper(role)、upgrade_mult、to_dict / from_dict
 - `autoload/save_manager.gd`:存檔 IO(user://manlife_save.json,VERSION 2;has_save / write / read / delete;測試改 save_path)
 - `data/config/game.json`:速度、容量、搬運速率(transferPerSec / cashPickupPerSec / payPerSec / payDelaySec / trashPerSec)、魚群、顧客、autosaveSec、helpers、upgrades、models(人物 GLB 資料夾與身高、player / worker / roles / customers / shopkeeper 用哪個人物、waterFish、
   bear.file 可選的熊模型)、bear(enabled / firstDelaySec / intervalSec / intervalMin / rampStartSec / rampSec / hpBase / hpPerMin / packChances /
   speed / fleeSpeed / biteSec / biteRadius / panicRadius / entries / entriesExpanded / length / king {atSec, respawnSec, hpMult, biteSec, fishBiteSec, buildingBiteSec, scale,
-  growHelper, growFish, maxScale, healFish})、weapon(attackIntervalSec、levels[] damage / range / model)、payScaleCost、customers.wantWeights、
-  (weapon.levels 見上);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5,擴建區的 fillet_counter_2 / grill_counter_2);`data/shop.json`(十塊牌:含村外的 weapon、$1000 的 expand_village;僱用牌 rebuyMult 1.5);`data/locale/strings.csv`
+  growHelper, growFish, maxScale, healFish, healHelper, drop}、drop)、tower(hp / damage / … / strong {hp, damage})、weapon(attackIntervalSec、shopBaseLevels、levels[] ×6 damage / range / model)、
+  lootPickupRadius、payScaleCost、customers.wantWeights、
+  (weapon.levels 見上);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5,擴建區的 fillet_counter_2 / grill_counter_2);`data/shop.json`(十九塊牌:含村外的 weapon、$1000 的 expand_village、四座守衛塔、收毛皮的 shop_upgrade、收熊王牙的 tooth_tower_1 ~ 4;僱用牌 rebuyMult 1.5;頂層 repairStation 工作站修復價);
+  `data/items.json`(多 pelt / tooth 給飛行幽靈用);`data/locale/strings.csv`
 
 ## 世界慣例
 
@@ -176,6 +190,15 @@
   restore_state(1, 0) 當作已買藏著)-> 付清 _on_purchased "repair" -> Station.repair()。Harbor.find_station_* / porter_dests / porter_sources
   與 Guide 的 stations 都跳過 is_broken() 的;存檔 world.stations{spot: {input, output, broken}},restore 後廢墟的修復牌一定 on_lost 開著。
   咬工作站的距離 = bite_radius × 體型 + 1.0。工作站修復價在 shop.json 頂層 repairStation.cost(GameData.repair_station())。
+- 掉落物 / 資源:Bear.defeat -> EventBus.bear_defeated -> Harbor._on_bear_defeated -> drop_loot(BearLogic.drop(is_king):pelt / tooth)在熊的位置生 Loot;
+  Loot 每幀看玩家距離 <= lootPickupRadius 就 collect(GameState.add_resource、items_moved "loot" 飛向玩家、notice NOTICE_LOOT_<kind>)。資源不佔背包,
+  HUD 統計顯示。價格牌 currency 不是 cash 時 PricePad 從 GameState.resource(currency) 扣(payPerSec 同速率),Guide 的 _cheapest_pad 把資源夠的牌當最優先、不夠的跳過。
+- 武器店等級:GameState.shop_level(apply_purchase "shop_upgrade" +1)-> Harbor._apply_shop_level:武器牌 raise_max(BearLogic.weapon_levels_for_sale(shop_level)
+  = shopBaseLevels 3 + 等級,上限 levels.size)讓買滿消失的武器牌重新出現、價格接著 ×1.7(Lv4 $172 / Lv5 $292 / Lv6 $497),招牌換 SIGN_WEAPON_SHOP_LV。
+  讀檔時 _load_save 在 restore_world 之前先 _apply_shop_level,武器牌的 buys 才不會被夾回 3。升級牌 shop_upgrade 用 costs [5, 10, 20](PurchaseLogic.costs 蓋過 cost × costMult)。
+- 強力守衛塔:熊王牙牌 tooth_tower_n 在塔底下(PAD_SPOTS 同塔位置,label 拉高到 6.4),Harbor._refresh_tower_pads 只在塔 alive 且 tier 0 時 set_open(true)
+  (蓋好 / 修好 / 讀檔 / 拆掉都重算);付清 _on_purchased "tower_upgrade" -> Tower.upgrade():tier 1、hp_max = TowerLogic.hp(1)、血回滿、Arrow 傷害 damage(1)。
+  存檔 towers{id: {state, hp, tier}};拆掉修好仍是 tier 1。
 - 擴建名額:UNLOCKS.village_2.expandShop -> 所有 PricePad.expand():PurchaseLogic.expand() 把 max_buys 加 expandBuys(只一次),買滿的牌重開、
   remaining 設成下一級價。讀檔順序 _spawn_unlock(expand)在 restore_world(restore 夾在新的 max_buys 內)之前,所以不用存。
 - 買回:幫手被吃 -> Harbor.hire_pad_for(role).on_lost() -> PurchaseLogic.lose()(buys -1、lost +1、價格 × rebuy_mult、已付保留)
@@ -217,12 +240,13 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 ```
 
 先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
-漁夫去擴建區的水再回主村卸貨、route 回空,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數(不回血、咬建築 10 秒)、盯最近的 / TowerLogic 數值(血 800 = 20 口)、幾箭射死、射程內最近的活熊 / PurchaseLogic 買回、擴建名額、守衛塔牌修復 / 工作站修復價 / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
-追著熊 Lv1 每下 10 打到血條歸零才逃 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、每隻兩下打跑、冷卻照當時的間隔)->
+漁夫去擴建區的水再回主村卸貨、route 回空,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數(不回血、咬建築 10 秒)、掉落物、武器店等級賣到第幾級、盯最近的 / TowerLogic 數值(血 800 = 20 口、強力塔 2000 = 50 口)、幾箭射死、射程內最近的活熊 / PurchaseLogic 買回、擴建名額、守衛塔牌修復 / 工作站修復價 / 收毛皮的逐次價牌、武器牌 raise_max / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 -> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、最缺貨的櫃台優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
+追著熊 Lv1 每下 10 打到血條歸零才逃、掉毛皮走過去撿 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、每隻兩下打跑、冷卻照當時的間隔、再掉三張毛皮 ->
+5 張毛皮升級武器店 Lv1、武器牌重新出現買 Lv4 $172)->
 守衛塔(沿西牆走到西北角買 tower_1 $200 -> 熊放在入口:塔射箭、熊被射中改來拆塔、30 血三箭射死玩家沒出手 -> 塔剩 10 血被厚血熊咬塌:廢墟、
 牌重現「修復」$200 -> 修好血回滿)-> 擴建村莊(錢包直接 +1000、7 秒付清 -> 東牆整面拆、第二水區有魚、第二組建築、新櫃台有顧客、僱用牌 5 / 6 / 4 次)-> 北極熊王(把 play_time 撥到 5 分鐘 -> 王出場血 ×4 體型 1.6 ->
 吃魚只變大不回血 -> 吃搬運工不回血更大、牌可買回 -> 盯著切魚台咬 10 秒拆掉:廢墟、工人不見、格子停用、不再是搬運工 / 漁夫的目的地、
-修復牌 $200 出現(快照記 broken)-> 站上廢墟修好 -> Lv3 打死、300 秒後再來)-> items_moved / 幽靈 / 音效計數、畫質切換(陰影 / 圓影 / 3D 縮放)、FPS 開關、布景合併 -> 存檔 / 重建關卡還原(含武器等級、買回的漁夫、擴建區、熊的冷卻、遊戲時間、王的下次時間、守衛塔狀態與血量、擴建後的僱用名額)-> 新遊戲,約 5 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
+修復牌 $200 出現(快照記 broken)-> 站上廢墟修好 -> 打死、300 秒後再來、掉熊王牙 -> 撿起來站到 tower_1 底下付 1 顆:強力守衛塔血 2000 每箭 25)-> items_moved / 幽靈 / 音效計數、畫質切換(陰影 / 圓影 / 3D 縮放)、FPS 開關、布景合併 -> 存檔 / 重建關卡還原(含武器等級、買回的漁夫、擴建區、熊的冷卻、遊戲時間、王的下次時間、守衛塔狀態與血量與強化、武器店等級、毛皮數、地上的掉落物、擴建後的僱用名額)-> 新遊戲,約 5.5 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
 
 - 新增腳本或資源後要先 `--import`,否則 class_name 找不到;第一次 import 會因為 .translation 還沒產生而印錯誤,第二次就正常。
 - 測試指令一定加 timeout:測試場景若編譯失敗,headless 永遠不會結束。
@@ -281,6 +305,7 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
    再追加(2026-10-27):擴建後僱用牌多開放名額(搬運工 +4、收銀員 +2、漁夫 +2)、四角守衛塔 $200(射箭打熊、被熊拆了 $200 修復,TowerLogic / Tower)、
    網頁版偵測到新版自動重新整理(head_include JS + 失焦存檔)。
    再追加(2026-10-27):守衛塔血 800(扛 20 口)、北極熊王不回血、改拆建築(切魚台 / 烤魚攤 / 守衛塔咬 10 秒就垮,廢墟上 $200 修復牌)。
+   再追加(2026-10-28):熊最快 30 ~ 40 秒一群;打跑的熊掉毛皮 -> 武器店升級三級(5 / 10 / 20 張)多賣武器 Lv4 ~ 6;打死王掉熊王牙 -> 強力守衛塔(血 2000、每箭 25)。
 
 之後候選:北極熊模型(Quaternius Animals / Kenney Animal Pack 的熊)、魚片 / 烤魚 / 建築模型(壽司店套件)、離線收益、幫手升級、顧客多樣化與耐心、
 關卡座標資料化與地圖擴張、更多貨物鏈(魚湯)、字型子集化縮小下載。

@@ -46,6 +46,9 @@ func _ready() -> void:
     EventBus.tower_shot.connect(func(_t: Node3D, _b: Node3D) -> void: play("arrow"))
     EventBus.tower_destroyed.connect(func(_t: Node3D, _b: Node3D) -> void: play("crash"))
     EventBus.station_destroyed.connect(func(_s: Node3D, _b: Node3D) -> void: play("crash"))
+    EventBus.loot_collected.connect(func(_k: String, _n: int) -> void: play("pick"))
+    EventBus.shop_upgraded.connect(func(_l: int) -> void: play("unlock"))
+    EventBus.tower_upgraded.connect(func(_t: Node3D) -> void: play("unlock"))
 
 
 func has(name: String) -> bool:

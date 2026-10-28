@@ -31,3 +31,7 @@ signal tower_damaged(tower: Node3D, hp_left: float)
 signal tower_destroyed(tower: Node3D, by: Node3D)
 signal station_destroyed(station: Node3D, by: Node3D)   # 北極熊王拆掉工作站
 signal station_repaired(station: Node3D)
+signal loot_dropped(kind: String, pos: Vector3)        # 熊被打跑掉落毛皮 / 王掉落牙齒
+signal loot_collected(kind: String, total: int)
+signal shop_upgraded(level: int)                        # 武器店升級
+signal tower_upgraded(tower: Node3D)                    # 守衛塔強化

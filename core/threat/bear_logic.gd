@@ -124,6 +124,23 @@ func king_building_bite_sec() -> float:
     return maxf(float(_king().get("buildingBiteSec", 10.0)), 0.1)
 
 
+## 被打跑 / 打死時掉什麼(一般熊 bear.drop 毛皮 pelt;王 king.drop 熊王牙 tooth);空字串 = 不掉
+func drop(king: bool = false) -> String:
+    if king:
+        return str(_king().get("drop", "tooth"))
+    return str(cfg.get("drop", "pelt"))
+
+
+## 武器店沒升級時賣幾級(weapon.shopBaseLevels,預設 3);每升一級多賣一級,最多到 weapon_max_level
+func shop_base_levels() -> int:
+    return clampi(int(weapon_cfg.get("shopBaseLevels", 3)), 0, maxi(weapon_max_level(), 0))
+
+
+## 武器店 shop_level 級時武器牌可以買到第幾級
+func weapon_levels_for_sale(shop_level: int) -> int:
+    return clampi(shop_base_levels() + maxi(shop_level, 0), 0, weapon_max_level())
+
+
 func bite_sec() -> float:
     return maxf(float(cfg.get("biteSec", 4.0)), 0.1)
 

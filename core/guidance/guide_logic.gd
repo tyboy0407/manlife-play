@@ -198,14 +198,21 @@ static func _pad_by_id(state: Dictionary, id: String) -> Dictionary:
 
 
 ## 看得見、剩餘價格最低的牌;budget >= 0 時只算付得起的
+## 最便宜且買得起的牌(budget = 錢包;-1 = 不管錢,只看現金牌)。收毛皮 / 熊王牙的牌:資源夠就當最優先(cost 0),不夠就跳過
 static func _cheapest_pad(state: Dictionary, budget: int) -> Dictionary:
     var best := {}
     var best_cost := 1 << 30
+    var res = state.get("resources", {})
     for p in state.get("pads", []):
         if not bool(p.get("visible", true)):
             continue
         var cost := int(p.get("remaining", 0))
-        if budget >= 0 and cost > budget:
+        var currency := str(p.get("currency", "cash"))
+        if currency != "cash":
+            if budget < 0 or typeof(res) != TYPE_DICTIONARY or int(res.get(currency, 0)) < cost:
+                continue
+            cost = 0
+        elif budget >= 0 and cost > budget:
             continue
         if cost < best_cost:
             best = p

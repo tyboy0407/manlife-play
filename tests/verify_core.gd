@@ -55,8 +55,8 @@ func _test_data() -> void:
             "game.json:玩家速度、背包 8")
     _check(GameData.section("fish").has("maxInWater") and GameData.section("customers").has("max")
             and GameData.section("nope").is_empty(), "子區塊 fish / customers;不存在的回空")
-    _check(GameData.items().size() == 4 and GameData.item("fish").has("size") and GameData.item("cash").has("color"),
-            "items.json:魚 / 魚片 / 現金 / 烤魚")
+    _check(GameData.items().size() == 6 and GameData.item("fish").has("size") and GameData.item("cash").has("color") and GameData.item("pelt").has("size")
+            and GameData.item("tooth").has("color"), "items.json:魚 / 魚片 / 現金 / 烤魚 / 毛皮 / 熊王牙")
     _check(GameData.item_size("fish") == Vector3(0.7, 0.23, 0.36) and GameData.item_color("cash") != Color(0.8, 0.8, 0.8)
             and GameData.item_size("nope") == Vector3(0.5, 0.15, 0.4), "物品尺寸 / 顏色;未知物品用預設")
     _check(GameData.item_name("fish") != "fish" and GameData.item_name("fish") != "ITEM_fish", "物品名有翻譯(%s)" % GameData.item_name("fish"))
@@ -67,7 +67,7 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 14 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200],
+    _check(shop.size() == 19 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200, 5, 1, 1, 1, 1],
             "shop.json:十四塊牌(含村外武器店、擴建村莊、四座守衛塔)%s" % str(costs))
     _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 2 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
             and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),
@@ -92,8 +92,8 @@ func _test_data() -> void:
     _check(GameData.helper("porter").has("speed") and GameData.helper("cashier").has("capacity") and GameData.helper("nope").is_empty(),
             "helpers 設定:搬運工 / 收銀員")
     _check(GameData.section("upgrades").has("worker_speed") and GameData.section("upgrades").has("pile_cap"), "upgrades 設定")
-    _check(GameData.section("bear").has("biteSec") and GameData.section("weapon").get("levels", []).size() == 3
-            and ModelLibrary.shopkeeper_model() != "", "bear / weapon 設定:咬的秒數、三級武器、武器店老闆的人物")
+    _check(GameData.section("bear").has("biteSec") and GameData.section("weapon").get("levels", []).size() == 6
+            and ModelLibrary.shopkeeper_model() != "", "bear / weapon 設定:咬的秒數、六級武器、武器店老闆的人物")
 
 
 ## --- 背上的一疊 ---
@@ -224,6 +224,28 @@ func _test_purchase() -> void:
             "守衛塔牌:$200 一次性,沒蓋過沒得修")
     tp.pay(200)
     tp.complete()
+    var su := PurchaseLogic.from_def(GameData.purchase("shop_upgrade"))
+    _check(su.currency == "pelt" and not su.is_cash() and su.repeatable and su.max_buys == 3 and su.current_cost() == 5 and su.remaining == 5,
+            "武器店升級牌:收毛皮、三次")
+    _check(su.pay(5) == 5 and su.is_paid(), "付 5 張毛皮")
+    su.complete()
+    _check(su.current_cost() == 10 and su.remaining == 10 and su.buys == 1, "第二次 10 張(逐次價格 costs)")
+    su.pay(10)
+    su.complete()
+    _check(su.current_cost() == 20 and su.remaining == 20, "第三次 20 張")
+    su.pay(20)
+    su.complete()
+    _check(su.is_exhausted() and su.current_cost() == 20, "三次買滿;超過 costs 長度用最後一個")
+    var wl := PurchaseLogic.from_def(GameData.purchase("weapon"))
+    for i in 3:
+        wl.pay(wl.remaining)
+        wl.complete()
+    _check(wl.is_exhausted() and wl.base_max_buys == 3 and not wl.raise_max(3) and wl.raise_max(4) and not wl.is_exhausted()
+            and wl.max_buys == 4 and wl.remaining == 172 and wl.current_cost() == 172 and wl.is_cash(),
+            "武器牌買滿 3 級後 raise_max(4) 重新開放:Lv4 $172(35 × 1.7³)")
+    var tt := PurchaseLogic.from_def(GameData.purchase("tooth_tower_1"))
+    _check(tt.currency == "tooth" and tt.current_cost() == 1 and tt.effect.get("type", "") == "tower_upgrade" and tt.effect.get("target", "") == "tower_1",
+            "熊王牙牌:1 顆、強化 tower_1")
     _check(tp.is_exhausted() and tp.lose() and not tp.is_exhausted() and tp.is_rebuy() and tp.current_cost() == 200 and tp.remaining == 200,
             "塔被拆:牌重開、修復 $200")
     tp.pay(200)
@@ -508,19 +530,23 @@ func _test_bear() -> void:
     _check(is_equal_approx(b.bite_sec(), 4.0) and is_equal_approx(b.bite_radius(), 1.4)
             and b.panic_radius() >= b.bite_radius() and b.speed() > 0.0 and b.flee_speed() >= b.speed() and b.entries().size() == 2,
             "咬 4 秒、嚇呆半徑 >= 咬的半徑、兩個入口")
-    _check(b.weapon_max_level() == 3 and is_equal_approx(b.weapon_damage(0), 0.0) and is_equal_approx(b.weapon_damage(1), 10.0)
-            and is_equal_approx(b.weapon_damage(2), 20.0) and is_equal_approx(b.weapon_damage(3), 35.0) and is_equal_approx(b.weapon_damage(9), 35.0)
-            and is_equal_approx(b.attack_range(1), 1.8) and is_equal_approx(b.attack_interval(), 0.5),
-            "武器三級只加攻擊力:0 / 10 / 20 / 35,打擊距離 1.8、每 0.5 秒一下;超過最高級當最高級")
+    _check(b.weapon_max_level() == 6 and is_equal_approx(b.weapon_damage(0), 0.0) and is_equal_approx(b.weapon_damage(1), 10.0)
+            and is_equal_approx(b.weapon_damage(2), 20.0) and is_equal_approx(b.weapon_damage(3), 35.0) and is_equal_approx(b.weapon_damage(4), 55.0)
+            and is_equal_approx(b.weapon_damage(5), 80.0) and is_equal_approx(b.weapon_damage(6), 120.0) and is_equal_approx(b.weapon_damage(9), 120.0)
+            and is_equal_approx(b.attack_range(1), 1.8) and b.attack_range(6) > b.attack_range(3) and is_equal_approx(b.attack_interval(), 0.5),
+            "武器六級只加攻擊力:0 / 10 / 20 / 35 / 55 / 80 / 120,打擊距離 1.8 起、每 0.5 秒一下;超過最高級當最高級")
+    _check(b.shop_base_levels() == 3 and b.weapon_levels_for_sale(0) == 3 and b.weapon_levels_for_sale(1) == 4 and b.weapon_levels_for_sale(3) == 6
+            and b.weapon_levels_for_sale(9) == 6 and b.drop() == "pelt" and b.drop(true) == "tooth",
+            "武器店基本賣 3 級、每升一級多賣一級(最多 6);熊掉毛皮、王掉熊王牙")
     _check(not b.can_attack(0, 0.1) and b.can_attack(1, 1.8) and not b.can_attack(1, 2.0) and b.can_attack(3, 2.0), "can_attack:等級 × 距離")
     _near(b.cooldown_mult(1), 1.0, "武器不再影響冷卻(倍率 1)", 0.001)
     _near(b.next_cooldown(0, 0.0), 35.0, "下次冷卻:開局最短 35", 0.001)
     _near(b.next_cooldown(3, 1.0), 55.0, "下次冷卻:開局最長 55", 0.001)
     # 難度曲線:3 分鐘後 5 分鐘內縮到 15 ~ 25;血量每分鐘 +10
-    _check(b.interval(0.0) == Vector2(35.0, 55.0) and b.interval(180.0) == Vector2(35.0, 55.0) and b.interval(330.0) == Vector2(25.0, 40.0)
-            and b.interval(480.0) == Vector2(15.0, 25.0) and b.interval(9999.0) == Vector2(15.0, 25.0),
-            "出沒間隔:3 分鐘前 35 ~ 55,之後 5 分鐘內線性縮到 15 ~ 25(4.5 分鐘時 25 ~ 40)")
-    _near(b.next_cooldown(0, 0.0, 9999.0), 15.0, "後期最短 15 秒", 0.001)
+    _check(b.interval(0.0) == Vector2(35.0, 55.0) and b.interval(180.0) == Vector2(35.0, 55.0) and b.interval(330.0).is_equal_approx(Vector2(32.5, 47.5))
+            and b.interval(480.0) == Vector2(30.0, 40.0) and b.interval(9999.0) == Vector2(30.0, 40.0),
+            "出沒間隔:3 分鐘前 35 ~ 55,之後 5 分鐘內線性縮到 30 ~ 40(5.5 分鐘時 32.5 ~ 47.5)")
+    _near(b.next_cooldown(0, 0.0, 9999.0), 30.0, "後期最短 30 秒", 0.001)
     _near(b.hp(0.0), 30.0, "血量:開局 30", 0.001)
     _near(b.hp(180.0), 60.0, "血量:3 分鐘 60", 0.001)
     _check(is_equal_approx(b.king_at_sec(), 300.0) and is_equal_approx(b.king_hp_mult(), 4.0) and is_equal_approx(b.king_scale(), 1.6)
@@ -552,6 +578,9 @@ func _test_tower() -> void:
             and is_equal_approx(t.attack_interval(), 0.8) and t.arrow_speed() > 0.0 and is_equal_approx(t.bite_sec(), 2.5)
             and t.aggro_radius() >= 1.0 and t.height() > 0.0, "守衛塔設定:血 800、每箭 10、射程 9、每 0.8 秒一箭、熊咬一口 2.5 秒")
     _check(is_equal_approx(t.bite_damage(), 40.0) and t.bites_to_break() == 20, "一般熊咬一口 40:要咬 20 口才拆得掉")
+    _check(t.max_tier() == 1 and is_equal_approx(t.hp(1), 2000.0) and is_equal_approx(t.damage(1), 25.0) and t.bites_to_break(1) == 50
+            and is_equal_approx(t.dps(1), 31.25) and t.shots_to_kill(100.0, 1) == 4 and is_equal_approx(t.hp(0), 800.0),
+            "強力守衛塔(熊王牙):血 2000 = 扛 50 口、每箭 25")
     _check(int(GameData.repair_station().get("cost", 0)) == 200, "工作站修復牌 $200(shop.json repairStation)")
     _near(t.dps(), 12.5, "每秒傷害 12.5", 0.001)
     _check(t.shots_to_kill(30.0) == 3 and t.shots_to_kill(31.0) == 4 and t.shots_to_kill(0.0) == 0 and t.in_range(9.0) and not t.in_range(9.01),

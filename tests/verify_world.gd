@@ -53,6 +53,10 @@ func _ready() -> void:
     EventBus.tower_shot.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("tower_shot"))
     EventBus.tower_damaged.connect(func(_t: Node3D, _hp: float) -> void: _bump("tower_damaged"))
     EventBus.tower_destroyed.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("tower_destroyed"))
+    EventBus.loot_dropped.connect(func(_k: String, _p: Vector3) -> void: _bump("loot_dropped"))
+    EventBus.loot_collected.connect(func(_k: String, _n: int) -> void: _bump("loot_collected"))
+    EventBus.shop_upgraded.connect(func(_l: int) -> void: _bump("shop_upgraded"))
+    EventBus.tower_upgraded.connect(func(_t: Node3D) -> void: _bump("tower_upgraded"))
     EventBus.station_destroyed.connect(func(_s: Node3D, _b: Node3D) -> void: _bump("station_destroyed"))
     EventBus.station_repaired.connect(func(_s: Node3D) -> void: _bump("station_repaired"))
     await _run()
@@ -130,11 +134,12 @@ func _empty_hands() -> void:
 func _pay_pad(pad: PricePad) -> bool:
     var buys := pad.logic.buys
     var need := pad.logic.remaining
-    if GameState.wallet < need:
+    var cur := pad.logic.currency
+    if pad.logic.is_cash() and GameState.wallet < need:
         await _go(_level.money_pad.global_position)
         await _wait_until(func() -> bool: return GameState.wallet >= need or _level.money_pad.cash == 0, 240)
     await _go(pad.global_position)
-    await _wait_until(func() -> bool: return pad.logic.buys > buys or pad.logic.is_exhausted() or GameState.wallet == 0, 480)
+    await _wait_until(func() -> bool: return pad.logic.buys > buys or pad.logic.is_exhausted() or GameState.resource(cur) == 0, 480)
     var ok := pad.logic.buys > buys
     if not ok:
         print("  (pay_pad %s 沒買成:remaining %d buys %d wallet %d money %d)" % [pad.logic.id, pad.logic.remaining, pad.logic.buys,
@@ -231,7 +236,7 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 15 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、十四塊價格牌 + 切魚台的修復牌、沒有存檔")
+            and _level.price_pads.size() == 20 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、十九塊價格牌 + 切魚台的修復牌、沒有存檔")
     _check(_level.towers.size() == 4 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
             and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty(),
             "四座守衛塔待建:只有地基牌")
@@ -242,7 +247,12 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 21, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 十四塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 26, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 十九塊價格牌 / 修復牌(%d)" % pads)
+    var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
+    var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
+    _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"
+            and su0.global_position.x < -13.0 and _level.loot.is_empty() and GameState.pelts == 0 and GameState.teeth == 0,
+            "熊王牙牌藏著(塔沒蓋)、武器店升級牌在院子裡、沒有掉落物")
     var rp0: PricePad = _level.price_pads.get("repair_station_1", null)
     _check(rp0 != null and not rp0.visible and rp0.logic.is_exhausted() and rp0.global_position.distance_to(_level.stations[0].global_position) < 0.1
             and rp0.logic.effect.get("type", "") == "repair" and _level.repair_pad_for("station_1") == rp0, "切魚台完好:修復牌藏在桌子位置")
@@ -531,6 +541,7 @@ func _run() -> void:
     await _tower_section()
     await _expand_section()
     await _king_section()
+    await _tower_strong_section()
     # 表現層:飛行動畫事件、幽靈物件、音效
     _check(_count("moved") >= 30 and _count("moved_catch") >= 8 and _count("moved_to_station") >= 8 and _count("moved_from_station") >= 8
             and _count("moved_to_counter") >= 8 and _count("moved_sold") >= 3 and _count("moved_cash") >= 6 and _count("moved_pay") >= 20
@@ -579,6 +590,8 @@ func _run() -> void:
     var play_time_saved := GameState.play_time
     var weapon_saved := GameState.weapon_level
     var lost_saved := GameState.helpers_lost
+    var pelts_saved := GameState.pelts
+    var loot_saved := _level.loot.size()
     var tower_saved: Tower = _level.tower_by_id("tower_1")
     var tower_hp_saved := tower_saved.hp
     var tower_alive_saved := tower_saved.is_alive()
@@ -615,13 +628,20 @@ func _run() -> void:
             and absf(GameState.play_time - play_time_saved) < 0.5 and is_equal_approx(_level.bears.king_next_sec, king_next_saved),
             "重建關卡:武器 Lv%d 掛回腰間、買回的漁夫還在、北極熊冷卻 / 遊戲時間 / 王的下次時間還原" % weapon_saved)
     var tw2: Tower = _level.tower_by_id("tower_1")
+    var wp3: PricePad = _level.price_pads["weapon"]
+    _check(tw2 != null and tw2.tier == 1 and tw2.is_strong() and is_equal_approx(tw2.hp_max, 2000.0) and GameState.shop_level == 1
+            and GameState.weapon_level == 4 and GameState.pelts == pelts_saved and GameState.teeth == 0 and _level.loot.size() == loot_saved
+            and wp3.logic.max_buys == 4 and wp3.logic.is_exhausted() and not wp3.visible and _level.shop_sign.text.contains("1")
+            and not (_level.price_pads["tooth_tower_1"] as PricePad).visible and not (_level.price_pads["tooth_tower_2"] as PricePad).visible,
+            "重建關卡:強力守衛塔、武器店 Lv1(武器牌 4 級買滿)、毛皮 %d、地上 %d 個掉落物還原" % [pelts_saved, loot_saved])
     _check(tower_alive_saved and tw2 != null and tw2.is_alive() and is_equal_approx(tw2.hp, tower_hp_saved) and tw2._built.visible
             and not (_level.price_pads["tower_1"] as PricePad).visible and _level.tower_by_id("tower_2").state == "none"
             and fp2.logic.max_buys == 5 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 6,
             "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、擴建後的僱用名額還原" % tower_hp_saved)
     # F9 新遊戲
     _level.clear_save_and_state()
-    _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0, "新遊戲:武器與被吃數歸零")
+    _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0 and GameState.pelts == 0 and GameState.teeth == 0 and GameState.shop_level == 0,
+            "新遊戲:武器、被吃數、毛皮 / 熊王牙 / 武器店等級歸零")
     _check(not SaveManager.has_save() and GameState.hired_total() == 0 and GameState.wallet == 0, "新遊戲:刪存檔、清狀態")
     _level.queue_free()
     await _step(2)
@@ -697,6 +717,12 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     var gone := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
     _check(gone and _count("bear_left_fled") == 1 and bs.cooldown >= 33.0 and bs.cooldown <= 55.0 and _level.helpers.size() == helpers_before - 1,
             "熊逃到地圖邊緣消失,下一群 %.0f 秒後再來,沒有再損失幫手" % bs.cooldown)
+    # 打跑的熊掉一張毛皮(掉在被打倒的地方,玩家就在旁邊,可能當場就撿到)
+    _check(_count("loot_dropped") == 1 and GameState.pelts + _level.loot.size() == 1, "打跑的熊掉下一張毛皮")
+    if not _level.loot.is_empty():
+        await _go(_level.loot[0].global_position)
+        await _step(3)
+    _check(GameState.pelts == 1 and _level.loot.is_empty() and _count("loot_collected") == 1, "走過去撿起毛皮(資源 +1,不佔背包)")
     await _step(8)   # Guide 每 0.1 秒才重算
     _check(str(g.current.get("kind", "")) != "bear", "熊走了:提示回到平常")
     # 買回漁夫(1.5 倍)
@@ -752,6 +778,34 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     _check(gone2 and _count("bear_left_fled") == 4 and bs.cooldown >= iv.x - 2.0 and bs.cooldown <= iv.y + 0.01
             and _level.helpers.size() == helpers_before, "三隻都逃光才重新倒數(%.0f 秒,此時間隔 %.0f ~ %.0f)" % [bs.cooldown, iv.x, iv.y])
     bs.enabled = false
+    _check(_count("loot_dropped") == 4, "三隻熊各掉一張毛皮(共 4 張)")
+    # 毛皮升級武器店:湊 5 張站上升級牌 -> 武器店 Lv1、武器牌重新出現賣 Lv4($172)
+    var su: PricePad = _level.price_pads["shop_upgrade"]
+    var wp2: PricePad = _level.price_pads["weapon"]
+    _check(su.visible and not su.logic.is_cash() and su.logic.remaining == 5 and su.label.text.contains(tr("COST_pelt") % 5)
+            and _level.shop_sign != null and not wp2.visible and wp2.logic.is_exhausted(), "武器店旁有升級牌(收 5 張毛皮);武器牌買滿還是藏著")
+    GameState.pelts = 5
+    for l in _level.loot.duplicate():
+        if is_instance_valid(l):
+            l.collect(null)
+    await _step(2)
+    await _go_outside()
+    var up := await _pay_pad(su)
+    await _step(3)
+    _check(up and GameState.shop_level == 1 and GameState.pelts == 0 and su.logic.remaining == 10 and su.logic.buys == 1 and su.visible
+            and wp2.visible and not wp2.logic.is_exhausted() and wp2.logic.max_buys == 4 and wp2.logic.remaining == 172
+            and _count("shop_upgraded") == 1 and _level.shop_sign.text.contains("1"),
+            "5 張毛皮升級武器店 Lv1:下一級 10 張、武器牌重新出現賣 Lv4 $172、招牌顯示等級")
+    GameState.add_wallet(172)
+    wp2.logic.pay(100)
+    wp2._update_label()
+    await _go(Vector3(-16.0, 0, 2.5))
+    var b4 := await _pay_pad(wp2)
+    await _step(2)
+    _check(b4 and GameState.weapon_level == 4 and not wp2.visible and wp2.logic.is_exhausted() and _player.weapon_prop != null
+            and is_equal_approx(bs.logic.weapon_damage(GameState.weapon_level), 55.0), "買到 Lv4 武器(攻擊力 55、鎬子模型)、牌子又用完")
+    await _go(Vector3(-14.5, 0, 2.5))
+    await _go(Vector3(-11.0, 0, 2.5))
     await _go(Vector3(0, 0, 7))
 
 
@@ -943,6 +997,36 @@ func _king_section() -> void:
     if t1_alive:
         t1.restore({"state": "alive", "hp": t1.hp_max})
     bs.enabled = false
+    await _go(Vector3(0, 0, 7))
+
+
+## 打死王掉下熊王牙 -> 撿起來 -> 完好的 tower_1 底下有熊王牙牌(沒蓋的塔沒有)-> 站上去付 1 顆 -> 強力守衛塔:血 2000、每箭 25
+func _tower_strong_section() -> void:
+    var t1: Tower = _level.tower_by_id("tower_1")
+    var tp: PricePad = _level.price_pads["tooth_tower_1"]
+    var tp2: PricePad = _level.price_pads["tooth_tower_2"]
+    var teeth_on_ground := 0
+    for l in _level.loot:
+        if l.kind == "tooth":
+            teeth_on_ground += 1
+    _check(GameState.teeth + teeth_on_ground == 1, "打死王掉下一顆熊王牙")
+    for l in _level.loot.duplicate():
+        if is_instance_valid(l) and l.kind == "tooth":
+            await _go(l.global_position)
+            await _step(3)
+    _check(GameState.teeth == 1 and t1.is_alive() and t1.tier == 0 and tp.visible and not tp.logic.is_exhausted() and tp.logic.currency == "tooth"
+            and tp.logic.remaining == 1 and tp.label.text.contains(tr("COST_tooth") % 1) and not tp2.visible,
+            "撿到熊王牙;完好的守衛塔底下有強化牌(收 1 顆),沒蓋的塔沒有")
+    await _go(Vector3(-11.6, 0, 7.0))
+    await _go(Vector3(-11.6, 0, -6.0))
+    var paid := await _pay_pad(tp)
+    await _step(3)
+    _check(paid and GameState.teeth == 0 and t1.tier == 1 and t1.is_strong() and is_equal_approx(t1.hp_max, 2000.0) and is_equal_approx(t1.hp, 2000.0)
+            and not tp.visible and tp.logic.is_exhausted() and _count("tower_upgraded") == 1 and t1._strong_band.visible
+            and t1.logic.bites_to_break(t1.tier) == 50 and is_equal_approx(t1.logic.damage(t1.tier), 25.0),
+            "1 顆熊王牙強化守衛塔:血 2000(扛 50 口)、每箭 25、金色塔環、牌消失")
+    await _go(Vector3(-11.6, 0, -6.0))
+    await _go(Vector3(-11.6, 0, 7.0))
     await _go(Vector3(0, 0, 7))
 
 

@@ -12,6 +12,9 @@ extends Node3D
 ## 守衛塔(Tower):村莊四角各一座,牌子(tower_1 ~ tower_4,$200)就是地基;蓋好會朝靠近的熊射箭,被熊拆掉後站回地基花 $200 修。
 ## 北極熊王會拆工作站(切魚台 / 烤魚攤):_add_station 時順便生一塊藏著的修復牌(repair_<spot_id>,shop.json repairStation $200)在桌子位置,
 ## 被拆(station_destroyed)才出現,付清 _on_purchased "repair" 修好。
+## 掉落物(Loot):熊被打跑掉毛皮、王被打死掉熊王牙(_on_bear_defeated -> drop_loot),玩家走過去撿(GameState.pelts / teeth)。
+## 武器店升級牌(shop_upgrade,收毛皮 5 / 10 / 20)在院子裡:每級讓武器牌多賣一級(_apply_shop_level -> raise_max,武器 Lv4 ~ 6);
+## 熊王牙牌(tooth_tower_n,收 1 顆)就在塔下,塔完好且還沒強化才出現(_refresh_tower_pads),付清 tower.upgrade() 變強力守衛塔。
 
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
     "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0)}
@@ -24,6 +27,8 @@ const PAD_SPOTS := {
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
     "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0),
     "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
+    "shop_upgrade": Vector3(-15.5, 0, 4.6),
+    "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
 }
 const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5),
     "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0)}   # 守衛塔(= 牌子的位置,牌是地基)
@@ -55,6 +60,8 @@ var money_pad: MoneyPad
 var trash_pad: TrashPad
 var price_pads := {}
 var towers: Array[Tower] = []
+var loot: Array[Loot] = []              # 地上的毛皮 / 熊王牙
+var shop_sign: Label3D = null           # 武器店招牌(升級後顯示等級)
 var helpers: Array[Helper] = []
 var bears: BearSpawner
 var shopkeeper: Node3D = null
@@ -106,6 +113,8 @@ func _ready() -> void:
         pad.position = PAD_SPOTS.get(id, Vector3(0, 0, 12))
         world.add_child(pad)
         price_pads[id] = pad
+        if id.begins_with("tooth_") and pad.label != null:
+            pad.label.position.y = 6.4   # 牌子在塔底下,字要浮在塔頂上
     _build_towers()
     player = Player.new()
     player.name = "Player"
@@ -127,6 +136,9 @@ func _ready() -> void:
     autosave_sec = maxf(float(GameData.config().get("autosaveSec", 10.0)), 1.0)
     _autosave_timer = autosave_sec
     _load_save()
+    _apply_shop_level()
+    _refresh_tower_pads()
+    EventBus.bear_defeated.connect(_on_bear_defeated)
     guide = Guide.new()
     guide.name = "Guide"
     guide.level = self
@@ -212,7 +224,8 @@ func _build_outside() -> void:
     scenery.add_box(Vector3(4.8, 0.3, 3.2), Color(0.55, 0.18, 0.15), WEAPON_SHOP + Vector3(0, 2.55, 0))
     scenery.add_box(Vector3(3.2, 0.9, 0.6), fence, Vector3(WEAPON_SHOP.x, 0.45, 1.5))
     scenery.add_box(Vector3(3.4, 0.08, 0.8), sand, Vector3(WEAPON_SHOP.x, 0.94, 1.5))
-    world.add_child(VisualFactory.label(tr("SIGN_WEAPON_SHOP"), WEAPON_SHOP + Vector3(0, 3.3, 0), 48, Color(1.0, 0.9, 0.7)))
+    shop_sign = VisualFactory.label(tr("SIGN_WEAPON_SHOP"), WEAPON_SHOP + Vector3(0, 3.3, 0), 48, Color(1.0, 0.9, 0.7))
+    world.add_child(shop_sign)
     shopkeeper = Node3D.new()
     shopkeeper.name = "Shopkeeper"
     shopkeeper.position = SHOPKEEPER_SPOT
@@ -466,7 +479,61 @@ func tower_destroyed(t: Tower, _by: Node3D) -> void:
     if pad != null:
         pad.on_lost()
         EventBus.notice.emit(tr("NOTICE_TOWER_DESTROYED") % pad.logic.current_cost())
+    _refresh_tower_pads()
     save_now()
+
+
+## 這座塔的熊王牙強化牌(tooth_<塔 id>)
+func tooth_pad_for(tower_id: String) -> PricePad:
+    return price_pads.get("tooth_%s" % tower_id, null) as PricePad
+
+
+## 熊王牙牌只在塔完好、還沒強化時出現
+func _refresh_tower_pads() -> void:
+    for t in towers:
+        var pad := tooth_pad_for(t.id)
+        if pad != null:
+            pad.set_open(t.is_alive() and not t.is_strong())
+
+
+## --- 武器店等級 ---
+
+## 武器牌可買到的等級 = 基本 3 級 + 武器店等級(GameState.shop_level);招牌跟著換
+func _apply_shop_level() -> void:
+    var wp: PricePad = price_pads.get("weapon", null)
+    if wp != null and bears != null and bears.logic != null:
+        wp.raise_max(bears.logic.weapon_levels_for_sale(GameState.shop_level))
+    if shop_sign != null:
+        shop_sign.text = tr("SIGN_WEAPON_SHOP_LV") % GameState.shop_level if GameState.shop_level > 0 else tr("SIGN_WEAPON_SHOP")
+
+
+## --- 掉落物 ---
+
+## 熊被打跑 / 王被打死:在原地掉毛皮 / 熊王牙
+func _on_bear_defeated(bear: Node3D, _by: Node3D) -> void:
+    if bear == null or not is_instance_valid(bear) or bears == null or bears.logic == null:
+        return
+    var kind := bears.logic.drop(bear is Bear and (bear as Bear).is_king)
+    if kind != "":
+        drop_loot(kind, bear.global_position)
+
+
+func drop_loot(kind: String, pos: Vector3) -> Loot:
+    var l := Loot.new()
+    l.kind = kind
+    l.level = self
+    l.name = "Loot_%s_%d" % [kind, loot.size() + 1]
+    l.position = Vector3(pos.x, 0.0, pos.z)
+    world.add_child(l)
+    loot.append(l)
+    EventBus.loot_dropped.emit(kind, l.position)
+    return l
+
+
+## Loot 撿起來時叫:從名單移除、通知
+func loot_collected(l: Loot) -> void:
+    loot.erase(l)
+    EventBus.notice.emit(tr("NOTICE_LOOT_%s" % l.kind) % GameState.resource(l.kind))
 
 
 ## --- 幫手 ---
@@ -634,6 +701,16 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
                 var repaired := t.is_broken()
                 t.build()
                 EventBus.notice.emit(tr("NOTICE_TOWER_REPAIRED" if repaired else "NOTICE_TOWER_BUILT"))
+            _refresh_tower_pads()
+        "tower_upgrade":
+            var t := tower_by_id(str(effect.get("target", "")))
+            if t != null and t.upgrade():
+                EventBus.notice.emit(tr("NOTICE_TOWER_STRONG") % [int(t.hp_max), int(t.logic.damage(t.tier))])
+            _refresh_tower_pads()
+        "shop_upgrade":
+            _apply_shop_level()
+            EventBus.shop_upgraded.emit(GameState.shop_level)
+            EventBus.notice.emit(tr("NOTICE_SHOP_UPGRADED") % GameState.shop_level)
         "repair":
             var s := station_at(str(effect.get("target", "")))
             if s != null:
@@ -643,7 +720,7 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
 
 ## --- 存檔 ---
 
-## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆 / 是否被拆、各櫃台庫存、各價格牌進度(含修復牌)、守衛塔狀態 / 血量、北極熊冷卻
+## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆 / 是否被拆、各櫃台庫存、各價格牌進度(含修復牌)、守衛塔狀態 / 血量 / 強化、地上的掉落物、北極熊冷卻
 func snapshot() -> Dictionary:
     var stations_d := {}
     for s in stations:
@@ -658,10 +735,14 @@ func snapshot() -> Dictionary:
     var towers_d := {}
     for t in towers:
         towers_d[t.id] = t.snapshot()
+    var loot_d := []
+    for l in loot:
+        if l != null and is_instance_valid(l):
+            loot_d.append(l.snapshot())
     return {
         "player": {"item": player.stack.item_id, "count": player.stack.count},
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d, "towers": towers_d,
-        "bear": bears.snapshot() if bears != null else {},
+        "loot": loot_d, "bear": bears.snapshot() if bears != null else {},
     }
 
 
@@ -710,6 +791,12 @@ func restore_world(d: Dictionary) -> void:
             var pad := tower_pad_for(t.id)
             if pad != null and pad.logic.buys >= 1:
                 t.build(true)
+    var loot_d = d.get("loot", [])
+    if typeof(loot_d) == TYPE_ARRAY:
+        for e in loot_d:
+            if typeof(e) == TYPE_DICTIONARY and e.has("kind"):
+                drop_loot(str(e["kind"]), Vector3(float(e.get("x", 0.0)), 0.0, float(e.get("z", 0.0))))
+    _refresh_tower_pads()
     var bear_d = d.get("bear", {})
     if bears != null and typeof(bear_d) == TYPE_DICTIONARY:
         bears.restore(bear_d)
@@ -733,6 +820,7 @@ func _load_save() -> void:
     for target in UNLOCKS:
         if GameState.is_unlocked(str(target)):
             _spawn_unlock(str(target))
+    _apply_shop_level()   # 要在 restore_world 之前,武器牌的 buys 才不會被夾回 3
     for role in GameState.hired:
         for i in GameState.hired_count(str(role)):
             spawn_helper(str(role), true)

@@ -5,6 +5,8 @@ extends RefCounted
 ## 僱用牌:幫手被北極熊吃掉 lose() 退一個名額(buys -1、lost +1),買回那一次的價格是該級價格 × rebuy_mult(1.5),
 ## 買回後回到正常的階梯價;已付的部分付款保留。擴建村莊 expand() 多開放 expandBuys 個名額(買滿消失的牌重新開放)。
 ## 守衛塔牌(effect tower):一次性,塔被拆 lose() -> 以 rebuyMult(1)的價格修復。
+## currency:cash(錢包,預設)/ pelt(毛皮)/ tooth(熊王牙);costs [...] 可逐次指定價格(武器店升級 5 / 10 / 20),有就不用 cost × costMult。
+## raise_max(n):武器店升級後武器牌多開放名額(買滿消失的牌重新出現,價格接著漲)。
 
 var id := ""
 var name_key := ""
@@ -19,6 +21,9 @@ var lost := 0           # 被吃掉、可以買回的名額
 var rebuy_mult := 1.5   # 買回的價格倍率
 var expand_buys := 0    # 擴建村莊後多開放的名額(shop.json expandBuys)
 var expanded := false
+var currency := "cash"   # 用什麼付:cash / pelt / tooth
+var costs: Array = []    # 逐次價格(有就蓋過 cost × cost_mult)
+var base_max_buys := 1   # shop.json 的 maxBuys(raise_max 前)
 
 
 static func from_def(d: Dictionary) -> PurchaseLogic:
@@ -31,7 +36,15 @@ static func from_def(d: Dictionary) -> PurchaseLogic:
     p.cost_mult = maxf(float(d.get("costMult", 1.5)), 1.0)
     p.rebuy_mult = maxf(float(d.get("rebuyMult", 1.5)), 1.0)
     p.expand_buys = maxi(int(d.get("expandBuys", 0)), 0)
-    p.remaining = p.cost
+    p.base_max_buys = p.max_buys
+    p.currency = str(d.get("currency", "cash"))
+    var cl = d.get("costs", [])
+    if typeof(cl) == TYPE_ARRAY:
+        for c in cl:
+            p.costs.append(maxi(int(c), 1))
+    if not p.costs.is_empty():
+        p.cost = p.costs[0]
+    p.remaining = p.current_cost()
     var e = d.get("effect", {})
     if typeof(e) == TYPE_DICTIONARY:
         p.effect = e.duplicate(true)
@@ -41,6 +54,8 @@ static func from_def(d: Dictionary) -> PurchaseLogic:
 ## 這一次(第 buys + 1 次)的總價;正在買回被吃掉的名額時再乘 rebuy_mult
 func current_cost() -> int:
     var c := float(cost) * pow(cost_mult, float(buys))
+    if not costs.is_empty():
+        c = float(costs[mini(maxi(buys, 0), costs.size() - 1)])
     if lost > 0:
         c *= rebuy_mult
     return maxi(int(round(c)), 1)
@@ -71,6 +86,21 @@ func expand() -> bool:
     if was_exhausted:
         remaining = current_cost()
     return true
+
+
+## 名額上限提高到 n(武器店升級後武器牌多賣一級);買滿消失的牌重新開放。沒變回 false
+func raise_max(n: int) -> bool:
+    if n <= max_buys:
+        return false
+    var was_exhausted := is_exhausted()
+    max_buys = n
+    if was_exhausted:
+        remaining = current_cost()
+    return true
+
+
+func is_cash() -> bool:
+    return currency == "cash"
 
 
 ## 付 amount 元,回傳實際收下的(付清後多的不收)

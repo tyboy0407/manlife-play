@@ -7,6 +7,7 @@ extends Pad
 ## 守衛塔牌(effect tower)就是塔的地基,塔被拆 on_lost 後標「修復」(同價);工作站的修復牌(effect repair,Harbor._add_station 生的)
 ## 完好時藏著(當作已買),被王拆了 on_lost 才出現。擴建村莊 expand():僱用牌多開放 expandBuys 個名額。
 ## 付款速度 payPerSec × max(1, 本次價格 / payScaleCost):大額牌(擴建村莊 $1000)不用站一分鐘。build_spot = 橘色半透明建地。付款中發黃光。
+## currency 不是 cash 的牌(武器店升級收毛皮、強化守衛塔收熊王牙)從 GameState 的資源計數扣;set_open 給關卡手動開關(熊王牙牌只在塔完好時出現)。
 
 var logic: PurchaseLogic
 var build_spot := false
@@ -43,6 +44,8 @@ func _ready() -> void:
 
 func _update_label() -> void:
     var text := "%s\n$%d" % [tr(logic.name_key), logic.remaining]
+    if not logic.is_cash():
+        text = "%s\n%s" % [tr(logic.name_key), tr("COST_%s" % logic.currency) % logic.remaining]
     if logic.repeatable:
         text += "\n(%d/%d)" % [logic.buys + 1, logic.max_buys]
     if logic.is_rebuy():
@@ -60,16 +63,17 @@ func _on_carrier_stay(c: Carrier, delta: float) -> void:
         return
     var dwell := float(_dwell.get(key, 0.0)) + delta
     _dwell[key] = dwell
-    if dwell < pay_delay or GameState.wallet <= 0:
+    var have := GameState.resource(logic.currency)
+    if dwell < pay_delay or have <= 0:
         return
     var scale_cost := maxf(float(GameData.config().get("payScaleCost", 100.0)), 1.0)
     var rate := float(GameData.config().get("payPerSec", 15.0)) * maxf(1.0, float(logic.current_cost()) / scale_cost)
     var n := _budget(c, rate, delta)
-    var paid := logic.pay(mini(n, GameState.wallet))
+    var paid := logic.pay(mini(n, have))
     if paid <= 0:
         return
-    GameState.spend(paid)
-    EventBus.items_moved.emit("pay", "cash", c.global_position + Vector3(0.0, 1.6, 0.0), global_position + Vector3(0.0, 0.3, 0.0), paid)
+    GameState.spend_resource(logic.currency, paid)
+    EventBus.items_moved.emit("pay", logic.currency, c.global_position + Vector3(0.0, 1.6, 0.0), global_position + Vector3(0.0, 0.3, 0.0), paid)
     _update_label()
     set_highlight(true)
     _paying_frames = 8
@@ -137,6 +141,26 @@ func expand() -> void:
     _blocked.clear()
     _enable()
     _update_label()
+
+
+## 武器店升級:武器牌名額提高到 n(買滿消失的牌重新出現,價格接著漲)
+func raise_max(n: int) -> void:
+    if not logic.raise_max(n):
+        return
+    _blocked.clear()
+    _enable()
+    _update_label()
+
+
+## 關卡手動開關(熊王牙牌只在塔完好且還沒強化時出現);買滿的牌開不了
+func set_open(open: bool) -> void:
+    if open and not logic.is_exhausted():
+        if not visible:
+            _blocked.clear()
+            _enable()
+            _update_label()
+    else:
+        _disable()
 
 
 ## 這塊牌僱的幫手被吃掉 / 蓋的塔被拆了:名額退回來(買回價 / 修復價),買滿消失的牌也重新出現

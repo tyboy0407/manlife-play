@@ -4,6 +4,7 @@ extends RefCounted
 ## 熊離塔多近會改去拆塔(aggroRadius)。數值在 game.json tower {hp, damage, range, attackIntervalSec, arrowSpeed, biteDamage,
 ## biteSec, aggroRadius, height}:hp 800 / biteDamage 40 = 扛得住 20 口。北極熊王不看血量,咬滿 BearLogic.king_building_bite_sec 秒直接拆掉。
 ## 蓋 / 修的價格在 shop.json(tower_1 ~ tower_4,rebuyMult 1 = 修復同價)。
+## 強力守衛塔(tier 1,熊王牙強化):tower.strong {hp 2000 = 扛 50 口, damage 25};hp(tier) / damage(tier) 吃 tier。
 
 var cfg := {}
 
@@ -14,13 +15,27 @@ static func from_config(c: Dictionary) -> TowerLogic:
     return t
 
 
-func hp() -> float:
+func _strong() -> Dictionary:
+    var v = cfg.get("strong", {})
+    return v if typeof(v) == TYPE_DICTIONARY else {}
+
+
+## tier 0 一般塔、1 強力塔(熊王牙強化)
+func hp(tier: int = 0) -> float:
+    if tier >= 1:
+        return maxf(float(_strong().get("hp", 2000.0)), 1.0)
     return maxf(float(cfg.get("hp", 800.0)), 1.0)
 
 
 ## 每一箭的傷害
-func damage() -> float:
+func damage(tier: int = 0) -> float:
+    if tier >= 1:
+        return maxf(float(_strong().get("damage", 25.0)), 0.0)
     return maxf(float(cfg.get("damage", 10.0)), 0.0)
+
+
+func max_tier() -> int:
+    return 1
 
 
 func attack_range() -> float:
@@ -41,10 +56,10 @@ func bite_damage() -> float:
 
 
 ## 一般熊要咬幾口才拆得掉
-func bites_to_break() -> int:
+func bites_to_break(tier: int = 0) -> int:
     if bite_damage() <= 0.0:
         return -1
-    return int(ceil(hp() / bite_damage()))
+    return int(ceil(hp(tier) / bite_damage()))
 
 
 ## 熊咬塔一口要幾秒
@@ -67,15 +82,15 @@ func in_range(dist: float) -> bool:
 
 
 ## 每秒傷害
-func dps() -> float:
-    return damage() / attack_interval()
+func dps(tier: int = 0) -> float:
+    return damage(tier) / attack_interval()
 
 
 ## 射死一隻 bear_hp 血的熊要幾箭
-func shots_to_kill(bear_hp: float) -> int:
-    if damage() <= 0.0:
+func shots_to_kill(bear_hp: float, tier: int = 0) -> int:
+    if damage(tier) <= 0.0:
         return -1
-    return int(ceil(maxf(bear_hp, 0.0) / damage()))
+    return int(ceil(maxf(bear_hp, 0.0) / damage(tier)))
 
 
 ## 射程內最近的活熊:bears = [{"id", "pos": Vector3, "alive": bool}],回 id;沒有回 -1
