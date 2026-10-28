@@ -133,6 +133,8 @@
   fish/ Quaternius 魚 FBX ×3),來源與授權見裡面的 CREDITS.md;原始套件放 `assets/models/<套件名>/`,內含 `.gdignore`(不匯入、不匯出),git 不追蹤
 - `tools/snap_scene.tscn` + `.gd`:開小視窗跑主場景、把玩家 / 熊擺到幾個位置截 PNG(村子、武器店、熊咬幫手、Lv3 武器),接新外觀時看一眼用;
   `godot --path . --resolution 900x900 res://tools/snap_scene.tscn -- <輸出資料夾>`(要用場景跑,`--script` 模式沒有 Autoload)
+- `tools/playtest.tscn` + `.gd`:自動試玩機器人(照 Guide 提示走、熊照正式規則來;工作站塞住 / 櫃台滿 / 牌子沒錢時做真人會做的事),
+  印每 10 秒狀態、購買 / 被吃 / 熊事件與 SUMMARY;`godot --headless --path . res://tools/playtest.tscn -- <分鐘 20> <倍速 4> <seed>`;報告在 docs/playtest_2026-10-28.md
 - `tools/serve_web.py`:本機預覽 build/web(0.0.0.0,印 iPhone 可用的區網網址;8080 被台股 App 佔著,用 8090);`.claude/launch.json` 的 `web`
 - `tools/deploy_web.py`:`--export-release Web` -> 同步到 build/pages(tyboy0407/manlife-play 的 clone)-> commit(沿用本 repo 的 git 身分)-> push main;`--export-only` / `--no-export`
 - `export_presets.cfg`:Web 預設(不開執行緒、PWA 開、直式、圖示指到 assets/icons);`assets/fonts/NotoSansTC-VF.ttf`(OFL,見 LICENSE.md)是遊戲內唯一的中文字型
