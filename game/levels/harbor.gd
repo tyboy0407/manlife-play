@@ -9,7 +9,8 @@ extends Node3D
 ## 北極熊(BearSpawner)從地圖邊緣進來吃幫手,玩家要帶武器靠近才趕得走;被吃的幫手由 helper_eaten 結算(僱用牌退名額、買回 1.5 倍)。
 ## 擴建村莊(shop.json expand_village $1000,unlock village_2):把東牆整段拆掉(east_walls:三段隱形牆 + 柵欄,主村與 annex 連成一片,幫手不用繞門),往東蓋 annex:沙地、第二個水區、
 ## 第二座切魚台 + 烤魚攤、第二組櫃台(顧客跟著變多);僱用牌多開放名額(shop.json expandBuys:漁夫 +2、搬運工 +4、收銀員 +2)。
-## 守衛塔(Tower):村莊四角各一座,牌子(tower_1 ~ tower_4,$200)就是地基;蓋好會朝靠近的熊射箭,被熊拆掉後站回地基花 $200 修。
+## 守衛塔(Tower):村莊四角各一座(tower_1 ~ 4)+ 村中央水邊兩座(tower_5 / 6,在切魚台輸入格之間,補四角射程 9 照不到的中間),
+## 牌子($200)就是地基;蓋好會朝靠近的熊射箭,被熊拆掉後站回地基花 $200 修。
 ## 北極熊王會拆工作站(切魚台 / 烤魚攤):_add_station 時順便生一塊藏著的修復牌(repair_<spot_id>,shop.json repairStation $200)在桌子位置,
 ## 被拆(station_destroyed)才出現,付清 _on_purchased "repair" 修好。
 ## 掉落物(Loot):熊被打跑掉毛皮、王被打死掉熊王牙(_on_bear_defeated -> drop_loot),玩家走過去撿(GameState.pelts / teeth)。
@@ -27,11 +28,15 @@ const PAD_SPOTS := {
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
     "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0),
     "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
+    "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
     "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
+    "tooth_tower_5": Vector3(-3.0, 0, -2.9), "tooth_tower_6": Vector3(3.0, 0, -2.9),
 }
+# 守衛塔(= 牌子的位置,牌是地基):四角 + 村中央水邊兩座(x ±3 是切魚台輸入格之間的空地,z -2.9 貼著淺水區南緣,屋頂只遮到水面)
 const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5),
-    "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0)}   # 守衛塔(= 牌子的位置,牌是地基)
+    "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
+    "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9)}
 const UNLOCKS := {
     "station_2": {"stations": ["station_2"], "counters": []},
     "grill_complex": {"stations": ["grill"], "counters": ["grill_counter"]},

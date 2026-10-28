@@ -1,7 +1,7 @@
 extends Node3D
 ## 開一個小視窗跑主場景、把鏡頭移到幾個地方截圖存成 PNG(接新東西時用來看外觀;headless 畫不出來,所以會短暫跳出視窗)。
 ## 跑法:godot --path . --resolution 900x900 res://tools/snap_scene.tscn -- <輸出資料夾>(要用場景跑,Autoload 才會在)
-## 會截:村子(玩家出生點)、西邊缺口與村外武器店、北極熊咬幫手、帶著 Lv3 武器的玩家、擴建區、一群三隻熊、北極熊王。
+## 會截:村子(玩家出生點)、西邊缺口與村外武器店、北極熊咬幫手、帶著 Lv3 武器的玩家、擴建區、一群三隻熊、北極熊王、守衛塔、王拆切魚台、掉落物、村中央的兩座塔。
 
 const HARBOR := preload("res://game/levels/harbor.tscn")
 
@@ -108,6 +108,18 @@ func _run() -> void:
     level.player.global_position = Vector3(-7.5, 0, -7.2)
     await _frames(30)
     await _shot("10_loot_strong_tower")
+    # 村中央的兩座塔(tower_5 / 6,切魚台輸入格之間的水邊):左邊蓋好、右邊還是地基牌,玩家站在中間
+    for l in level.loot.duplicate():
+        l.queue_free()
+    level.loot.clear()
+    (level.station_at("station_1") as Station).repair(true)
+    GameState.apply_purchase("tower_5", {"type": "tower", "target": "tower_5"})
+    (level.price_pads["tower_5"] as PricePad).restore_state(1, 0)
+    (level.tower_by_id("tower_5") as Tower).build(true)
+    level._refresh_tower_pads()
+    level.player.global_position = Vector3(0.0, 0, 1.5)
+    await _frames(30)
+    await _shot("11_center_towers")
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()

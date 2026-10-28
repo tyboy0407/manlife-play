@@ -67,7 +67,7 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 19 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200, 5, 1, 1, 1, 1],
+    _check(shop.size() == 23 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200, 200, 200, 5, 1, 1, 1, 1, 1, 1],
             "shop.json:十四塊牌(含村外武器店、擴建村莊、四座守衛塔)%s" % str(costs))
     _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 2 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
             and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),

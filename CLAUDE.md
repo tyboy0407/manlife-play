@@ -60,6 +60,10 @@
   3 打死王掉熊王牙(Loot tooth),站到完好守衛塔底下的熊王牙牌(tooth_tower_n,收 1 顆)付掉 -> 強力守衛塔(tower.strong:血 2000 = 扛 50 口、每箭 25,
   Tower.tier 1,拆了修好還是強力的)。我定的配套:掉落物掉在熊被打倒的地方、玩家走到 1.3 內自動撿;熊王牙牌只在塔完好且還沒強化時出現;
   存檔記 pelts / teeth / shop_level(GameState)、towers.tier、地上的 loot。
+- 2026-10-28(使用者:再加兩個守衛塔位置,位置由我選空曠且打得到熊的地方):tower_5 (-3, -2.9)、tower_6 (3, -2.9),在村中央淺水區南緣、
+  切魚台輸入格之間的空地(x ±3 是 3.8 寬的空隙;屋頂只遮到水面不遮格子)。理由:四角塔射程 9 照不到村中央(station_2 離最近的角塔 14.5),
+  熊咬搬運工 / 工人、王拆切魚台都在這裡;加上這兩座後主村每個點都在某座塔射程內(水中央 5.5、價格牌排 8.5、櫃台由南角塔管)。
+  牌與熊王牙牌(tooth_tower_5 / 6)照舊同位置,shop.json 共 23 塊牌。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -109,7 +113,7 @@
 - `game/ui/guide.gd`:Guide(Node3D,掛在關卡下):每 0.1 秒把關卡狀態餵 GuideLogic,推進教學(GameState.tutorial_step)、解析目標座標、畫玩家頭上箭頭 + 目標彈跳箭頭、餵 HUD 文字;toggle_hints(H)
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
   西牆缺口 GATE_Z、_build_outside 村外武器店院子(店屋 WEAPON_SHOP、老闆 shopkeeper、武器牌 PAD_SPOTS.weapon)、bears(BearSpawner)、
-  helper_eaten 結算被吃的幫手(hire_pad_for(role).on_lost);守衛塔 TOWER_SPOTS 四角(牌 PAD_SPOTS.tower_n 同位置)、towers / _build_towers /
+  helper_eaten 結算被吃的幫手(hire_pad_for(role).on_lost);守衛塔 TOWER_SPOTS 四角 + 村中央水邊兩座(牌 PAD_SPOTS.tower_n 同位置)、towers / _build_towers /
   tower_by_id / tower_pad_for / tooth_pad_for / alive_towers / tower_destroyed(牌 on_lost 修復價)/ _refresh_tower_pads(熊王牙牌只在塔完好未強化時開),_on_purchased "tower" 蓋 / 修、
   "tower_upgrade" 強化、"shop_upgrade" -> _apply_shop_level(武器牌 raise_max、招牌 shop_sign 顯示等級);掉落物 loot / drop_loot / loot_collected / _on_bear_defeated(熊被打跑掉毛皮、王掉熊王牙);東牆 east_walls(三段隱形牆 + 柵欄,擴建時整面拆;east_gate / east_gate_mesh 是門那段)、_build_annex 擴建區
   (ANNEX_RECT:沙地、柵欄、隱形牆、深水池、FishArea2)、fish_areas / nearest_fish_area / pick_fish_area(漁夫挑人少的水區)、is_expanded、
@@ -141,7 +145,7 @@
   speed / fleeSpeed / biteSec / biteRadius / panicRadius / entries / entriesExpanded / length / king {atSec, respawnSec, hpMult, biteSec, fishBiteSec, buildingBiteSec, scale,
   growHelper, growFish, maxScale, healFish, healHelper, drop}、drop)、tower(hp / damage / … / strong {hp, damage})、weapon(attackIntervalSec、shopBaseLevels、levels[] ×6 damage / range / model)、
   lootPickupRadius、payScaleCost、customers.wantWeights、
-  (weapon.levels 見上);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5,擴建區的 fillet_counter_2 / grill_counter_2);`data/shop.json`(十九塊牌:含村外的 weapon、$1000 的 expand_village、四座守衛塔、收毛皮的 shop_upgrade、收熊王牙的 tooth_tower_1 ~ 4;僱用牌 rebuyMult 1.5;頂層 repairStation 工作站修復價);
+  (weapon.levels 見上);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill);`data/counters.json`(fillet_counter $2、grill_counter $5,擴建區的 fillet_counter_2 / grill_counter_2);`data/shop.json`(二十三塊牌:含村外的 weapon、$1000 的 expand_village、六座守衛塔 tower_1 ~ 6、收毛皮的 shop_upgrade、收熊王牙的 tooth_tower_1 ~ 6;僱用牌 rebuyMult 1.5;頂層 repairStation 工作站修復價);
   `data/items.json`(多 pelt / tooth 給飛行幽靈用);`data/locale/strings.csv`
 
 ## 世界慣例
@@ -177,7 +181,7 @@
   速度低於 20% 超過 1 秒算卡住:重算路線,沒中途點就往目的地 z 方向滑 0.6。擴建後東牆整面拆掉,所以 route 目前永遠回空;
   曾試過「留東門、繞門口中途點」,玩家實測搬運工還是會卡在門外的牆上(目的地貼著牆、斜向撞牆滑不進缺口),所以改成不留牆。
   以後加新的牆就在 route 補規則,tests/verify_nav 用擴建後的搬運工 / 漁夫來回驗證。
-- 守衛塔:四座 Tower 一開始就在(state none),牌(effect tower、target 塔 id)付清 -> GameState.apply_purchase 只記 unlocked -> Harbor._on_purchased
+- 守衛塔:六座 Tower 一開始就在(state none;四角 + 中央 x ±3 / z -2.9),牌(effect tower、target 塔 id)付清 -> GameState.apply_purchase 只記 unlocked -> Harbor._on_purchased
   tower_by_id(target).build()。塔每幀自己找群組 "bear" 裡 alive() 且射程內最近的(TowerLogic.pick_target)射 Arrow,箭到了才 take_hit(傷害, tower)
   並 Bear.on_tower_hit(塔在 aggroRadius 內、沒在咬東西就改盯塔);Bear._retarget 也把 aggroRadius 內的完好塔當目標(幾隻可一起拆),
   咬塔的距離 = bite_radius × 體型 + 0.7,咬一口 TowerLogic.bite_sec 扣 bite_damage(hp 800 / 40 = 20 口),沒塌繼續咬。塌了:Tower._collapse ->

@@ -236,10 +236,15 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 20 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、十九塊價格牌 + 切魚台的修復牌、沒有存檔")
-    _check(_level.towers.size() == 4 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
-            and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty(),
-            "四座守衛塔待建:只有地基牌")
+            and _level.price_pads.size() == 24 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、二十三塊價格牌 + 切魚台的修復牌、沒有存檔")
+    var t5: Tower = _level.tower_by_id("tower_5")
+    var t6: Tower = _level.tower_by_id("tower_6")
+    _check(_level.towers.size() == 6 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
+            and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty()
+            and t5 != null and t6 != null and t5.position == Vector3(-3.0, 0, -2.9) and t6.position == Vector3(3.0, 0, -2.9)
+            and (_level.price_pads["tower_5"] as PricePad).visible and _level.tower_pad_for("tower_6").position == t6.position
+            and not (_level.price_pads["tooth_tower_5"] as PricePad).visible,
+            "六座守衛塔待建:只有地基牌(中央兩座在 x ±3 水邊)")
     _check(not _level.is_expanded() and _level.east_gate != null and _level.east_walls.size() == 5 and _level.fish_areas.size() == 1,
             "東牆還在(三段牆 + 兩段柵欄)、只有一個水區(還沒擴建)")
     _check(_level.bears != null and not _level.bears.has_bear() and _level.shopkeeper != null and _level.price_pads.has("weapon")
@@ -247,7 +252,7 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 26, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 十九塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 30, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 二十三塊價格牌 / 修復牌(%d)" % pads)
     var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
     var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
     _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"

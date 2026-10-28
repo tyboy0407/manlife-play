@@ -159,6 +159,26 @@
       }
     },
     {
+      "id": "tower_5",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "tower",
+        "target": "tower_5"
+      }
+    },
+    {
+      "id": "tower_6",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "tower",
+        "target": "tower_6"
+      }
+    },
+    {
       "id": "shop_upgrade",
       "name": "SHOP_shop_upgrade",
       "cost": 5,
@@ -213,6 +233,26 @@
       "effect": {
         "type": "tower_upgrade",
         "target": "tower_4"
+      }
+    },
+    {
+      "id": "tooth_tower_5",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_5"
+      }
+    },
+    {
+      "id": "tooth_tower_6",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_6"
       }
     }
   ],
