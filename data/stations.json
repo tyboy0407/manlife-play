@@ -19,6 +19,17 @@
       "outputCap": 18,
       "processSec": 1.5,
       "yield": 1
+    },
+    {
+      "id": "tailor",
+      "name": "STATION_tailor",
+      "input": "pelt",
+      "output": "sweater",
+      "inputCap": 20,
+      "outputCap": 10,
+      "processSec": 3.0,
+      "yield": 1,
+      "inputPer": 5
     }
   ]
 }

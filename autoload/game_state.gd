@@ -86,6 +86,11 @@ func lose_helper(role: String) -> void:
 
 ## --- 掉落物資源(毛皮 / 熊王牙,不佔背包)---
 
+## 不佔背包的資源種類(工作站輸入格收這種原料時從這裡扣,而不是從背包)
+func is_resource(kind: String) -> bool:
+    return kind == "pelt" or kind == "tooth"
+
+
 func resource(kind: String) -> int:
     match kind:
         "pelt":

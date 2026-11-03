@@ -4,7 +4,7 @@ extends RefCounted
 ## 世界狀態用字典餵進來:
 ## {"carry_item", "carry_count", "wallet", "money_on_pad", "fish_caught", "items_sold", "purchases", "hired": {role: n},
 ##  "counters": [{"id", "item", "stock", "cap", "has_server", "has_cashier"}],
-##  "stations": [{"id", "input", "input_count", "input_cap", "output", "output_count", "blocked"(成品堆滿停工)}],
+##  "stations": [{"id", "input", "input_count", "input_cap", "input_per"(一批吃幾個), "output", "output_count", "blocked"(成品堆滿停工)}],
 ##  "pads": [{"id", "name", "remaining", "visible"}], "bear": 北極熊在不在, "weapon_level": 武器等級}
 ## 回傳的提示:{"kind": water / station_input / station_output / counter_deposit / service / money / pad / trash / bear / none,
 ##  "target": 目標 id(工作站 spot_id / 櫃台 def_id / 價格牌 id), "text": 翻譯鍵, "arg": 翻譯鍵 %s 要帶的翻譯鍵(可省)}
@@ -76,7 +76,7 @@ static func tutorial_hint(step: int, state: Dictionary) -> Dictionary:
 
 
 ## 教學之後的提示:當下最該做的事。北極熊在村裡最優先(沒武器指武器店的牌、有武器指熊);
-## 手上有貨先處理貨;空手依序:買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚(有工作站收魚)> 沒事
+## 手上有貨先處理貨;空手依序:買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 毛皮夠做毛衣就去服飾店 > 去抓魚(有工作站收魚)> 沒事
 static func hint(state: Dictionary) -> Dictionary:
     if bool(state.get("bear", false)):
         if int(state.get("weapon_level", 0)) <= 0:
@@ -141,6 +141,11 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
         var out := _station_with_most_output(state)
         if not out.is_empty() and int(out.get("output_count", 0)) > 0:
             return {"kind": "station_output", "target": str(out["id"]), "text": "HINT_take"}
+    # 毛皮夠做一件毛衣、服飾店還放得下:提醒拿去服飾店(毛皮不佔背包,玩家容易忘了它能賣錢)
+    var tailor := _station_accepting(state, "pelt")
+    if not tailor.is_empty() and typeof(state.get("resources", null)) == TYPE_DICTIONARY \
+            and int(state["resources"].get("pelt", 0)) >= int(tailor.get("input_per", 5)):
+        return {"kind": "station_input", "target": str(tailor["id"]), "text": "HINT_pelts"}
     if not _station_accepting(state, "fish").is_empty():
         return {"kind": "water", "target": "", "text": "HINT_fish"}
     return {"kind": "none", "target": "", "text": ""}

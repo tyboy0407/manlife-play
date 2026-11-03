@@ -116,3 +116,8 @@ TUT_earn,Earn $%d more to buy %s,再賺 $%d 就能買「%s」，先去做工
 HINT_BEAR_MONEY,A polar bear! Grab the cash on the money pad for a weapon,北極熊來了!先去錢格收錢，去武器店買武器
 HINT_BEAR_EARN,A polar bear! Earn $%d more to buy a weapon at the shop outside the village,北極熊來了!還差 $%d 才買得起武器，先賣貨賺錢
 SHOP_expand_village_2,Expand the village again,再擴建村莊
+SHOP_expand_village_3,Expand the village once more,再擴建村莊
+ITEM_sweater,Fur sweater,毛衣
+STATION_tailor,Tailor,服飾店
+COUNTER_sweater,Sweater counter,毛衣櫃台
+HINT_pelts,Bring your polar bear pelts to the tailor: 5 pelts make a sweater that sells for $200,把北極熊毛皮放進服飾店：5 張做一件毛衣，一件賣 $200

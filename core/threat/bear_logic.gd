@@ -194,10 +194,10 @@ func flee_speed() -> float:
 func entries(expansion: int = 0) -> Array[Vector3]:
     var out: Array[Vector3] = []
     var v = null
-    if expansion >= 2:
-        v = cfg.get("entriesExpanded2", null)
-    if typeof(v) != TYPE_ARRAY and expansion >= 1:
-        v = cfg.get("entriesExpanded", null)
+    for e in range(expansion, 0, -1):
+        v = cfg.get("entriesExpanded" if e == 1 else "entriesExpanded%d" % e, null)
+        if typeof(v) == TYPE_ARRAY:
+            break
     if typeof(v) != TYPE_ARRAY:
         v = cfg.get("entries", [])
     if typeof(v) == TYPE_ARRAY:

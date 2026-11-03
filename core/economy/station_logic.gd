@@ -1,7 +1,7 @@
 class_name StationLogic
 extends RefCounted
-## 工作站規則(純資料):輸入堆 -> 每 process_sec 處理一個,產出 yield_count 個成品到輸出堆;
-## 輸出堆放不下就停工(不消耗輸入)。tick() 回傳本幀產出數。
+## 工作站規則(純資料):輸入堆 -> 每 process_sec 消耗 input_per 個原料,產出 yield_count 個成品到輸出堆;
+## 輸出堆放不下就停工(不消耗輸入)。tick() 回傳本幀產出數。服飾店:5 張毛皮 -> 1 件毛衣(inputPer 5)。
 
 var id := ""
 var input_id := ""
@@ -10,6 +10,7 @@ var input_cap := 12
 var output_cap := 24
 var process_sec := 1.0
 var yield_count := 2
+var input_per := 1        # 每批消耗幾個原料(服飾店 5 張毛皮做一件毛衣)
 var speed_mult := 1.0
 
 var input_count := 0
@@ -27,6 +28,7 @@ static func from_def(d: Dictionary) -> StationLogic:
     s.output_cap = maxi(int(d.get("outputCap", 24)), 1)
     s.process_sec = maxf(float(d.get("processSec", 1.0)), 0.05)
     s.yield_count = maxi(int(d.get("yield", 1)), 1)
+    s.input_per = maxi(int(d.get("inputPer", 1)), 1)
     return s
 
 
@@ -46,6 +48,11 @@ func add_input(n: int = 1) -> int:
 
 func has_output() -> bool:
     return output_count > 0
+
+
+## 原料夠做一批
+func has_enough_input() -> bool:
+    return input_count >= input_per
 
 
 func take_output(n: int = 1) -> int:
@@ -69,7 +76,7 @@ func work_progress() -> float:
 
 func tick(delta: float) -> int:
     if not processing:
-        if input_count <= 0 or is_blocked():
+        if not has_enough_input() or is_blocked():
             progress = 0.0
             return 0
         processing = true
@@ -79,7 +86,7 @@ func tick(delta: float) -> int:
         return 0
     processing = false
     progress = 0.0
-    input_count -= 1
+    input_count -= input_per
     var made := mini(yield_count, output_cap - output_count)
     output_count += made
     return made

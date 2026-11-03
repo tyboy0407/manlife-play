@@ -55,8 +55,8 @@ func _test_data() -> void:
             "game.json:玩家速度、背包 8")
     _check(GameData.section("fish").has("maxInWater") and GameData.section("customers").has("max")
             and GameData.section("nope").is_empty(), "子區塊 fish / customers;不存在的回空")
-    _check(GameData.items().size() == 6 and GameData.item("fish").has("size") and GameData.item("cash").has("color") and GameData.item("pelt").has("size")
-            and GameData.item("tooth").has("color"), "items.json:魚 / 魚片 / 現金 / 烤魚 / 毛皮 / 熊王牙")
+    _check(GameData.items().size() == 7 and GameData.item("fish").has("size") and GameData.item("cash").has("color") and GameData.item("pelt").has("size")
+            and GameData.item("tooth").has("color"), "items.json:魚 / 魚片 / 現金 / 烤魚 / 毛皮 / 熊王牙 / 毛衣")
     _check(GameData.item_size("fish") == Vector3(0.7, 0.23, 0.36) and GameData.item_color("cash") != Color(0.8, 0.8, 0.8)
             and GameData.item_size("nope") == Vector3(0.5, 0.15, 0.4), "物品尺寸 / 顏色;未知物品用預設")
     _check(GameData.item_name("fish") != "fish" and GameData.item_name("fish") != "ITEM_fish", "物品名有翻譯(%s)" % GameData.item_name("fish"))
@@ -67,14 +67,19 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 2000]
-    for i in 18:
+    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 2000, 8000]
+    for i in 24:
         costs_expected.append(200)
     costs_expected.append(3)
-    for i in 18:
+    for i in 24:
         costs_expected.append(1)
-    _check(shop.size() == 48 and costs == costs_expected,
-            "shop.json:十四塊牌(含村外武器店、擴建村莊、四座守衛塔)%s" % str(costs))
+    _check(shop.size() == 61 and costs == costs_expected,
+            "shop.json:六十一塊牌(含村外武器店、三次擴建 $1000 / $2000 / $8000、二十四座守衛塔)%s" % str(costs))
+    var tl := GameData.station("tailor")
+    _check(str(tl.get("input", "")) == "pelt" and str(tl.get("output", "")) == "sweater" and int(tl.get("inputPer", 0)) == 5
+            and int(GameData.counter("sweater_counter").get("price", 0)) == 200 and str(GameData.counter("sweater_counter").get("item", "")) == "sweater"
+            and GameData.item_name("sweater") != "ITEM_sweater" and GameData.item_color("sweater") != GameData.item_color("pelt"),
+            "服飾店:5 張毛皮 -> 1 件毛衣;毛衣櫃台 $200;毛衣有名字與顏色")
     _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 2 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
             and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),
             "擴建後多開放的名額:漁夫 +2、搬運工 +4、收銀員 +2")
@@ -88,7 +93,7 @@ func _test_data() -> void:
             "武器牌:效果 weapon、三級")
     _check(bool(GameData.purchase("expand_table").get("buildSpot", false)) and GameData.purchase("nope").is_empty(),
             "建地牌旗標;未知購買回空")
-    _check(GameData.counters().size() == 6 and int(GameData.counter("grill_counter").get("price", 0)) == 5 and str(GameData.counter("grill_counter_3").get("item", "")) == "grilled"
+    _check(GameData.counters().size() == 7 and int(GameData.counter("grill_counter").get("price", 0)) == 5 and str(GameData.counter("grill_counter_3").get("item", "")) == "grilled"
             and str(GameData.counter("fillet_counter").get("item", "")) == "fillet" and str(GameData.counter("grill_counter_2").get("item", "")) == "grilled",
             "counters.json:魚片櫃台 $2、烤魚櫃台 $5、兩塊擴建區的第二、三組")
     _check(GameData.section("customers").get("wantWeights", []).size() == 5 and float(GameData.config().get("payScaleCost", 0.0)) > 0.0,
@@ -148,6 +153,14 @@ func _test_station() -> void:
     t.add_input(3)
     t.tick(1.0)
     _check(t.output_count == 2 and t.is_blocked(), "yield 2、上限 3:產一批後阻塞")
+    # 服飾店:一批吃 5 張毛皮做 1 件毛衣
+    var tl := StationLogic.from_def(GameData.station("tailor"))
+    _check(tl.input_per == 5 and tl.input_cap == 20 and tl.add_input(4) == 4 and not tl.has_enough_input() and tl.tick(5.0) == 0
+            and not tl.is_working() and tl.input_count == 4, "服飾店:4 張毛皮不夠一批,不開工")
+    tl.add_input(7)
+    _check(tl.has_enough_input() and tl.tick(1.0) == 0 and tl.is_working() and tl.tick(2.0) == 1 and tl.input_count == 6 and tl.output_count == 1,
+            "11 張:3 秒做一件毛衣、吃掉 5 張、剩 6")
+    _check(tl.tick(3.0) == 1 and tl.input_count == 1 and tl.tick(5.0) == 0 and not tl.is_working(), "再做一件剩 1 張,不夠就停")
 
 
 ## --- 價格牌 ---
@@ -215,8 +228,9 @@ func _test_purchase() -> void:
     var r5 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
     r5.restore(3, 0)
     _check(r5.is_exhausted() and r5.expand_buys == 2 and r5.expand() and not r5.is_exhausted() and r5.max_buys == 5 and r5.buys == 3
-            and r5.remaining == r5.current_cost() and r5.current_cost() == 58 and r5.expand() and r5.max_buys == 7 and not r5.expand() and r5.max_buys == 7,
-            "擴建:漁夫牌 3 -> 5 次,買滿的牌重開、第四次 $%d(10 × 1.8³)、只加一次" % r5.current_cost())
+            and r5.remaining == r5.current_cost() and r5.current_cost() == 58 and r5.expand() and r5.max_buys == 7 and r5.expand() and r5.max_buys == 9
+            and not r5.expand() and r5.max_buys == 9,
+            "擴建:漁夫牌 3 -> 5 次,買滿的牌重開、第四次 $%d(10 × 1.8³)、三次擴建最多 9 次" % r5.current_cost())
     var r6 := PurchaseLogic.from_def(GameData.purchase("hire_porter"))
     r6.pay(30)
     r6.complete()
@@ -381,19 +395,34 @@ func _test_porter() -> void:
     var dests := [fc, gc, grill, cutter]
     _near(PorterPlanner.need_of(fc, dests), 1.0 / 3.0, "魚片櫃台 20/30:需求 1/3", 0.001)
     _near(PorterPlanner.need_of(gc, dests), 1.0, "烤魚櫃台空:需求 1", 0.001)
-    _near(PorterPlanner.need_of(grill, dests), 0.9, "烤魚攤原料空、下游烤魚櫃台空:需求 0.9", 0.001)
-    _near(PorterPlanner.need_of(cutter, dests), 0.9 * 0.9 * 0.75, "切魚台 3/12:下游烤魚攤 0.9 × 0.9 × 空位 0.75", 0.001)
-    # 烤魚攤有成品:直接補烤魚櫃台,只拿 3
+    _near(PorterPlanner.need_of(grill, dests), PorterPlanner.EMPTY_INPUT_NEED, "烤魚攤原料區空:最優先(1.5,比任何櫃台都急)", 0.001)
+    _near(PorterPlanner.need_of(cutter, dests), 0.9 * 1.5 * 0.75, "切魚台 3/12:下游烤魚攤 0.9 × 1.5 × 空位 0.75", 0.001)
+    grill["blocked"] = true
+    _near(PorterPlanner.need_of(grill, dests), 0.9, "烤魚攤成品堆滿停工:空的原料區不加急,照下游算 0.9", 0.001)
+    grill.erase("blocked")
+    grill["stock"] = 1
+    _near(PorterPlanner.need_of(grill, dests), 0.9 * 11.0 / 12.0, "原料區有 1 片就照一般公式:0.9 × 空位 11/12", 0.001)
+    grill["stock"] = 0
+    # 烤魚攤原料區空:就算它有成品、烤魚櫃台也空,還是先送魚片去烤魚攤(使用者要求:魚片放置區空了最優先)
     var plan := PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 10}, {"id": "grill", "item": "grilled", "count": 3}], 8)
+    _check(plan["to"]["id"] == "grill" and plan["from"]["id"] == "cutter" and plan["item"] == "fillet" and int(plan["amount"]) == 8,
+            "烤魚攤原料區空:先送 8 片魚片過去(有成品也一樣)")
+    # 烤魚攤有料、有成品:直接補烤魚櫃台,只拿 3
+    grill["stock"] = 1
+    plan = PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 10}, {"id": "grill", "item": "grilled", "count": 3}], 8)
     _check(plan["to"]["id"] == "gc" and plan["from"]["id"] == "grill" and plan["item"] == "grilled" and int(plan["amount"]) == 3,
-            "烤魚櫃台最缺:搬 3 份烤魚過去")
+            "烤魚攤有料了、烤魚櫃台最缺:搬 3 份烤魚過去")
+    grill["stock"] = 0
     # 烤魚攤沒成品:先把魚片送去烤魚攤,而不是堆到還有 20 的魚片櫃台
     plan = PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 10}, {"id": "grill", "item": "grilled", "count": 0}], 8)
     _check(plan["to"]["id"] == "grill" and plan["from"]["id"] == "cutter" and int(plan["amount"]) == 8, "烤魚攤沒成品:魚片先送烤魚攤(拿 8)")
-    # 魚片櫃台也空了:櫃台(1.0)比工作站原料(0.9)優先;來源只有 5 就拿 5
+    # 魚片櫃台也空了:烤魚攤原料區空(1.5)還是比空櫃台(1.0)優先;原料區有料後才是櫃台(1.0)比工作站原料(0.9)優先;來源只有 5 就拿 5
     fc["stock"] = 0
     plan = PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 5}], 8)
-    _check(plan["to"]["id"] == "fc" and int(plan["amount"]) == 5, "兩個櫃台都空:魚片櫃台優先、來源只有 5 就拿 5")
+    _check(plan["to"]["id"] == "grill" and int(plan["amount"]) == 5, "魚片櫃台空、烤魚攤原料區也空:先送烤魚攤")
+    grill["stock"] = 1
+    plan = PorterPlanner.plan(dests, [{"id": "cutter", "item": "fillet", "count": 5}], 8)
+    _check(plan["to"]["id"] == "fc" and int(plan["amount"]) == 5, "烤魚攤有料了:魚片櫃台優先、來源只有 5 就拿 5")
     # 目的地只剩 2 格:只拿 2
     fc["stock"] = 28
     gc["stock"] = 24
@@ -410,11 +439,15 @@ func _test_porter() -> void:
     fc["stock"] = 10
     grill["stock"] = 0
     gc["stock"] = 0
-    _check(PorterPlanner.best_dest(dests, "fillet")["id"] == "grill", "手上有魚片:烤魚攤(0.9)比 10/30 的魚片櫃台(0.67)急")
+    _check(PorterPlanner.best_dest(dests, "fillet")["id"] == "grill", "手上有魚片:空的烤魚攤(1.5)比 10/30 的魚片櫃台(0.67)急")
+    grill["stock"] = 2
+    _check(PorterPlanner.best_dest(dests, "fillet")["id"] == "grill", "烤魚攤 2/12(0.9 × 0.83)還是比魚片櫃台急")
     _check(PorterPlanner.best_dest(dests, "fillet", "grill")["id"] == "fc", "排除烤魚攤就去魚片櫃台")
     gc["stock"] = 24
     _check(PorterPlanner.best_dest(dests, "fillet")["id"] == "fc" and PorterPlanner.best_dest(dests, "grilled").is_empty()
-            and PorterPlanner.best_dest(dests, "soup").is_empty(), "烤魚櫃台滿:魚片去櫃台;烤魚 / 不存在的東西沒地方去")
+            and PorterPlanner.best_dest(dests, "soup").is_empty(), "烤魚櫃台滿:有料的烤魚攤需求 0,魚片去櫃台;烤魚 / 不存在的東西沒地方去")
+    grill["stock"] = 0
+    _check(PorterPlanner.best_dest(dests, "fillet")["id"] == "grill", "烤魚櫃台滿但烤魚攤原料區空:還是先送料去烤(先烤起來放)")
     grill["stock"] = 12
     fc["stock"] = 30
     _check(PorterPlanner.best_dest(dests, "fillet").is_empty(), "全滿:手上的魚片沒地方放")
@@ -466,6 +499,18 @@ func _test_guide() -> void:
     _check(not GuideLogic.tutorial_step_done(6, state), "還沒買:第 7 步未完成")
     state["purchases"] = 1
     _check(GuideLogic.tutorial_step_done(6, state) and GuideLogic.tutorial_hint(7, state).is_empty(), "買了 -> 教學結束")
+    var tailor_state := _guide_state()
+    tailor_state["purchases"] = 1
+    tailor_state["hired"] = {"porter": 1}
+    tailor_state["stations"].append({"id": "tailor", "input": "pelt", "input_count": 0, "input_cap": 20, "input_per": 5, "output": "sweater", "output_count": 0})
+    tailor_state["pads"] = []
+    tailor_state["resources"] = {"pelt": 4, "tooth": 0}
+    _check(GuideLogic.hint(tailor_state)["kind"] == "water", "毛皮 4 張不夠一件毛衣:照常指水邊")
+    tailor_state["resources"]["pelt"] = 5
+    var hp := GuideLogic.hint(tailor_state)
+    _check(hp["kind"] == "station_input" and hp["target"] == "tailor" and hp["text"] == "HINT_pelts", "毛皮 5 張:指服飾店輸入格")
+    tailor_state["stations"][1]["input_count"] = 20
+    _check(GuideLogic.hint(tailor_state)["kind"] == "water", "服飾店放滿了:不提醒")
     var fresh := _guide_state()
     fresh["purchases"] = 1
     var all_done := true
@@ -604,7 +649,7 @@ func _test_bear() -> void:
     _check(b.interval() == Vector2(35.0, 55.0) and is_equal_approx(b.first_delay(), 5.0) and is_equal_approx(b.first_at_sec(), 180.0),
             "第一群 3 分鐘後(再倒數 5 秒)才來、之後 35 ~ 55 秒")
     _check(b.entries(1).size() == 2 and b.entries(1)[1].x > 30.0 and b.entries(0)[1].x < 20.0 and b.entries(2)[1].x > 50.0
-            and b.entries(2)[0].x < 0.0, "擴建後東邊入口移到 annex 外、第二次擴建再往東")
+            and b.entries(2)[0].x < 0.0 and b.entries(3)[1].x > 70.0 and b.entries(9)[1].x > 70.0, "擴建後東邊入口移到 annex 外、每次擴建再往東(超過設定退回最後一級)")
     var prey := [{"id": 1, "pos": Vector3(10, 0, 0)}, {"id": 2, "pos": Vector3(3, 5, 4)}, {"id": 3, "pos": Vector3(-8, 0, 1)}]
     _check(BearLogic.pick_target(Vector3.ZERO, prey) == 2 and BearLogic.pick_target(Vector3(-7, 0, 0), prey) == 3
             and BearLogic.pick_target(Vector3.ZERO, []) == -1, "盯上平面距離最近的幫手(忽略高度);沒幫手回 -1")

@@ -1,7 +1,8 @@
 class_name Counter
 extends Node3D
 ## 櫃台:上架格(local -X)+ 櫃台桌 + 收銀格(local +Z,要有會收銀的人站著才賣)+ 排隊位(local +X 一排)。
-## 顧客從出生點走到自己的排隊位,輪到最前面、有貨、有人收銀就買 want 件(customers.wantWeights 抽 1 ~ N 件;庫存不夠就買得到幾件算幾件),
+## 顧客從出生點走到自己的排隊位,輪到最前面、有貨、有人收銀就買 want 件(customers.wantWeights 抽 1 ~ N 件,counters.json 的 wantWeights 可蓋過;
+## 庫存不夠就買得到幾件算幾件),
 ## 錢進 money_pad,然後走向出口消失;後面的往前補。
 ## 規則在 CounterLogic;庫存上限吃 pile_cap 升級。資料在 data/counters.json。
 
@@ -45,7 +46,7 @@ func _ready() -> void:
     max_customers = int(ccfg.get("max", 6))
     spawn_interval = maxf(float(ccfg.get("spawnIntervalSec", 2.0)), 0.1)
     serve_interval = maxf(float(ccfg.get("serveIntervalSec", 0.35)), 0.0)
-    var ww = ccfg.get("wantWeights", [1])
+    var ww = def.get("wantWeights", ccfg.get("wantWeights", [1]))   # counters.json 可蓋過(毛衣櫃台一次只買一件)
     want_weights = ww if typeof(ww) == TYPE_ARRAY and not ww.is_empty() else [1]
     add_child(VisualFactory.box(Vector3(1.0, 1.0, 2.6), Color(0.75, 0.52, 0.28), Vector3(0, 0.5, 0)))
     add_child(VisualFactory.box(Vector3(1.2, 0.08, 2.8), Color(0.85, 0.65, 0.4), Vector3(0, 1.04, 0)))

@@ -6,8 +6,10 @@ extends RefCounted
 ## sources(來源 = 工作站輸出堆):[{"id": 唯一鍵, "item": 成品 id, "count": 數量}]
 ## 需求分數:櫃台 = 1 - stock / cap(越空越急);工作站原料 = STATION_FACTOR × 下游(吃它成品的目的地)最高需求 × 原料空位比例。
 ## 所以烤魚櫃台空了、烤魚攤又沒成品時,會先把魚片送去烤魚攤,而不是堆到還有貨的魚片櫃台。
+## 工作站的原料區空了(而且沒塞住,dest.blocked)就是 EMPTY_INPUT_NEED,比任何櫃台都急:先送料讓工人開工(烤魚攤沒魚片就不會有烤魚)。
 
 const STATION_FACTOR := 0.9
+const EMPTY_INPUT_NEED := 1.5
 const MAX_DEPTH := 4
 
 
@@ -23,6 +25,8 @@ static func need_of(dest: Dictionary, dests: Array, depth: int = 0) -> float:
         return space_ratio
     if depth >= MAX_DEPTH:
         return 0.0
+    if int(dest.get("stock", 0)) <= 0 and not bool(dest.get("blocked", false)):
+        return EMPTY_INPUT_NEED   # 原料區空了:最優先補(成品堆滿停工的不算,送了也不會動)
     var out := str(dest.get("out", ""))
     var downstream := 0.0
     for d in dests:

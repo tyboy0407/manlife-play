@@ -41,6 +41,16 @@
       "item": "grilled",
       "price": 5,
       "stockCap": 24
+    },
+    {
+      "id": "sweater_counter",
+      "name": "COUNTER_sweater",
+      "item": "sweater",
+      "price": 200,
+      "stockCap": 10,
+      "wantWeights": [
+        1
+      ]
     }
   ]
 }

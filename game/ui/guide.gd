@@ -114,7 +114,7 @@ func build_state() -> Dictionary:
     for s in level.stations:
         if s.is_broken():
             continue   # 廢墟不收貨也不出貨,提示只看完好的
-        stations.append({"id": s.spot_id, "input": s.logic.input_id, "input_count": s.logic.input_count, "input_cap": s.logic.input_cap,
+        stations.append({"id": s.spot_id, "input": s.logic.input_id, "input_count": s.logic.input_count, "input_cap": s.logic.input_cap, "input_per": s.logic.input_per,
                 "output": s.logic.output_id, "output_count": s.logic.output_count, "blocked": s.logic.is_blocked()})
     var pads := []
     for id in level.price_pads:

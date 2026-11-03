@@ -1,6 +1,7 @@
 class_name Station
 extends Node3D
-## 工作站(切魚台 / 烤魚攤):桌子 + 工人占位 + 輸入格(朝水邊,local -Z)+ 輸出格(local +Z)。規則在 StationLogic,
+## 工作站(切魚台 / 烤魚攤 / 服飾店):桌子 + 工人占位 + 輸入格(朝水邊,local -Z)+ 輸出格(local +Z)。規則在 StationLogic,
+## 服飾店(stations.json tailor)收的是不佔背包的毛皮(StationPad 從 GameState.pelts 扣),5 張做一件毛衣。
 ## 兩個格子上各有一堆外觀(StackVisual,排 3 列)。工人有人物模型就在處理中播 interact-right(占位膠囊則上下動)。
 ## 速度與堆疊上限吃 GameState 的升級。
 ## 北極熊王咬滿 buildingBiteSec 秒會把它拆掉(wreck):桌子變廢墟、工人不見、兩個格子停用(堆裡的貨留著),
@@ -36,8 +37,10 @@ static func create(station_def: Dictionary) -> Station:
 func _ready() -> void:
     add_to_group("station")
     logic = StationLogic.from_def(def)
-    var is_grill := str(def.get("id", "")) == "grill"
-    var table_color := Color(0.55, 0.3, 0.2) if is_grill else Color(0.78, 0.55, 0.3)
+    var kind := str(def.get("id", ""))
+    var is_grill := kind == "grill"
+    var is_tailor := kind == "tailor"
+    var table_color := Color(0.55, 0.3, 0.2) if is_grill else (Color(0.45, 0.38, 0.62) if is_tailor else Color(0.78, 0.55, 0.3))
     _built = Node3D.new()
     _built.name = "Built"
     add_child(_built)
@@ -45,6 +48,13 @@ func _ready() -> void:
     if is_grill:
         _built.add_child(VisualFactory.box(Vector3(1.6, 0.12, 0.7), Color(0.2, 0.2, 0.22), Vector3(0, 0.96, 0)))
         _built.add_child(VisualFactory.box(Vector3(1.2, 0.08, 0.4), Color(1.0, 0.45, 0.15), Vector3(0, 1.03, 0)))
+    elif is_tailor:
+        # 衣架(兩根柱子 + 橫桿)掛一件毛衣
+        var rack := Color(0.35, 0.25, 0.15)
+        _built.add_child(VisualFactory.box(Vector3(1.8, 0.06, 0.06), rack, Vector3(0, 1.75, 0)))
+        for sx in [-0.8, 0.8]:
+            _built.add_child(VisualFactory.box(Vector3(0.08, 0.85, 0.08), rack, Vector3(float(sx), 1.32, 0)))
+        _built.add_child(VisualFactory.box(Vector3(0.7, 0.6, 0.16), GameData.item_color("sweater"), Vector3(0, 1.4, 0)))
     else:
         _built.add_child(VisualFactory.box(Vector3(0.9, 0.5, 0.06), Color(0.6, 0.6, 0.65), Vector3(0, 1.15, 0)))
     add_child(VisualFactory.label(tr(display_name_key()), Vector3(0, 2.4, 0), 44, Color(1.0, 0.95, 0.8)))

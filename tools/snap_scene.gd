@@ -68,6 +68,25 @@ func _run() -> void:
     level.player.global_position = Vector3(40.0, 0, 5.5)
     await _frames(30)
     await _shot("05b_annex2")
+    # 第三次擴建:第二塊擴建區裡的 $8000 牌子付掉後,再往東一塊(兩座烤魚攤 + 服飾店 + 毛衣櫃台、第三塊的塔牌)
+    GameState.apply_purchase("expand_village_3", {"type": "unlock", "target": "village_4"})
+    (level.price_pads["expand_village_3"] as PricePad).restore_state(1, 0)
+    GameState.apply_purchase("tower_23", {"type": "tower", "target": "tower_23"})
+    (level.price_pads["tower_23"] as PricePad).restore_state(1, 0)
+    (level.tower_by_id("tower_23") as Tower).build(true)
+    level._refresh_tower_pads()
+    var tailor := level.station_at("tailor")
+    if tailor != null:
+        tailor.logic.input_count = 7
+        tailor.logic.output_count = 1
+        tailor.refresh_piles()
+    var sc := level.counter_by_id("sweater_counter")
+    if sc != null:
+        sc.logic.stock = 2
+        sc.refresh_pile()
+    level.player.global_position = Vector3(60.0, 0, 5.5)
+    await _frames(30)
+    await _shot("05c_annex3")
     level.player.global_position = Vector3(16.0, 0, 4.0)
     await _frames(5)
     level.bears.spawn_pack(3)

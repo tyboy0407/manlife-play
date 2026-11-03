@@ -6,6 +6,7 @@
   "cashPickupPerSec": 40,
   "payPerSec": 15,
   "payDelaySec": 0.6,
+  "resourceInputDelaySec": 0.8,
   "payScaleCost": 100,
   "fish": {
     "maxInWater": 18,
@@ -102,6 +103,7 @@
     "entries": [[-16, -8], [16, -8]],
     "entriesExpanded": [[-16, -8], [35, -8]],
     "entriesExpanded2": [[-16, -8], [54, -8]],
+    "entriesExpanded3": [[-16, -8], [72.6, -8]],
     "length": 2.6,
     "drop": "pelt",
     "dropCount": [1, 2]
