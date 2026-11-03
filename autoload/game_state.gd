@@ -150,6 +150,13 @@ func upgrade_level(key: String) -> int:
     return int(upgrades.get(key, 0))
 
 
+## 升級加成(整數):每級加成(game.json upgrades.<key>.perLevel)× 等級(搬運工容量 +4 / 級)
+func upgrade_bonus(key: String) -> int:
+    var spec = GameData.section("upgrades").get(key, {})
+    var per := float(spec.get("perLevel", 0.0)) if typeof(spec) == TYPE_DICTIONARY else 0.0
+    return int(round(per * float(upgrade_level(key))))
+
+
 ## 升級倍率 = 1 + 每級加成(game.json upgrades.<key>.perLevel)× 等級
 func upgrade_mult(key: String) -> float:
     var spec = GameData.section("upgrades").get(key, {})

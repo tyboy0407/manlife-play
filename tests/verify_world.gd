@@ -36,6 +36,9 @@ func _ready() -> void:
         _bump("processed", n)
         _bump("processed_" + sid, n))
     EventBus.cash_collected.connect(func(_c: Node3D, n: int) -> void: _bump("collected", n))
+    EventBus.trap_triggered.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("trap_triggered"))
+    EventBus.bait_eaten.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("bait_eaten"))
+    EventBus.conveyor_built.connect(func(_c: Node3D) -> void: _bump("conveyor_built"))
     EventBus.items_moved.connect(func(kind: String, _i: String, _f: Vector3, _t: Vector3, n: int) -> void:
         _bump("moved", n)
         _bump("moved_" + kind, n))
@@ -249,7 +252,14 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 62 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、六十一塊價格牌 + 切魚台的修復牌、沒有存檔")
+            and _level.price_pads.size() == 87 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、八十六塊價格牌 + 切魚台的修復牌、沒有存檔")
+    _check(_level.traps.size() == 8 and _level.baits.size() == 4 and _level.conveyors.is_empty() and (_level.price_pads["trap_1"] as PricePad).visible
+            and (_level.price_pads["bait_1"] as PricePad).visible and not (_level.price_pads["trap_3"] as PricePad).visible
+            and not (_level.price_pads["bait_2"] as PricePad).visible and (_level.price_pads["belt_station_1"] as PricePad).visible
+            and not (_level.price_pads["belt_station_2"] as PricePad).visible and not (_level.price_pads["belt_grill"] as PricePad).visible
+            and (_level.price_pads["upgrade_porter_cap"] as PricePad).visible and not _level.trap_by_id("trap_1").is_armed() and not _level.bait_by_id("bait_1").is_set()
+            and Harbor.trap_area("trap_2") == 0 and Harbor.trap_area("trap_3") == 1 and Harbor.bait_area("bait_4") == 3,
+            "捕熊夾 / 誘餌 / 傳送帶:主村的夾子與誘餌牌出現(擴建區的藏著)、只有切魚台 -> 魚片櫃台的傳送帶牌出現、搬運工容量牌在")
     var t5: Tower = _level.tower_by_id("tower_5")
     var t6: Tower = _level.tower_by_id("tower_6")
     _check(_level.towers.size() == 24 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
@@ -270,7 +280,7 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 68, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 六十一塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 93, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 八十六塊價格牌 / 修復牌(%d)" % pads)
     var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
     var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
     _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"
@@ -469,6 +479,32 @@ func _run() -> void:
     await _pay_pad(_level.price_pads["upgrade_pile_cap"])
     _check(GameState.upgrade_level("pile_cap") == 1 and st.logic.input_cap == 18 and st.logic.output_cap == 36 and cnt.logic.stock_cap == 45,
             "堆疊上限 Lv1:切魚台 18 / 36、櫃台 45")
+    # 搬運工容量升級:現有的搬運工馬上 +4
+    _level.money_pad.add_cash(100)
+    var pcp: PricePad = _level.price_pads["upgrade_porter_cap"]
+    await _pay_pad(pcp)
+    await _step(2)
+    _check(GameState.upgrade_level("porter_cap") == 1 and porter != null and porter.stack.capacity == 12 and pcp.visible and pcp.logic.remaining == 160
+            and _player.stack.capacity == 8, "搬運工容量 Lv1:8 -> 12、下一次 $160(玩家背包不變)")
+    # 傳送帶:切魚台輸出格 -> 魚片櫃台上架格,$150;成品自己上帶、每秒一件送到櫃台
+    _level.money_pad.add_cash(170)
+    var bp1: PricePad = _level.price_pads["belt_station_1"]
+    await _go(Vector3(-3.8, 0, 4.0))
+    var belt_bought := await _pay_pad(bp1)
+    await _step(2)
+    var belt := _level.conveyor_by_id("belt_station_1")
+    _check(belt_bought and belt != null and not bp1.visible and _level.conveyors.size() == 1 and _count("conveyor_built") == 1
+            and belt.station == st and belt.counter == cnt and belt.length > 5.0 and belt.logic.capacity() >= 6,
+            "買傳送帶 $150:架在切魚台輸出格到魚片櫃台之間(長 %.1f)" % (belt.length if belt != null else 0.0))
+    if porter != null:
+        porter.takes_output = false   # 搬運工先別搶這堆,看帶子自己搬
+    st.logic.output_count = 6
+    st.refresh_piles()
+    await _go(Vector3(-3.8, 0, 6.5))
+    var belt_moved := await _wait_until(func() -> bool: return belt.logic.moved_total >= 3, 900)
+    _check(belt_moved and belt.logic.moved_total >= 3, "傳送帶把魚片送到櫃台(上架 %d 件)" % belt.logic.moved_total)
+    if porter != null:
+        porter.takes_output = true
     # 再僱漁夫(可重複牌)
     _level.money_pad.add_cash(40)
     await _pay_pad(_level.price_pads["hire_fisher"])
@@ -530,7 +566,10 @@ func _run() -> void:
     if cashier != null:
         cashier.assigned_counter = cnt
         cnt.cashier = cashier
-    # 搬運工優先補最缺的:烤魚櫃台空、烤魚攤沒成品也沒原料,魚片櫃台還很多 -> 先送魚片去烤魚攤(玩家站在旁邊不插手)
+    # 搬運工優先補最缺的:烤魚櫃台空、烤魚攤沒成品也沒原料,魚片櫃台還很多 -> 先送魚片去烤魚攤(玩家站在旁邊不插手;傳送帶先停,免得它把魚片櫃台補滿)
+    var belt1 := _level.conveyor_by_id("belt_station_1")
+    if belt1 != null:
+        belt1.set_physics_process(false)
     cnt.logic.stock = 40
     cnt.refresh_pile()
     grill.logic.input_count = 0
@@ -545,6 +584,8 @@ func _run() -> void:
     var grill_fed := await _wait_until(func() -> bool: return grill.logic.input_count >= 1 or _count("processed_grill") > pg0, 900)
     _check(grill_fed and cnt.logic.stock <= 40 and (porter != null and (porter.job.get("to", null) == grill or porter.delivered_total > 0)),
             "搬運工:烤魚櫃台空、烤魚攤沒料 -> 先把魚片送去烤魚攤,而不是補還有 40 份的魚片櫃台")
+    if belt1 != null:
+        belt1.set_physics_process(true)
     # 手動跑第二條鏈:魚片 -> 烤魚 -> 烤魚櫃台 -> 自己收銀 $5(搬運工可能同時在搬,檢查放寬)
     if st.logic.output_count < 12:
         st.logic.output_count = 16
@@ -570,6 +611,7 @@ func _run() -> void:
     _check(took and gstock and gsold and five, "烤魚上架、顧客以 $5 買走")
     await _bear_section(g, fisher_pad)
     await _tower_section()
+    await _trap_section()
     await _expand_section()
     await _king_section()
     await _tower_strong_section()
@@ -613,6 +655,7 @@ func _run() -> void:
     var pl_item := _player.stack.item_id
     var pl_count := _player.stack.count
     var st1_out := st.logic.output_count
+    var belt_saved_items := _level.conveyor_by_id("belt_station_1").logic.count()   # 讀檔後帶子馬上會動,堆 + 帶 + 櫃台的總數才守恆
     var grill_out := grill.logic.output_count
     var fstock := cnt.logic.stock
     var fp_rem := fisher_pad.logic.remaining
@@ -651,8 +694,11 @@ func _run() -> void:
             and (_level.price_pads["tower_13"] as PricePad).visible and (_level.price_pads["tower_24"] as PricePad).visible
             and not (_level.price_pads["expand_village_2"] as PricePad).visible and not (_level.price_pads["expand_village_3"] as PricePad).visible,
             "重建關卡:烤魚攤、烤魚櫃台、%d 個幫手、三塊擴建區(四個水區、十一座工作站含服飾店、七座櫃台、每塊的塔牌)都回來了" % hired_saved)
-    _check(_level.money_pad.cash == cash_saved and st2 != null and st2.logic.output_count == st1_out and grill2.logic.output_count == grill_out
-            and cnt2 != null and cnt2.logic.stock == fstock, "重建關卡:錢格、工作站堆、櫃台庫存還原")
+    var belt2 := _level.conveyor_by_id("belt_station_1")
+    var fillets_now := st2.logic.output_count + cnt2.logic.stock + (belt2.logic.count() if belt2 != null else 0)
+    _check(_level.money_pad.cash == cash_saved and st2 != null and grill2.logic.output_count == grill_out and cnt2 != null
+            and fillets_now == st1_out + fstock + belt_saved_items and belt2 != null and belt2.logic.count() <= belt2.logic.capacity(),
+            "重建關卡:錢格、工作站堆、櫃台庫存還原(切魚台堆 + 傳送帶 + 魚片櫃台 %d = 存檔時 %d)" % [fillets_now, st1_out + fstock + belt_saved_items])
     _check(_player.stack.item_id == pl_item and _player.stack.count == pl_count and _player.stack.capacity == 8, "重建關卡:玩家背上還原")
     var fp2: PricePad = _level.price_pads["hire_fisher"]
     var ug2: PricePad = _level.price_pads["unlock_grill"]
@@ -671,6 +717,14 @@ func _run() -> void:
             and wp3.logic.max_buys == 4 and wp3.logic.is_exhausted() and not wp3.visible and _level.shop_sign.text.contains("1")
             and not (_level.price_pads["tooth_tower_1"] as PricePad).visible and not (_level.price_pads["tooth_tower_2"] as PricePad).visible,
             "重建關卡:強力守衛塔、武器店 Lv1(武器牌 4 級買滿)、毛皮 %d、地上 %d 個掉落物還原" % [pelts_saved, loot_saved])
+    _check(_level.conveyors.size() == 1 and _level.conveyor_by_id("belt_station_1") != null and not (_level.price_pads["belt_station_1"] as PricePad).visible
+            and (_level.price_pads["belt_grill"] as PricePad).visible and not _level.trap_by_id("trap_1").is_armed() and (_level.price_pads["trap_1"] as PricePad).visible
+            and not _level.bait_by_id("bait_1").is_set() and (_level.price_pads["bait_1"] as PricePad).visible and GameState.upgrade_level("porter_cap") == 1
+            and (_level.price_pads["upgrade_porter_cap"] as PricePad).logic.remaining == 160,
+            "重建關卡:傳送帶蓋回來(牌藏著、烤魚攤的傳送帶牌開著)、用掉的捕熊夾 / 誘餌牌開著、搬運工容量 Lv1(帶 %d、帶牌 %s / %s、夾 %s 牌 %s、餌 %s 牌 %s、容量 Lv%d 剩 %d)"
+            % [_level.conveyors.size(), str((_level.price_pads["belt_station_1"] as PricePad).visible), str((_level.price_pads["belt_grill"] as PricePad).visible),
+            str(_level.trap_by_id("trap_1").is_armed()), str((_level.price_pads["trap_1"] as PricePad).visible), str(_level.bait_by_id("bait_1").is_set()),
+            str((_level.price_pads["bait_1"] as PricePad).visible), GameState.upgrade_level("porter_cap"), (_level.price_pads["upgrade_porter_cap"] as PricePad).logic.remaining])
     _check(tower_alive_saved and tw2 != null and tw2.is_alive() and is_equal_approx(tw2.hp, tower_hp_saved) and tw2._built.visible
             and not (_level.price_pads["tower_1"] as PricePad).visible and _level.tower_by_id("tower_2").state == "none"
             and fp2.logic.max_buys == 9 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 14,
@@ -933,6 +987,61 @@ func _tower_section() -> void:
 
 ## --- 擴建村莊 ---
 ## 付 $1000(大額牌付得快)-> 東門拆掉、往東多一塊地:第二個水區有魚、第二座切魚台 + 烤魚攤、第二組櫃台有顧客來
+## --- 捕熊夾 / 誘餌 ---
+## 買捕熊夾 $40(夾子放好、牌子消失)-> 熊踩上去:扣 60、定住 3 秒、夾子用掉、牌子同價重現 -> 3 秒後恢復 ->
+## 買誘餌 $30 -> 熊在 8 格內改去吃魚堆、咬 10 秒吃光:牌子重現、熊不算吃過東西
+func _trap_section() -> void:
+    var tp: PricePad = _level.price_pads["trap_1"]
+    var trap := _level.trap_by_id("trap_1")
+    _check(tp.visible and trap != null and not trap.is_armed() and tp.logic.current_cost() == 40
+            and tp.global_position.distance_to(trap.global_position) < 0.1, "捕熊夾牌 $40 就在夾子的位置")
+    GameState.add_wallet(40)
+    await _go(Vector3(-11.6, 0, -3.0))
+    var bought := await _pay_pad(tp)
+    await _step(2)
+    _check(bought and trap.is_armed() and not tp.visible and _count("purchased_trap_1") == 1, "買捕熊夾:夾子放好、牌子消失")
+    await _go(Vector3(-7.5, 0, 0.5))   # 走開:玩家有武器,靠太近會自動打熊(也別站在搬運工容量牌 (-10, -1.5) 上)
+    var bs: BearSpawner = _level.bears
+    var bear := bs.spawn()
+    bear.set_physics_process(false)
+    bear.hp_max = 500.0
+    bear.hp = 500.0
+    bear.global_position = trap.global_position + Vector3(1.0, 0, 0)
+    var tripped := await _wait_until(func() -> bool: return _count("trap_triggered") >= 1, 60)
+    _check(tripped and not trap.is_armed() and bear.is_stunned() and bear.alive() and bear.hp <= 440.0 and bear.hits_taken >= 1
+            and tp.visible and tp.logic.remaining == 40 and not tp.label.text.contains("買回") and trap.triggers_total == 1,
+            "熊踩到夾子:扣 60(血 %.0f)、定住、夾子用掉、牌子同價 $40 重現" % bear.hp)
+    bear.set_physics_process(true)
+    var recovered := await _wait_until(func() -> bool: return not bear.is_stunned(), 300)
+    _check(recovered and is_instance_valid(bear) and bear.alive() and bear.state == "hunting", "3 秒後熊恢復行動")
+    # 誘餌
+    bear.set_physics_process(false)
+    var bp: PricePad = _level.price_pads["bait_1"]
+    var bait := _level.bait_by_id("bait_1")
+    GameState.add_wallet(30)
+    var bought2 := await _pay_pad(bp)
+    await _step(2)
+    _check(bought2 and bait != null and bait.is_set() and not bp.visible and is_equal_approx(bait.lure_radius, 8.0), "買誘餌 $30:魚堆放好、牌子消失")
+    await _go(Vector3(-7.5, 0, 0.5))   # 走開,免得站在魚堆旁邊順手打熊
+    bear.hp_max = 3000.0
+    bear.hp = 3000.0
+    bear.global_position = bait.global_position + Vector3(5.0, 0, 2.5)
+    bear.target = _find_helper("porter")
+    bear.set_physics_process(true)
+    var lured := await _wait_until(func() -> bool: return bear.target == bait, 60)
+    var biting := await _wait_until(func() -> bool: return bear.state == "biting" and bear.target == bait, 300)
+    _check(lured and biting, "熊在 8 格內被誘餌引走、走到魚堆開始吃(目標 %s、狀態 %s)" % [str(bear.target), bear.state if is_instance_valid(bear) else "freed"])
+    var eaten := await _wait_until(func() -> bool: return not bait.is_set(), 900)
+    await _step(2)
+    _check(eaten and _count("bait_eaten") == 1 and bp.visible and bp.logic.remaining == 30 and is_instance_valid(bear) and bear.alive()
+            and not (bear.target is Bait) and bear.eaten_total == 0 and bait.eaten_total == 1,
+            "咬 10 秒吃光誘餌:牌子同價 $30 重現、熊不算吃過東西、改找下一個獵物")
+    bear.set_physics_process(false)
+    bear.queue_free()
+    await _step(3)
+    await _go(Vector3(-11.6, 0, 0.8))
+
+
 func _expand_section() -> void:
     var pad: PricePad = _level.price_pads["expand_village"]
     var stations0 := _level.stations.size()
@@ -1031,12 +1140,13 @@ func _third_expansion(ev3: PricePad, hf: PricePad, hpp: PricePad, hc: PricePad) 
             and _level.bears.logic.entries(_level.expansion_level())[1].x > 70.0 and hf.logic.max_buys == 9 and hpp.logic.max_buys == 14
             and hc.logic.max_buys == 8 and hf.label.text.contains("/9"), "第三塊的六座塔牌出現、熊的東邊入口在第三塊外、僱用名額 9 / 14 / 8")
     # 毛皮放進服飾店:走過輸入格不會放(要站滿 0.8 秒),站著才一張張放
+    GameState.pelts = 0   # 先前撿到的毛皮清掉,才能剛好做兩件
     GameState.add_resource("pelt", 10)
     var pelts0 := GameState.pelts
     await _go(Vector3(67.5, 0, 5.0), 900)
     await _go(Vector3(67.5, 0, -2.2), 600)
     var in_pad := tailor.input_pad.global_position
-    await _go(Vector3(63.5, 0, -2.2), 600)   # 全速穿過輸入格(x 64.5 ~ 66.5,0.43 秒)
+    await _go(Vector3(62.0, 0, -2.2), 600)   # 全速穿過輸入格(x 63.5 ~ 65.5,0.43 秒)
     _check(GameState.pelts == pelts0 and tailor.logic.input_count == 0, "帶著毛皮走過服飾店輸入格:不會放(要站滿 0.8 秒)")
     await _go(in_pad, 300)
     var fed := await _wait_until(func() -> bool: return tailor.logic.input_count >= 10, 300)
@@ -1046,6 +1156,9 @@ func _third_expansion(ev3: PricePad, hf: PricePad, hpp: PricePad, hc: PricePad) 
     _check(made and tailor.logic.input_count == 0, "工人 5 張毛皮做一件毛衣:10 張做了 2 件(成品 %d、櫃台 %d、手上 %d)"
             % [tailor.logic.output_count, sc.logic.stock, _carried("sweater")])
     # 自己(或搬運工)把毛衣送到毛衣櫃台,站到收銀格賣 $200
+    if not _player.stack.is_empty() and _player.stack.item_id != "sweater":
+        print("  (玩家背上有 %s ×%d,先清掉再去拿毛衣)" % [_player.stack.item_id, _player.stack.count])
+        _player.stack.clear()
     if tailor.logic.output_count > 0:
         await _go(tailor.output_pad.global_position, 300)
         await _wait_until(func() -> bool: return tailor.logic.output_count == 0, 120)
@@ -1059,7 +1172,9 @@ func _third_expansion(ev3: PricePad, hf: PricePad, hpp: PricePad, hc: PricePad) 
     var sold := await _wait_until(func() -> bool: return not _sale_after(sales0, "sweater").is_empty(), 900)
     var sale := _sale_after(sales0, "sweater")
     _check(stocked and sold and int(sale[1]) == 1 and int(sale[2]) == 200 and _level.money_pad.cash >= cash0 + 200,
-            "毛衣上架、顧客一次買一件 $200(錢格 %d -> %d)" % [cash0, _level.money_pad.cash])
+            "毛衣上架、顧客一次買一件 $200(錢格 %d -> %d;上架 %s、庫存 %d、手上 %s ×%d、成品 %d、顧客 %d、收銀員 %s、拿貨 %s、玩家 (%.1f, %.1f))"
+            % [cash0, _level.money_pad.cash, str(stocked), sc.logic.stock, _player.stack.item_id, _player.stack.count, tailor.logic.output_count,
+            sc.customers.size(), str(sc.cashier != null), str(_player.takes_output), _player.global_position.x, _player.global_position.z])
     await _go(Vector3(59.5, 0, 5.0), 600)
 
 

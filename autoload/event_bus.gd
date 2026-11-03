@@ -35,3 +35,6 @@ signal loot_dropped(kind: String, pos: Vector3)        # 熊被打跑掉落毛�
 signal loot_collected(kind: String, total: int)
 signal shop_upgraded(level: int)                        # 武器店升級
 signal tower_upgraded(tower: Node3D)                    # 守衛塔強化
+signal trap_triggered(trap: Node3D, bear: Node3D)       # 捕熊夾夾到熊
+signal bait_eaten(bait: Node3D, bear: Node3D)           # 誘餌被熊吃光
+signal conveyor_built(conveyor: Node3D)                 # 傳送帶蓋好

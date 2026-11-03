@@ -8,6 +8,7 @@ extends Pad
 ## 完好時藏著(當作已買),被王拆了 on_lost 才出現。擴建村莊 expand():僱用牌多開放 expandBuys 個名額。
 ## 付款速度 payPerSec × max(1, 本次價格 / payScaleCost):大額牌(擴建村莊 $1000)不用站一分鐘。build_spot = 橘色半透明建地。付款中發黃光。
 ## currency 不是 cash 的牌(武器店升級收毛皮、強化守衛塔收熊王牙)從 GameState 的資源計數扣;set_open 給關卡手動開關(熊王牙牌只在塔完好時出現)。
+## 捕熊夾 / 誘餌牌(effect trap / bait)是消耗品:用掉後 on_lost 同價重新出現(rebuyMult 1、不標買回);傳送帶牌(effect conveyor)一次性。
 
 var logic: PurchaseLogic
 var build_spot := false
@@ -48,7 +49,7 @@ func _update_label() -> void:
         text = "%s\n%s" % [tr(logic.name_key), tr("COST_%s" % logic.currency) % logic.remaining]
     if logic.repeatable:
         text += "\n(%d/%d)" % [logic.buys + 1, logic.max_buys]
-    if logic.is_rebuy():
+    if logic.is_rebuy() and not is_consumable_pad():
         text += "\n" + (tr("PAD_REPAIR") if is_repair_pad() else tr("PAD_REBUY") % str(logic.rebuy_mult))
     set_label(text)
     if ring != null:
@@ -126,6 +127,12 @@ func _enable() -> void:
 
 func is_tower_pad() -> bool:
     return str(logic.effect.get("type", "")) == "tower"
+
+
+## 消耗品的牌(捕熊夾 / 誘餌):用掉後 on_lost 重新出現,同價、不標「買回」
+func is_consumable_pad() -> bool:
+    var t := str(logic.effect.get("type", ""))
+    return t == "trap" or t == "bait"
 
 
 ## 蓋回來 / 修好用的牌(守衛塔、工作站修復):再買一次標「修復」而不是「買回 ×」

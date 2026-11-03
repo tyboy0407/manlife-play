@@ -19,12 +19,15 @@ extends Node3D
 ## 被拆(station_destroyed)才出現,付清 _on_purchased "repair" 修好。
 ## 掉落物(Loot):熊被打跑掉毛皮、王被打死掉熊王牙(_on_bear_defeated -> drop_loot),玩家走過去撿(GameState.pelts / teeth)。
 ## 武器店升級牌(shop_upgrade,收毛皮 5 / 10 / 20)在院子裡:每級讓武器牌多賣一級(_apply_shop_level -> raise_max,武器 Lv4 ~ 6);
+## 捕熊夾(Trap,TRAP_SPOTS:每塊地北邊水區兩側各一個,靠熊的入口)與誘餌(Bait,BAIT_SPOTS:每塊地西側水邊一個)的牌子就是放置位置,
+## 用掉後 trap_used / bait_eaten 讓牌子同價重新出現;傳送帶(Conveyor,CONVEYORS:工作站輸出格 -> 同種貨櫃台上架格)的牌在工作站旁,
+## 兩端都蓋好才出現(_refresh_tower_pads 一起管),買了 build_conveyor;搬運工容量升級牌 upgrade_porter_cap 在西側走道。
 ## 熊王牙牌(tooth_tower_n,收 1 顆)就在塔下,塔完好且還沒強化才出現(_refresh_tower_pads),付清 tower.upgrade() 變強力守衛塔。
 
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
     "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0),
     "station_4": Vector3(33.4, 0, 0), "grill_3": Vector3(38.4, 0, 0), "grill_4": Vector3(43.4, 0, 0), "grill_5": Vector3(48.4, 0, 0),   # 第二塊:切魚台 + 三座烤魚攤
-    "grill_6": Vector3(53.5, 0, 0), "grill_7": Vector3(59.5, 0, 0), "tailor": Vector3(65.5, 0, 0)}   # 第三塊:兩座烤魚攤 + 服飾店
+    "grill_6": Vector3(53.5, 0, 0), "grill_7": Vector3(59.5, 0, 0), "tailor": Vector3(64.5, 0, 0)}   # 第三塊:兩座烤魚攤 + 服飾店
 const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill", "station_3": "cutting_table", "grill_2": "grill",
     "station_4": "cutting_table", "grill_3": "grill", "grill_4": "grill", "grill_5": "grill", "grill_6": "grill", "grill_7": "grill", "tailor": "tailor"}
 const COUNTER_SPOTS := {"fillet_counter": Vector3(-9.0, 0, 8.5), "grill_counter": Vector3(3.0, 0, 8.5),
@@ -36,6 +39,7 @@ const PAD_SPOTS := {
     "capacity_1": Vector3(2.0, 0, 5.0), "upgrade_worker_speed": Vector3(6.0, 0, 5.0), "upgrade_pile_cap": Vector3(10.0, 0, 5.0),
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
     "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0), "expand_village_2": Vector3(29.5, 0, 0.5),
+    "upgrade_porter_cap": Vector3(-10.0, 0, -1.5),   # 西側走道、切魚台旁(價格牌排已經排滿)
     "expand_village_3": Vector3(40.9, 0, 5.0),   # 第二塊擴建區裡,工作站輸出格與櫃台之間的走道
     "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
@@ -55,6 +59,29 @@ const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.
     "tower_19": Vector3(52.2, 0, -9.5), "tower_20": Vector3(67.2, 0, -9.5), "tower_21": Vector3(52.2, 0, 11.0), "tower_22": Vector3(67.2, 0, 11.0),
     "tower_23": Vector3(56.5, 0, -2.9), "tower_24": Vector3(62.5, 0, -2.9)}
 const TOWERS_PER_AREA := 6   # tower_1 ~ 6 主村、7 ~ 12 第一塊擴建區、13 ~ 18 第二塊、19 ~ 24 第三塊
+# 捕熊夾:每塊地兩個(水區兩側的雪地上、角塔內側,熊從入口進來往村裡走會經過;觸發半徑 trap.radius),trap_1 / 2 主村、3 / 4 第一塊 …
+const TRAP_SPOTS := {"trap_1": Vector3(-11.2, 0, -6.8), "trap_2": Vector3(11.2, 0, -6.8),
+    "trap_3": Vector3(14.6, 0, -6.8), "trap_4": Vector3(30.0, 0, -6.8),
+    "trap_5": Vector3(33.2, 0, -6.8), "trap_6": Vector3(48.6, 0, -6.8),
+    "trap_7": Vector3(51.8, 0, -6.8), "trap_8": Vector3(67.2, 0, -6.8)}
+const TRAPS_PER_AREA := 2
+# 誘餌魚堆:每塊地一個(西側水邊的沙地上),bait_1 主村、2 ~ 4 三塊擴建區
+const BAIT_SPOTS := {"bait_1": Vector3(-10.3, 0, -4.3), "bait_2": Vector3(14.7, 0, -4.3), "bait_3": Vector3(33.3, 0, -4.3), "bait_4": Vector3(51.9, 0, -4.3)}
+# 傳送帶:工作站輸出格 -> 同種貨的櫃台上架格;pad = 牌子位置(主村 / 第一塊在輸出格東側,第二 / 三塊在 z 5 的走道上)
+const CONVEYORS := {
+    "belt_station_1": {"from": "station_1", "to": "fillet_counter", "pad": Vector3(-3.8, 0, 2.2)},
+    "belt_station_2": {"from": "station_2", "to": "fillet_counter", "pad": Vector3(2.2, 0, 2.2)},
+    "belt_grill": {"from": "grill", "to": "grill_counter", "pad": Vector3(8.2, 0, 2.2)},
+    "belt_station_3": {"from": "station_3", "to": "fillet_counter_2", "pad": Vector3(20.2, 0, 2.2)},
+    "belt_grill_2": {"from": "grill_2", "to": "grill_counter_2", "pad": Vector3(27.2, 0, 2.2)},
+    "belt_station_4": {"from": "station_4", "to": "fillet_counter_3", "pad": Vector3(33.4, 0, 5.0)},
+    "belt_grill_3": {"from": "grill_3", "to": "grill_counter_3", "pad": Vector3(38.4, 0, 5.0)},
+    "belt_grill_4": {"from": "grill_4", "to": "grill_counter_3", "pad": Vector3(43.4, 0, 5.0)},
+    "belt_grill_5": {"from": "grill_5", "to": "grill_counter_3", "pad": Vector3(48.4, 0, 5.0)},
+    "belt_grill_6": {"from": "grill_6", "to": "grill_counter_3", "pad": Vector3(53.5, 0, 5.0)},
+    "belt_grill_7": {"from": "grill_7", "to": "grill_counter_3", "pad": Vector3(59.5, 0, 5.0)},
+    "belt_tailor": {"from": "tailor", "to": "sweater_counter", "pad": Vector3(64.5, 0, 5.0)},
+}
 const UNLOCKS := {
     "station_2": {"stations": ["station_2"], "counters": []},
     "grill_complex": {"stations": ["grill"], "counters": ["grill_counter"]},
@@ -89,6 +116,9 @@ var trash_pad: TrashPad
 var price_pads := {}
 var towers: Array[Tower] = []
 var loot: Array[Loot] = []              # 地上的毛皮 / 熊王牙
+var traps: Array[Trap] = []             # 捕熊夾(位置固定,買了才放好)
+var baits: Array[Bait] = []             # 誘餌魚堆(位置固定,買了才放好)
+var conveyors: Array[Conveyor] = []     # 蓋好的傳送帶
 var shop_sign: Label3D = null           # 武器店招牌(升級後顯示等級)
 var helpers: Array[Helper] = []
 var bears: BearSpawner
@@ -138,12 +168,13 @@ func _ready() -> void:
     for def in GameData.shop():
         var id := str(def["id"])
         var pad := PricePad.create(def)
-        pad.position = PAD_SPOTS.get(id, TOWER_SPOTS.get(id.trim_prefix("tooth_"), Vector3(0, 0, 12)))   # 塔牌 / 熊王牙牌都在塔的位置
+        pad.position = _pad_spot(id)
         world.add_child(pad)
         price_pads[id] = pad
         if id.begins_with("tooth_") and pad.label != null:
             pad.label.position.y = 6.4   # 牌子在塔底下,字要浮在塔頂上
     _build_towers()
+    _build_traps()
     player = Player.new()
     player.name = "Player"
     player.position = PLAYER_SPAWN
@@ -322,6 +353,30 @@ func _build_annex(k: int = 1) -> void:
 ## 擴建了幾次(0 = 只有主村)
 func expansion_level() -> int:
     return annexes.size()
+
+
+## 牌子的位置:PAD_SPOTS 沒有就看塔 / 熊王牙牌(塔的位置)、捕熊夾、誘餌、傳送帶
+func _pad_spot(id: String) -> Vector3:
+    if PAD_SPOTS.has(id):
+        return PAD_SPOTS[id]
+    if TOWER_SPOTS.has(id.trim_prefix("tooth_")):
+        return TOWER_SPOTS[id.trim_prefix("tooth_")]
+    if TRAP_SPOTS.has(id):
+        return TRAP_SPOTS[id]
+    if BAIT_SPOTS.has(id):
+        return BAIT_SPOTS[id]
+    if CONVEYORS.has(id):
+        return CONVEYORS[id]["pad"]
+    return Vector3(0, 0, 12)
+
+
+## 捕熊夾 / 誘餌屬於哪塊地:trap_1 / 2、bait_1 主村,之後每塊地兩個夾子、一個誘餌
+static func trap_area(trap_id: String) -> int:
+    return maxi((int(trap_id.trim_prefix("trap_")) - 1) / TRAPS_PER_AREA, 0)
+
+
+static func bait_area(bait_id: String) -> int:
+    return maxi(int(bait_id.trim_prefix("bait_")) - 1, 0)
 
 
 ## 這座塔屬於哪塊地:0 主村、1 第一塊擴建區、2 第二塊、3 第三塊
@@ -543,7 +598,8 @@ func tooth_pad_for(tower_id: String) -> PricePad:
     return price_pads.get("tooth_%s" % tower_id, null) as PricePad
 
 
-## 擴建區的塔牌只在那塊地擴建後出現;熊王牙牌只在塔完好、還沒強化時出現;第 k 次擴建的牌(expand_village_k)要擴建 k - 1 次後才出現
+## 擴建區的塔牌只在那塊地擴建後出現;熊王牙牌只在塔完好、還沒強化時出現;第 k 次擴建的牌(expand_village_k)要擴建 k - 1 次後才出現;
+## 捕熊夾 / 誘餌牌跟著那塊地開放;傳送帶牌只在兩端(工作站、櫃台)都蓋好、帶子還沒蓋時出現
 func _refresh_tower_pads() -> void:
     for t in towers:
         var area := tower_area(t.id)
@@ -558,6 +614,101 @@ func _refresh_tower_pads() -> void:
         var ev: PricePad = price_pads.get("expand_village_%d" % k, null)
         if ev != null:
             ev.set_open(expansion_level() >= k - 1)
+    for t in traps:
+        var tp: PricePad = price_pads.get(t.id, null)
+        if tp != null:
+            tp.set_open(trap_area(t.id) <= expansion_level())
+    for b in baits:
+        var bp: PricePad = price_pads.get(b.id, null)
+        if bp != null:
+            bp.set_open(bait_area(b.id) <= expansion_level())
+    for id in CONVEYORS:
+        var cp: PricePad = price_pads.get(id, null)
+        if cp != null:
+            var spec: Dictionary = CONVEYORS[id]
+            cp.set_open(conveyor_by_id(str(id)) == null and station_at(str(spec["from"])) != null and counter_by_id(str(spec["to"])) != null)
+
+
+## --- 捕熊夾 / 誘餌 / 傳送帶 ---
+
+## 夾子與誘餌一開始就在(沒買是空的),牌子就是位置
+func _build_traps() -> void:
+    for id in TRAP_SPOTS:
+        var t := Trap.new()
+        t.id = str(id)
+        t.name = "Trap_%s" % id
+        t.level = self
+        t.position = TRAP_SPOTS[id]
+        world.add_child(t)
+        traps.append(t)
+    for id in BAIT_SPOTS:
+        var b := Bait.new()
+        b.id = str(id)
+        b.name = "Bait_%s" % id
+        b.level = self
+        b.position = BAIT_SPOTS[id]
+        world.add_child(b)
+        baits.append(b)
+
+
+func trap_by_id(id: String) -> Trap:
+    for t in traps:
+        if t.id == id:
+            return t
+    return null
+
+
+func bait_by_id(id: String) -> Bait:
+    for b in baits:
+        if b.id == id:
+            return b
+    return null
+
+
+func conveyor_by_id(id: String) -> Conveyor:
+    for c in conveyors:
+        if c.id == id:
+            return c
+    return null
+
+
+## 夾子夾到熊:牌子同價重新出現、通知、存檔
+func trap_used(t: Trap, _bear: Node3D) -> void:
+    var pad: PricePad = price_pads.get(t.id, null)
+    if pad != null:
+        pad.on_lost()
+    EventBus.notice.emit(tr("NOTICE_TRAP_TRIGGERED") % int(t.logic.damage(false)))
+    save_now()
+
+
+## 誘餌被吃光:牌子重新出現、通知、存檔
+func bait_eaten(b: Bait, _bear: Node3D) -> void:
+    var pad: PricePad = price_pads.get(b.id, null)
+    if pad != null:
+        pad.on_lost()
+    EventBus.notice.emit(tr("NOTICE_BAIT_EATEN"))
+    save_now()
+
+
+## 蓋傳送帶(CONVEYORS[id]:工作站 -> 櫃台);兩端沒蓋好或已經有了回 null
+func build_conveyor(id: String, silent: bool = false) -> Conveyor:
+    if not CONVEYORS.has(id) or conveyor_by_id(id) != null:
+        return null
+    var spec: Dictionary = CONVEYORS[id]
+    var s := station_at(str(spec["from"]))
+    var c := counter_by_id(str(spec["to"]))
+    if s == null or c == null:
+        return null
+    var belt := Conveyor.new()
+    belt.name = "Conveyor_%s" % id
+    belt.level = self
+    belt.setup(id, s, c)
+    world.add_child(belt)
+    conveyors.append(belt)
+    if not silent:
+        EventBus.conveyor_built.emit(belt)
+    _refresh_tower_pads()
+    return belt
 
 
 ## --- 武器店等級 ---
@@ -790,11 +941,26 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
             if s != null:
                 s.repair()
                 EventBus.notice.emit(tr("NOTICE_STATION_REPAIRED") % tr(s.display_name_key()))
+        "trap":
+            var t := trap_by_id(str(effect.get("target", "")))
+            if t != null:
+                t.arm()
+                EventBus.notice.emit(tr("NOTICE_TRAP_SET"))
+        "bait":
+            var b := bait_by_id(str(effect.get("target", "")))
+            if b != null:
+                b.place()
+                EventBus.notice.emit(tr("NOTICE_BAIT_SET"))
+        "conveyor":
+            var belt := build_conveyor(str(effect.get("target", "")))
+            if belt != null:
+                EventBus.notice.emit(tr("NOTICE_CONVEYOR_BUILT"))
 
 
 ## --- 存檔 ---
 
-## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆 / 是否被拆、各櫃台庫存、各價格牌進度(含修復牌)、守衛塔狀態 / 血量 / 強化、地上的掉落物、北極熊冷卻
+## 世界狀態(GameState 之外的):玩家背上、錢格、各工作站堆 / 是否被拆、各櫃台庫存、各價格牌進度(含修復牌)、守衛塔狀態 / 血量 / 強化、地上的掉落物、
+## 捕熊夾 / 誘餌放好沒、傳送帶上的貨、北極熊冷卻
 func snapshot() -> Dictionary:
     var stations_d := {}
     for s in stations:
@@ -813,10 +979,19 @@ func snapshot() -> Dictionary:
     for l in loot:
         if l != null and is_instance_valid(l):
             loot_d.append(l.snapshot())
+    var traps_d := {}
+    for t in traps:
+        traps_d[t.id] = t.snapshot()
+    var baits_d := {}
+    for b in baits:
+        baits_d[b.id] = b.snapshot()
+    var belts_d := {}
+    for c in conveyors:
+        belts_d[c.id] = c.snapshot()
     return {
         "player": {"item": player.stack.item_id, "count": player.stack.count},
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d, "towers": towers_d,
-        "loot": loot_d, "bear": bears.snapshot() if bears != null else {},
+        "loot": loot_d, "traps": traps_d, "baits": baits_d, "belts": belts_d, "bear": bears.snapshot() if bears != null else {},
     }
 
 
@@ -870,6 +1045,26 @@ func restore_world(d: Dictionary) -> void:
         for e in loot_d:
             if typeof(e) == TYPE_DICTIONARY and e.has("kind"):
                 drop_loot(str(e["kind"]), Vector3(float(e.get("x", 0.0)), 0.0, float(e.get("z", 0.0))))
+    # 捕熊夾 / 誘餌:存檔記放好沒;牌子買過卻沒放好(舊檔、或用掉的瞬間沒存到)就讓牌子重新出現
+    var traps_d = d.get("traps", {})
+    for t in traps:
+        if typeof(traps_d) == TYPE_DICTIONARY and typeof(traps_d.get(t.id, null)) == TYPE_DICTIONARY:
+            t.restore(traps_d[t.id])
+        var tp: PricePad = price_pads.get(t.id, null)
+        if tp != null and tp.logic.is_exhausted() and not t.is_armed():
+            tp.on_lost()
+    var baits_d = d.get("baits", {})
+    for b in baits:
+        if typeof(baits_d) == TYPE_DICTIONARY and typeof(baits_d.get(b.id, null)) == TYPE_DICTIONARY:
+            b.restore(baits_d[b.id])
+        var bp: PricePad = price_pads.get(b.id, null)
+        if bp != null and bp.logic.is_exhausted() and not b.is_set():
+            bp.on_lost()
+    var belts_d = d.get("belts", {})
+    if typeof(belts_d) == TYPE_DICTIONARY:
+        for c in conveyors:
+            if typeof(belts_d.get(c.id, null)) == TYPE_ARRAY:
+                c.restore(belts_d[c.id])
     _refresh_tower_pads()
     var bear_d = d.get("bear", {})
     if bears != null and typeof(bear_d) == TYPE_DICTIONARY:
@@ -895,6 +1090,9 @@ func _load_save() -> void:
         if GameState.is_unlocked(str(target)):
             _spawn_unlock(str(target))
     _apply_shop_level()   # 要在 restore_world 之前,武器牌的 buys 才不會被夾回 3
+    for id in CONVEYORS:
+        if GameState.is_unlocked(str(id)):
+            build_conveyor(str(id), true)
     for role in GameState.hired:
         for i in GameState.hired_count(str(role)):
             spawn_helper(str(role), true)

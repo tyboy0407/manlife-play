@@ -79,6 +79,18 @@
       }
     },
     {
+      "id": "upgrade_porter_cap",
+      "name": "SHOP_upgrade_porter_cap",
+      "cost": 80,
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 2.0,
+      "effect": {
+        "type": "upgrade",
+        "key": "porter_cap"
+      }
+    },
+    {
       "id": "expand_table",
       "name": "SHOP_expand_table",
       "cost": 50,
@@ -134,6 +146,234 @@
       "effect": {
         "type": "unlock",
         "target": "village_4"
+      }
+    },
+    {
+      "id": "trap_1",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_1"
+      }
+    },
+    {
+      "id": "trap_2",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_2"
+      }
+    },
+    {
+      "id": "trap_3",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_3"
+      }
+    },
+    {
+      "id": "trap_4",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_4"
+      }
+    },
+    {
+      "id": "trap_5",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_5"
+      }
+    },
+    {
+      "id": "trap_6",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_6"
+      }
+    },
+    {
+      "id": "trap_7",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_7"
+      }
+    },
+    {
+      "id": "trap_8",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_8"
+      }
+    },
+    {
+      "id": "bait_1",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_1"
+      }
+    },
+    {
+      "id": "bait_2",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_2"
+      }
+    },
+    {
+      "id": "bait_3",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_3"
+      }
+    },
+    {
+      "id": "bait_4",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_4"
+      }
+    },
+    {
+      "id": "belt_station_1",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_station_1"
+      }
+    },
+    {
+      "id": "belt_station_2",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_station_2"
+      }
+    },
+    {
+      "id": "belt_grill",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill"
+      }
+    },
+    {
+      "id": "belt_station_3",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_station_3"
+      }
+    },
+    {
+      "id": "belt_grill_2",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_2"
+      }
+    },
+    {
+      "id": "belt_station_4",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_station_4"
+      }
+    },
+    {
+      "id": "belt_grill_3",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_3"
+      }
+    },
+    {
+      "id": "belt_grill_4",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_4"
+      }
+    },
+    {
+      "id": "belt_grill_5",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_5"
+      }
+    },
+    {
+      "id": "belt_grill_6",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_6"
+      }
+    },
+    {
+      "id": "belt_grill_7",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_7"
+      }
+    },
+    {
+      "id": "belt_tailor",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_tailor"
       }
     },
     {

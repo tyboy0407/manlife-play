@@ -121,3 +121,12 @@ ITEM_sweater,Fur sweater,毛衣
 STATION_tailor,Tailor,服飾店
 COUNTER_sweater,Sweater counter,毛衣櫃台
 HINT_pelts,Bring your polar bear pelts to the tailor: 5 pelts make a sweater that sells for $200,把北極熊毛皮放進服飾店：5 張做一件毛衣，一件賣 $200
+SHOP_upgrade_porter_cap,Porter capacity,搬運工容量
+SHOP_trap,Bear trap,捕熊夾
+SHOP_bait,Fish bait,誘餌魚堆
+SHOP_conveyor,Conveyor belt,傳送帶
+NOTICE_TRAP_SET,Bear trap set! A bear that steps on it takes damage and is stuck for a moment,捕熊夾放好了!熊踩到會受傷並定住一下
+NOTICE_TRAP_TRIGGERED,Snap! The trap caught a polar bear (-%d HP). Buy a new one on the same spot,夾到北極熊了(扣 %d 血)!夾子用掉，站回原位再買一個
+NOTICE_BAIT_SET,Bait set! Nearby bears will go for the fish instead,誘餌放好了!附近的熊會先去吃魚堆
+NOTICE_BAIT_EATEN,The bears ate the bait. Buy a new one on the same spot,誘餌被吃光了，站回原位再買一堆
+NOTICE_CONVEYOR_BUILT,Conveyor belt built! Products ride straight to the counter,傳送帶蓋好了!成品會自己送到櫃台

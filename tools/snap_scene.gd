@@ -156,6 +156,21 @@ func _run() -> void:
     level.player.global_position = Vector3(0.0, 0, 1.5)
     await _frames(30)
     await _shot("11_center_towers")
+    # 捕熊夾放好、誘餌魚堆、切魚台 -> 魚片櫃台的傳送帶上有貨、搬運工容量牌
+    GameState.apply_purchase("trap_1", {"type": "trap", "target": "trap_1"})
+    (level.price_pads["trap_1"] as PricePad).restore_state(1, 0)
+    (level.trap_by_id("trap_1") as Trap).arm(true)
+    GameState.apply_purchase("bait_1", {"type": "bait", "target": "bait_1"})
+    (level.price_pads["bait_1"] as PricePad).restore_state(1, 0)
+    (level.bait_by_id("bait_1") as Bait).place(true)
+    GameState.apply_purchase("belt_station_1", {"type": "conveyor", "target": "belt_station_1"})
+    (level.price_pads["belt_station_1"] as PricePad).restore_state(1, 0)
+    var belt := level.conveyor_by_id("belt_station_1")   # apply_purchase 發 purchased 事件,關卡已經蓋好了
+    if belt != null:
+        belt.restore([6.0, 4.4, 2.8, 1.2])
+    level.player.global_position = Vector3(-7.5, 0, -1.0)
+    await _frames(30)
+    await _shot("13_trap_bait_belt")
     # 選單打開:詳細統計收在面板裡,左上角只剩錢包 / 背包 / 毛皮 / 牙 / 武器
     level.hud.menu_action("toggle")
     await _frames(5)

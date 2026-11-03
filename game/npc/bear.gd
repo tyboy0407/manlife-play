@@ -6,6 +6,8 @@ extends Node3D
 ## 北極熊王(is_king):更大更厚,連水裡的魚也吃,吃東西只變大不回血;還會盯玩家的建築(工作站、守衛塔,不限距離),
 ## 咬滿 king_building_bite_sec(10 秒)就拆掉(Station.wreck / Tower.wreck);不會自己走,只能打死。
 ## 守衛塔(Tower):一般熊靠近塔(aggroRadius)或被塔的箭射中時會改去拆塔,咬一口扣 TowerLogic.bite_damage,塔塌了再找下一個。
+## 捕熊夾(Trap)夾到:stun() 定住幾秒(state stunned,還是算活著、打得到);誘餌(Bait)在 lure_radius 內就改去吃它(王也是),
+## 咬滿 Bait.eat_sec 吃光(不算吃過東西、不算整群的額度)。
 ## 規則在 BearLogic;吃掉幫手 / 魚由 Harbor.helper_eaten / fish_eaten 結算。外觀:白色方塊占位(models.bear 有模型就用模型)。
 
 signal left(reason: String)   # "fled" 被打跑 / "no_prey" 沒人可吃 / "full" 整群吃飽撤退
@@ -13,8 +15,10 @@ signal left(reason: String)   # "fled" 被打跑 / "no_prey" 沒人可吃 / "ful
 var level: Harbor = null
 var logic: BearLogic = null
 var entry := Vector3(-16, 0, -8)
-var state := "hunting"        # hunting / biting / fleeing / leaving
-var target: Node3D = null     # Helper、Tower(或王才會盯的 Fish / Station)
+var state := "hunting"        # hunting / biting / stunned / fleeing / leaving
+var target: Node3D = null     # Helper、Tower、Bait(或王才會盯的 Fish / Station)
+var _stun_t := 0.0
+var stuns_total := 0
 var bite := 0.0
 var eaten_total := 0
 var hp := 30.0
@@ -126,7 +130,23 @@ func planar_distance_to(p: Vector3) -> float:
 
 
 func alive() -> bool:
-    return state == "hunting" or state == "biting"
+    return state == "hunting" or state == "biting" or state == "stunned"
+
+
+func is_stunned() -> bool:
+    return state == "stunned"
+
+
+## 被捕熊夾夾到:放開獵物、定住 sec 秒(還是活著、打得到)
+func stun(sec: float) -> void:
+    if not alive() or sec <= 0.0:
+        return
+    _release()
+    state = "stunned"
+    _stun_t = sec
+    stuns_total += 1
+    if _head != null:
+        _head.rotation.x = 0.0
 
 
 func _physics_process(delta: float) -> void:
@@ -144,6 +164,14 @@ func _physics_process(delta: float) -> void:
                 var reason := "fled" if state == "fleeing" else _leave_reason
                 left.emit(reason)
                 queue_free()
+        "stunned":
+            _stun_t -= delta
+            if _body != null:
+                _body.rotation.z = sin(_t * 12.0) * 0.14   # 被夾住晃來晃去
+            if _stun_t <= 0.0:
+                if _body != null:
+                    _body.rotation.z = 0.0
+                state = "hunting"
         _:
             _hunt(delta)
 
@@ -152,7 +180,8 @@ func _hunt(delta: float) -> void:
     if level == null:
         return
     if target == null or not is_instance_valid(target) or (target is Helper and (target as Helper).eaten) \
-            or (target is Tower and not (target as Tower).is_alive()) or (target is Station and (target as Station).is_broken()):
+            or (target is Tower and not (target as Tower).is_alive()) or (target is Station and (target as Station).is_broken()) \
+            or (target is Bait and not (target as Bait).is_set()):
         target = null
         _retarget()
         if target == null:
@@ -163,6 +192,12 @@ func _hunt(delta: float) -> void:
             else:
                 _leave()
             return
+    if state == "hunting" and not (target is Bait):
+        # 附近有誘餌就改去吃(嘴裡沒在咬東西才會被引走)
+        var bait := _nearest_bait()
+        if bait != null:
+            _release()
+            target = bait
     var d := planar_distance_to(target.global_position)
     var bite_need := _bite_sec_for(target)
     if state == "biting":
@@ -195,6 +230,8 @@ func _reach() -> float:
         extra = 0.7
     elif target is Station:
         extra = 1.0
+    elif target is Bait:
+        extra = 0.5
     return logic.bite_radius() * size_scale + extra
 
 
@@ -205,12 +242,18 @@ func _bite_sec_for(t: Node3D) -> float:
         return (t as Tower).logic.bite_sec()
     if t is Fish:
         return logic.king_fish_bite_sec()
+    if t is Bait:
+        return (t as Bait).eat_sec
     return logic.king_bite_sec() if is_king else logic.bite_sec()
 
 
 ## 最近的、還沒被吃的幫手;一群熊時先避開別隻熊已經盯上的(都被盯了才搶)。王連水裡的魚、完好的建築(工作站 / 塔)都算獵物。
 ## 一般熊只把靠得夠近(aggroRadius)的完好守衛塔算進目標(幾隻熊可以一起拆同一座)。
 func _retarget() -> void:
+    var bait := _nearest_bait()
+    if bait != null:
+        target = bait
+        return
     var taken := level.bears.targeted_ids(self) if level.bears != null else {}
     var prey := []
     var free := []
@@ -252,6 +295,9 @@ func _eat() -> void:
     bite = 0.0
     if _head != null:
         _head.rotation.x = 0.0
+    if t is Bait and is_instance_valid(t):
+        (t as Bait).consume(self)   # 誘餌吃光:不算吃過東西,接著找下一個
+        return
     if is_king and t != null and is_instance_valid(t) and (t is Tower or t is Station):
         # 王咬滿時間:建築直接拆掉(不看血量),再找下一個
         var wrecked := (t as Tower).wreck(self) if t is Tower else (t as Station).wreck(self)
@@ -324,7 +370,7 @@ func defeat(by: Node3D) -> void:
 
 ## 被守衛塔射中:塔在 aggro 距離內、嘴裡沒在咬東西就改去拆塔
 func on_tower_hit(t: Tower) -> void:
-    if not alive() or state == "biting" or t == null or not is_instance_valid(t) or not t.is_alive() or target is Tower:
+    if not alive() or state != "hunting" or t == null or not is_instance_valid(t) or not t.is_alive() or target is Tower or target is Bait:
         return
     if planar_distance_to(t.global_position) <= t.logic.aggro_radius():
         _release()
@@ -365,6 +411,22 @@ func _release() -> void:
         (target as Helper).set_panic(false)
     target = null
     bite = 0.0
+
+
+## 吸引範圍(Bait.lure_radius)內最近的、放好的誘餌;沒有回 null
+func _nearest_bait() -> Bait:
+    if level == null:
+        return null
+    var best: Bait = null
+    var best_d := INF
+    for b in level.baits:
+        if b == null or not is_instance_valid(b) or not b.is_set():
+            continue
+        var d := planar_distance_to(b.global_position)
+        if d <= b.lure_radius and d < best_d:
+            best = b
+            best_d = d
+    return best
 
 
 func _set_overlay(mat: StandardMaterial3D) -> void:

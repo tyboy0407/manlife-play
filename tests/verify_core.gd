@@ -14,6 +14,7 @@ func _ready() -> void:
     _test_counter()
     _test_porter()
     _test_guide()
+    _test_trap_and_belt()
     _test_bear()
     _test_tower()
     _test_settings()
@@ -67,14 +68,25 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 2000, 8000]
+    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 80, 50, 60, 35, 1000, 2000, 8000]
+    for i in 8:
+        costs_expected.append(40)
+    for i in 4:
+        costs_expected.append(30)
+    for i in 12:
+        costs_expected.append(150)
     for i in 24:
         costs_expected.append(200)
     costs_expected.append(3)
     for i in 24:
         costs_expected.append(1)
-    _check(shop.size() == 61 and costs == costs_expected,
-            "shop.json:六十一塊牌(含村外武器店、三次擴建 $1000 / $2000 / $8000、二十四座守衛塔)%s" % str(costs))
+    _check(shop.size() == 86 and costs == costs_expected,
+            "shop.json:八十六塊牌(含搬運工容量 $80、三次擴建、八個捕熊夾 $40、四堆誘餌 $30、十二條傳送帶 $150、二十四座守衛塔)%s" % str(costs))
+    var pc := GameData.purchase("upgrade_porter_cap")
+    _check(str(pc.get("effect", {}).get("key", "")) == "porter_cap" and int(pc.get("maxBuys", 0)) == 3 and is_equal_approx(float(pc.get("costMult", 0.0)), 2.0)
+            and str(GameData.purchase("trap_1").get("effect", {}).get("type", "")) == "trap" and str(GameData.purchase("bait_4").get("effect", {}).get("target", "")) == "bait_4"
+            and str(GameData.purchase("belt_tailor").get("effect", {}).get("type", "")) == "conveyor",
+            "搬運工容量牌三級 ×2;捕熊夾 / 誘餌 / 傳送帶牌的效果型別")
     var tl := GameData.station("tailor")
     _check(str(tl.get("input", "")) == "pelt" and str(tl.get("output", "")) == "sweater" and int(tl.get("inputPer", 0)) == 5
             and int(GameData.counter("sweater_counter").get("price", 0)) == 200 and str(GameData.counter("sweater_counter").get("item", "")) == "sweater"
@@ -238,6 +250,12 @@ func _test_purchase() -> void:
     var rem6 := r6.remaining
     _check(r6.expand() and r6.max_buys == 6 and r6.buys == 1 and r6.remaining == rem6 and rem6 == 54 - 7, "擴建:搬運工牌 2 -> 6 次,付到一半的進度不變")
     _check(not PurchaseLogic.from_def(GameData.purchase("capacity_1")).expand(), "沒 expandBuys 的牌 expand 回 false")
+    # 捕熊夾牌:一次性 $40,用掉 lose -> 同價再買(rebuyMult 1)
+    var trp := PurchaseLogic.from_def(GameData.purchase("trap_1"))
+    trp.pay(40)
+    trp.complete()
+    _check(trp.is_exhausted() and trp.lose() and not trp.is_exhausted() and trp.remaining == 40 and trp.current_cost() == 40 and trp.is_rebuy(),
+            "捕熊夾牌:用掉後同價重新開放($40)")
     # 守衛塔牌:一次性 $200,塔被拆 lose -> 修復同價(rebuyMult 1)
     var tp := PurchaseLogic.from_def(GameData.purchase("tower_1"))
     _check(not tp.repeatable and tp.max_buys == 1 and tp.current_cost() == 200 and is_equal_approx(tp.rebuy_mult, 0.5) and not tp.lose(),
@@ -352,11 +370,16 @@ func _test_state() -> void:
     GameState.apply_purchase("unlock_grill", {"type": "unlock", "target": "grill_complex"})
     GameState.apply_purchase("upgrade_worker_speed", {"type": "upgrade", "key": "worker_speed"})
     GameState.apply_purchase("upgrade_worker_speed", {"type": "upgrade", "key": "worker_speed"})
+    GameState.apply_purchase("upgrade_porter_cap", {"type": "upgrade", "key": "porter_cap"})
+    GameState.apply_purchase("upgrade_porter_cap", {"type": "upgrade", "key": "porter_cap"})
+    _check(GameState.upgrade_level("porter_cap") == 2 and GameState.upgrade_bonus("porter_cap") == 8 and GameState.upgrade_bonus("worker_speed") == 1
+            and GameState.upgrade_bonus("nope") == 0, "搬運工容量升級:兩級 +8(perLevel 4);沒設定的加成 0")
+    GameState.upgrades.erase("porter_cap")
     GameState.apply_purchase("weapon", {"type": "weapon"})
     GameState.apply_purchase("weapon", {"type": "weapon"})
     GameState.add_trashed(3)
     EventBus.purchased.disconnect(cb)
-    _check(purchased[0] == 9 and GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2
+    _check(purchased[0] == 11 and GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 2
             and GameState.hired_count("cashier") == 1 and GameState.hired_total() == 3 and GameState.is_unlocked("grill_complex")
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.weapon_level == 2,
             "apply_purchase:容量 / 僱用 / 解鎖 / 升級 / 武器 / 丟棄")
@@ -609,6 +632,50 @@ func _test_guide() -> void:
 
 
 ## --- 北極熊 / 武器 ---
+
+## --- 捕熊夾 / 誘餌 / 傳送帶 ---
+
+func _test_trap_and_belt() -> void:
+    var t := TrapLogic.from_config(GameData.section("trap"))
+    _check(is_equal_approx(t.damage(false), 60.0) and is_equal_approx(t.damage(true), 150.0) and is_equal_approx(t.stun_sec(), 3.0)
+            and is_equal_approx(t.radius(), 2.5) and is_equal_approx(t.bait_radius(), 8.0) and is_equal_approx(t.bait_eat_sec(), 10.0)
+            and t.bait_fish_count() == 6, "捕熊夾:扣 60(王 150)、定住 3 秒、半徑 2.5;誘餌:吸引 8 格、吃 10 秒、六條魚")
+    _check(TrapLogic.in_reach(Vector3(0, 0, 0), Vector3(2.0, 0, 1.5), 2.5) and not TrapLogic.in_reach(Vector3(0, 0, 0), Vector3(2.0, 0, 1.6), 2.5),
+            "夾子觸發:平面距離 <= 半徑")
+    var baits := [{"id": 1, "pos": Vector3(5, 0, 0), "set": true}, {"id": 2, "pos": Vector3(-3, 0, 0), "set": true}, {"id": 3, "pos": Vector3(1, 0, 0), "set": false}]
+    _check(TrapLogic.pick_bait(Vector3.ZERO, baits, 8.0) == 2 and TrapLogic.pick_bait(Vector3.ZERO, baits, 2.0) == -1
+            and TrapLogic.pick_bait(Vector3(5, 0, 0), baits, 8.0) == 1, "誘餌:範圍內最近的、放好的那堆;沒放好的不算")
+    var empty := TrapLogic.from_config({})
+    _check(empty.damage(false) > 0.0 and empty.stun_sec() > 0.0 and empty.bait_radius() > 0.0, "沒設定用預設值")
+    # 傳送帶:每秒拿一件、以 3 / 秒前進、彼此隔 0.8、末端放不下就排隊
+    var c := ConveyorLogic.from_config(GameData.section("conveyor"), 6.0)
+    _check(is_equal_approx(c.length, 6.0) and is_equal_approx(c.speed, 3.0) and is_equal_approx(c.rate, 1.0) and c.capacity() == 8 and c.is_empty(),
+            "傳送帶 6 格長:最多 8 件")
+    var r := c.tick(1.0, 5, 10)
+    _check(int(r["taken"]) == 1 and int(r["delivered"]) == 0 and c.count() == 1 and is_equal_approx(c.items[0], 0.0) and not c.can_take(),
+            "1 秒:從來源拿一件放在起點;起點被佔住不能再拿")
+    r = c.tick(0.5, 4, 10)
+    _check(int(r["taken"]) == 0 and is_equal_approx(c.items[0], 1.5), "0.5 秒:前進 1.5,還沒到下一件的時間")
+    r = c.tick(0.5, 4, 10)
+    _check(int(r["taken"]) == 1 and c.count() == 2 and is_equal_approx(c.items[0], 3.0) and is_equal_approx(c.items[1], 0.0), "再 0.5 秒:第二件上帶")
+    r = c.tick(0.5, 3, 10)
+    _check(int(r["taken"]) == 0 and c.count() == 2 and is_equal_approx(c.items[0], 4.5) and is_equal_approx(c.items[1], 1.5), "0.5 秒:兩件各前進 1.5")
+    r = c.tick(0.5, 3, 0)
+    _check(int(r["taken"]) == 1 and int(r["delivered"]) == 0 and c.count() == 3 and is_equal_approx(c.items[0], 6.0) and is_equal_approx(c.items[1], 3.0),
+            "櫃台滿:第一件停在末端不上架、第三件上帶")
+    r = c.tick(1.0, 2, 0)
+    _check(int(r["taken"]) == 1 and int(r["delivered"]) == 0 and c.count() == 4 and is_equal_approx(c.items[0], 6.0) and is_equal_approx(c.items[1], 5.2)
+            and is_equal_approx(c.items[2], 3.0), "櫃台還是滿:後面的排在前一件後面 0.8、每個 tick 最多拿一件")
+    r = c.tick(0.1, 0, 1)
+    _check(int(r["delivered"]) == 1 and c.count() == 3 and c.moved_total == 1 and is_equal_approx(c.items[0], 5.2) and is_equal_approx(c.items[1], 3.3),
+            "櫃台有 1 格:末端那件上架、後面的往前")
+    var snap := c.snapshot()
+    var c2 := ConveyorLogic.from_config(GameData.section("conveyor"), 6.0)
+    c2.restore(snap)
+    _check(snap.size() == 3 and c2.count() == 3 and is_equal_approx(c2.items[0], 5.2) and is_equal_approx(c2.items[2], 0.3), "存檔往返:帶上的位置")
+    c2.restore([9.0, 1.0, 2.0])
+    _check(c2.count() == 3 and is_equal_approx(c2.items[0], 6.0) and is_equal_approx(c2.items[1], 2.0), "還原時夾進長度、由前到後排序")
+
 
 func _test_bear() -> void:
     var b := BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))

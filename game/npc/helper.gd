@@ -34,6 +34,7 @@ var _mark: Label3D = null   # 頭上的驚嘆號
 var _route: Array[Vector3] = []     # 去目的地要先經過的中途點(東門內外側)
 var _route_dest := Vector3(INF, 0, 0)
 var _stuck := 0.0                   # 走向目標卻沒前進的秒數
+var _base_capacity := 6
 
 
 func _ready() -> void:
@@ -44,7 +45,9 @@ func _ready() -> void:
     add_to_group("helper_%s" % role)
     var cfg := GameData.helper(role)
     speed = float(cfg.get("speed", 4.5))
-    stack.set_capacity(int(cfg.get("capacity", 6)))
+    _base_capacity = int(cfg.get("capacity", 6))
+    _apply_capacity()
+    GameState.changed.connect(_apply_capacity)
     can_fish = role == "fisher"
     takes_output = role == "porter"
     collects_cash = false
@@ -55,6 +58,15 @@ func _ready() -> void:
     if model == null:
         # 占位膠囊時用頭上的色塊標記職業(有模型時每種職業是不同人物)
         add_child(VisualFactory.box(Vector3(0.5, 0.18, 0.5), color.darkened(0.35), Vector3(0, 1.72, 0)))
+
+
+## 背包容量 = 設定值 + 升級(只有搬運工有容量升級牌 porter_cap,+4 / 級;GameState.changed 時重算,現有的搬運工也吃到)
+func _apply_capacity() -> void:
+    var cap := _base_capacity
+    if role == "porter":
+        cap += GameState.upgrade_bonus("porter_cap")
+    if cap != stack.capacity:
+        stack.set_capacity(cap)
 
 
 ## 堆疊變少 = 卸貨(格子在走近時就開始搬,所以「走向目的地」狀態也算)
