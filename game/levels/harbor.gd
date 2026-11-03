@@ -9,6 +9,8 @@ extends Node3D
 ## 北極熊(BearSpawner)從地圖邊緣進來吃幫手,玩家要帶武器靠近才趕得走;被吃的幫手由 helper_eaten 結算(僱用牌退名額、買回 1.5 倍)。
 ## 擴建村莊(shop.json expand_village $1000,unlock village_2):把東牆整段拆掉(east_walls:三段隱形牆 + 柵欄,主村與 annex 連成一片,幫手不用繞門),往東蓋 annex:沙地、第二個水區、
 ## 第二座切魚台 + 烤魚攤、第二組櫃台(顧客跟著變多);僱用牌多開放名額(shop.json expandBuys:漁夫 +2、搬運工 +4、收銀員 +2)。
+## 第二次擴建(expand_village_2 $2000,unlock village_3):再往東一塊(ANNEX_RECTS[1]):拆第一塊擴建區的東牆、第三個水區、切魚台 + 烤魚攤、第三組櫃台、
+## 僱用牌再多開一次名額;牌子放在第一塊擴建區裡(擴建一次後才出現)。每塊擴建區也照主村放六座守衛塔(tower_7 ~ 12、13 ~ 18),牌子跟著那塊地開放。
 ## 守衛塔(Tower):村莊四角各一座(tower_1 ~ 4)+ 村中央水邊兩座(tower_5 / 6,在切魚台輸入格之間,補四角射程 9 照不到的中間),
 ## 牌子($200)就是地基;蓋好會朝靠近的熊射箭,被熊拆掉後站回地基花 $200 修。
 ## 北極熊王會拆工作站(切魚台 / 烤魚攤):_add_station 時順便生一塊藏著的修復牌(repair_<spot_id>,shop.json repairStation $200)在桌子位置,
@@ -18,32 +20,42 @@ extends Node3D
 ## 熊王牙牌(tooth_tower_n,收 1 顆)就在塔下,塔完好且還沒強化才出現(_refresh_tower_pads),付清 tower.upgrade() 變強力守衛塔。
 
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
-    "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0)}
-const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill", "station_3": "cutting_table", "grill_2": "grill"}
+    "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0), "station_4": Vector3(36.6, 0, 0), "grill_3": Vector3(43.6, 0, 0)}
+const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill", "station_3": "cutting_table", "grill_2": "grill",
+    "station_4": "cutting_table", "grill_3": "grill"}
 const COUNTER_SPOTS := {"fillet_counter": Vector3(-9.0, 0, 8.5), "grill_counter": Vector3(3.0, 0, 8.5),
-    "fillet_counter_2": Vector3(15.0, 0, 8.5), "grill_counter_2": Vector3(25.0, 0, 8.5)}
+    "fillet_counter_2": Vector3(15.0, 0, 8.5), "grill_counter_2": Vector3(25.0, 0, 8.5),
+    "fillet_counter_3": Vector3(33.6, 0, 8.5), "grill_counter_3": Vector3(43.6, 0, 8.5)}
 const PAD_SPOTS := {
     "hire_fisher": Vector3(-10.0, 0, 5.0), "hire_porter": Vector3(-6.0, 0, 5.0), "hire_cashier": Vector3(-2.0, 0, 5.0),
     "capacity_1": Vector3(2.0, 0, 5.0), "upgrade_worker_speed": Vector3(6.0, 0, 5.0), "upgrade_pile_cap": Vector3(10.0, 0, 5.0),
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
-    "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0),
+    "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0), "expand_village_2": Vector3(29.5, 0, 0.5),
     "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
     "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
     "tooth_tower_5": Vector3(-3.0, 0, -2.9), "tooth_tower_6": Vector3(3.0, 0, -2.9),
 }
-# 守衛塔(= 牌子的位置,牌是地基):四角 + 村中央水邊兩座(x ±3 是切魚台輸入格之間的空地,z -2.9 貼著淺水區南緣,屋頂只遮到水面)
+# 守衛塔(= 牌子的位置,牌是地基):四角 + 村中央水邊兩座(x ±3 是切魚台輸入格之間的空地,z -2.9 貼著淺水區南緣,屋頂只遮到水面);
+# 每塊擴建區照同樣布置六座(tower_7 ~ 12 第一塊、13 ~ 18 第二塊:四角在沙地內 2.0 / 1.6 格,中央兩座在切魚台輸入格之間與烤魚攤東側的水邊)
 const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5),
     "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
-    "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9)}
+    "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
+    "tower_7": Vector3(15.0, 0, -9.5), "tower_8": Vector3(30.0, 0, -9.5), "tower_9": Vector3(15.0, 0, 11.0), "tower_10": Vector3(30.0, 0, 11.0),
+    "tower_11": Vector3(21.5, 0, -2.9), "tower_12": Vector3(28.3, 0, -2.9),
+    "tower_13": Vector3(33.6, 0, -9.5), "tower_14": Vector3(48.6, 0, -9.5), "tower_15": Vector3(33.6, 0, 11.0), "tower_16": Vector3(48.6, 0, 11.0),
+    "tower_17": Vector3(40.1, 0, -2.9), "tower_18": Vector3(46.9, 0, -2.9)}
+const TOWERS_PER_AREA := 6   # tower_1 ~ 6 主村、7 ~ 12 第一塊擴建區、13 ~ 18 第二塊
 const UNLOCKS := {
     "station_2": {"stations": ["station_2"], "counters": []},
     "grill_complex": {"stations": ["grill"], "counters": ["grill_counter"]},
-    "village_2": {"stations": ["station_3", "grill_2"], "counters": ["fillet_counter_2", "grill_counter_2"], "annex": true, "expandShop": true},
+    "village_2": {"stations": ["station_3", "grill_2"], "counters": ["fillet_counter_2", "grill_counter_2"], "annex": 1, "expandShop": true},
+    "village_3": {"stations": ["station_4", "grill_3"], "counters": ["fillet_counter_3", "grill_counter_3"], "annex": 2, "expandShop": true},
 }
 const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆中段的門(柵欄缺口的外觀;擴建時整面東牆都拆)
-const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 擴建區(x 13 ~ 31.6)
+const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 第一塊擴建區(x 13 ~ 31.6)
+const ANNEX_RECTS := [Rect2(13.0, -11.0, 18.6, 23.6), Rect2(31.6, -11.0, 18.6, 23.6)]   # 兩塊擴建區(第二塊 x 31.6 ~ 50.2)
 const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
 const HELPER_SPAWN := Vector3(0.0, 0, -3.0)
@@ -55,7 +67,9 @@ const SHOPKEEPER_SPOT := Vector3(-19.5, 0, 0.6)
 var player: Player
 var fish_area: FishArea                 # 第一個水區(fish_areas[0])
 var fish_areas: Array[FishArea] = []
-var annex: StaticBatch = null           # 擴建區的布景(蓋了才有)
+var annex: StaticBatch = null           # 第一塊擴建區的布景(蓋了才有)
+var annexes: Array[StaticBatch] = []    # 每塊擴建區的布景(依序)
+var annex_east_walls: Array = []        # 每塊擴建區的東牆 [隱形牆, 柵欄](下一塊擴建時拆)
 var east_gate: StaticBody3D = null      # 東門那段隱形牆(擴建時拆)
 var east_gate_mesh: MeshInstance3D = null
 var east_walls: Array[Node3D] = []      # 整面東牆:三段隱形牆 + 柵欄(擴建時全部拆掉)
@@ -115,7 +129,7 @@ func _ready() -> void:
     for def in GameData.shop():
         var id := str(def["id"])
         var pad := PricePad.create(def)
-        pad.position = PAD_SPOTS.get(id, Vector3(0, 0, 12))
+        pad.position = PAD_SPOTS.get(id, TOWER_SPOTS.get(id.trim_prefix("tooth_"), Vector3(0, 0, 12)))   # 塔牌 / 熊王牙牌都在塔的位置
         world.add_child(pad)
         price_pads[id] = pad
         if id.begins_with("tooth_") and pad.label != null:
@@ -183,7 +197,7 @@ func _apply_quality() -> void:
 
 
 func _build_terrain() -> void:
-    scenery.add_box(Vector3(70, 0.2, 80), Color(0.93, 0.95, 0.98), Vector3(0, -0.12, -3))
+    scenery.add_box(Vector3(110, 0.2, 80), Color(0.93, 0.95, 0.98), Vector3(8, -0.12, -3))   # 雪地要蓋到第二塊擴建區(x 50.2)外
     scenery.add_box(Vector3(25, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(0, -0.02, 4.0))
     # 西牆留缺口(GATE_Z)通往村外的武器店
     _wall(Vector3(-12.6, 1, (-13.0 + GATE_Z.x) / 2.0), Vector3(0.4, 2, GATE_Z.x + 13.0))
@@ -243,41 +257,68 @@ func _build_outside() -> void:
     shopkeeper.add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
 
 
-## 擴建區(annex):整面東牆拆掉(隱形牆 + 柵欄),往東蓋沙地、柵欄、隱形牆、第二個水區與深水池;建築由 _spawn_unlock 依 UNLOCKS 生
-func _build_annex() -> void:
-    if annex != null:
+## 擴建區(annex):第 k 塊(1 起)。拆掉它西邊那面牆(k = 1 是主村的整面東牆 east_walls,k >= 2 是前一塊的東牆),
+## 往東蓋沙地、柵欄、隱形牆、新的水區與深水池;東牆(隱形牆 + 柵欄)另外記著,下一塊擴建時拆。建築由 _spawn_unlock 依 UNLOCKS 生。
+func _build_annex(k: int = 1) -> void:
+    if k < 1 or k > ANNEX_RECTS.size() or annexes.size() >= k:
         return
-    for w in east_walls:
-        if w != null and is_instance_valid(w):
-            w.queue_free()
-    east_walls.clear()
-    east_gate = null
-    east_gate_mesh = null
-    annex = StaticBatch.new()
-    annex.name = "Annex"
-    world.add_child(annex)
+    if k == 1:
+        for w in east_walls:
+            if w != null and is_instance_valid(w):
+                w.queue_free()
+        east_walls.clear()
+        east_gate = null
+        east_gate_mesh = null
+    else:
+        for w in annex_east_walls[k - 2]:
+            if w != null and is_instance_valid(w):
+                w.queue_free()
+        annex_east_walls[k - 2] = []
+    var rect: Rect2 = ANNEX_RECTS[k - 1]
+    var batch := StaticBatch.new()
+    batch.name = "Annex%d" % k
+    world.add_child(batch)
     var fence := Color(0.8, 0.62, 0.42)
-    var cx := ANNEX_RECT.get_center().x
-    annex.add_box(Vector3(ANNEX_RECT.size.x + 0.8, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(cx - 0.4, -0.02, 4.0))   # 沙地接到主村,中間沒縫
-    annex.add_box(Vector3(0.25, 0.9, 16.5), fence, Vector3(ANNEX_RECT.end.x - 0.2, 0.45, 4.0))
-    annex.add_box(Vector3(ANNEX_RECT.size.x, 0.9, 0.25), fence, Vector3(cx, 0.45, 12.4))
-    annex.add_box(Vector3(16, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(cx, -0.04, -14.0))
+    var cx := rect.get_center().x
+    batch.add_box(Vector3(rect.size.x + 0.8, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(cx - 0.4, -0.02, 4.0))   # 沙地接到西邊那塊,中間沒縫
+    batch.add_box(Vector3(rect.size.x, 0.9, 0.25), fence, Vector3(cx, 0.45, 12.4))
+    batch.add_box(Vector3(16, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(cx, -0.04, -14.0))
     for i in 17:
         var x := cx - 8.0 + float(i)
         if absf(x - cx) <= 1.5:
             continue
-        annex.add_cylinder(0.14, 1.1, fence, Vector3(x, 0.55, -11.5))
-    annex.add_box(Vector3(16, 0.3, 0.3), fence, Vector3(cx, 0.95, -11.5))
-    annex.build()
-    _wall(Vector3(ANNEX_RECT.end.x, 1, 0), Vector3(0.4, 2, 26))
-    _wall(Vector3(cx, 1, 12.6), Vector3(ANNEX_RECT.size.x + 0.4, 2, 0.4))
-    _wall(Vector3(cx, 1, -11.2), Vector3(ANNEX_RECT.size.x + 0.4, 2, 0.4))
+        batch.add_cylinder(0.14, 1.1, fence, Vector3(x, 0.55, -11.5))
+    batch.add_box(Vector3(16, 0.3, 0.3), fence, Vector3(cx, 0.95, -11.5))
+    batch.build()
+    var east_fence := VisualFactory.box(Vector3(0.25, 0.9, 16.5), fence, Vector3(rect.end.x - 0.2, 0.45, 4.0))
+    world.add_child(east_fence)
+    var east_wall := _wall(Vector3(rect.end.x, 1, 0), Vector3(0.4, 2, 26))
+    while annex_east_walls.size() < k:
+        annex_east_walls.append([])
+    annex_east_walls[k - 1] = [east_wall, east_fence]
+    _wall(Vector3(cx, 1, 12.6), Vector3(rect.size.x + 0.4, 2, 0.4))
+    _wall(Vector3(cx, 1, -11.2), Vector3(rect.size.x + 0.4, 2, 0.4))
     var fa := FishArea.new()
-    fa.name = "FishArea2"
+    fa.name = "FishArea%d" % (k + 1)
     fa.rect = Rect2(cx - 8.0, -11.0, 16.0, 7.0)
     world.add_child(fa)
     fish_areas.append(fa)
+    annexes.append(batch)
+    if k == 1:
+        annex = batch
     _apply_quality()
+    _refresh_tower_pads()
+
+
+## 擴建了幾次(0 = 只有主村)
+func expansion_level() -> int:
+    return annexes.size()
+
+
+## 這座塔屬於哪塊地:0 主村、1 第一塊擴建區、2 第二塊
+static func tower_area(tower_id: String) -> int:
+    var n := int(tower_id.trim_prefix("tower_"))
+    return maxi((n - 1) / TOWERS_PER_AREA, 0)
 
 
 func is_expanded() -> bool:
@@ -401,8 +442,8 @@ func _spawn_unlock(target: String) -> void:
         return
     _spawned_unlocks[target] = true
     var spec: Dictionary = UNLOCKS[target]
-    if bool(spec.get("annex", false)):
-        _build_annex()
+    if int(spec.get("annex", 0)) > 0:
+        _build_annex(int(spec.get("annex", 0)))
     for sid in spec.get("stations", []):
         _add_station(str(sid))
     for cid in spec.get("counters", []):
@@ -493,12 +534,20 @@ func tooth_pad_for(tower_id: String) -> PricePad:
     return price_pads.get("tooth_%s" % tower_id, null) as PricePad
 
 
-## 熊王牙牌只在塔完好、還沒強化時出現
+## 擴建區的塔牌只在那塊地擴建後出現;熊王牙牌只在塔完好、還沒強化時出現;第二次擴建的牌要擴建一次後才出現
 func _refresh_tower_pads() -> void:
     for t in towers:
+        var area := tower_area(t.id)
+        if area > 0:
+            var tp := tower_pad_for(t.id)
+            if tp != null:
+                tp.set_open(area <= expansion_level())
         var pad := tooth_pad_for(t.id)
         if pad != null:
             pad.set_open(t.is_alive() and not t.is_strong())
+    var ev2: PricePad = price_pads.get("expand_village_2", null)
+    if ev2 != null:
+        ev2.set_open(expansion_level() >= 1)
 
 
 ## --- 武器店等級 ---

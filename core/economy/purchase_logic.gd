@@ -20,7 +20,8 @@ var buys := 0
 var lost := 0           # 被吃掉、可以買回的名額
 var rebuy_mult := 1.5   # 買回的價格倍率
 var expand_buys := 0    # 擴建村莊後多開放的名額(shop.json expandBuys)
-var expanded := false
+var expansions := 0        # 擴建了幾次(每次村莊擴建多開 expand_buys 個名額,最多 max_expansions 次)
+var max_expansions := 2
 var currency := "cash"   # 用什麼付:cash / pelt / tooth
 var costs: Array = []    # 逐次價格(有就蓋過 cost × cost_mult)
 var base_max_buys := 1   # shop.json 的 maxBuys(raise_max 前)
@@ -76,12 +77,12 @@ func lose() -> bool:
     return true
 
 
-## 擴建村莊:多開放 expand_buys 個名額(只加一次);買滿消失的牌重新開放,價格是下一級。沒名額可加回 false
+## 擴建村莊:多開放 expand_buys 個名額(每次擴建加一次,最多 max_expansions 次);買滿消失的牌重新開放,價格是下一級。沒名額可加回 false
 func expand() -> bool:
-    if expanded or expand_buys <= 0:
+    if expansions >= max_expansions or expand_buys <= 0:
         return false
     var was_exhausted := is_exhausted()
-    expanded = true
+    expansions += 1
     max_buys += expand_buys
     if was_exhausted:
         remaining = current_cost()

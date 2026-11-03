@@ -263,7 +263,7 @@ func _finish() -> void:
     print("錢包 $%d、累計收入 $%d、賣出 %d 件、抓魚 %d 條、丟掉 %d 件" % [GameState.wallet, GameState.cash_earned, GameState.items_sold, GameState.fish_caught, GameState.items_trashed])
     print("幫手:漁夫 %d 搬運工 %d 收銀員 %d;被吃 %d(%s)" % [_count_role("fisher"), _count_role("porter"), _count_role("cashier"), GameState.helpers_lost, str(_eaten)])
     print("熊:出現 %d 隻、打跑 / 打死 %d、離開 %d;毛皮 %d 牙 %d 武器 Lv%d 武器店 Lv%d" % [_bears_seen, _bears_defeated, _bears_left, GameState.pelts, GameState.teeth, GameState.weapon_level, GameState.shop_level])
-    print("守衛塔活著 %d / 6;擴建 %s;升級 %s" % [level.alive_towers().size(), str(level.is_expanded()), str(GameState.upgrades)])
+    print("守衛塔活著 %d / %d;擴建 %d 次;升級 %s" % [level.alive_towers().size(), level.towers.size(), level.expansion_level(), str(GameState.upgrades)])
     print("閒置(沒提示)%.0f 秒 = %.0f%%;卡住 %d 次" % [_idle_sec, 100.0 * _idle_sec / maxf(GameState.play_time, 1.0), _stuck_count])
     var hk := _hint_sec.keys()
     hk.sort()

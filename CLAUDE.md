@@ -72,6 +72,11 @@
   12 一般熊掉 1 ~ 2 張毛皮、王掉 3 顆牙(dropCount,BearLogic.drop_count),武器店升級 3 / 8 / 15 張;15 修復 $100(守衛塔牌 rebuyMult 0.5、repairStation 100);
   16 有武器且熊在 6 格內(bear.busyRadius)暫停抓魚 / 拿貨(Player.busy_with_bear 關 can_fish / takes_output);18 HUD 左上只留背包 / 毛皮 / 熊王牙 / 武器(HUD_RES),
   詳細統計(HUD_STATS)收進選單面板(Hud._stats / stats_text())。不改:#3 塔價、#8 提示挑最便宜、#10、#13 烤魚攤價、#14 擴建價、#17 顧客耐心、#19 武器店位置、#20。
+- 2026-11-03(使用者點名兩項,沒開問題):1 擴建區也照主村布置守衛塔:每塊六座(四角在沙地內 2.0 / 1.6 格 + 中央水邊兩座),tower_7 ~ 12 第一塊、13 ~ 18 第二塊,
+  牌子(tower_n / tooth_tower_n,位置直接取 TOWER_SPOTS)只在那塊地擴建後出現(Harbor._refresh_tower_pads 用 tower_area(id) <= expansion_level() set_open);
+  2 第二次擴建牌 expand_village_2 $2000(unlock village_3,牌在第一塊擴建區 (29.5, 0.5),擴建一次後才出現):ANNEX_RECTS[1](x 31.6 ~ 50.2)、
+  拆第一塊的東牆(annex_east_walls)、第三個水區、station_4 + grill_3、fillet_counter_3 + grill_counter_3(counters.json)、僱用牌再 expand 一次
+  (PurchaseLogic.expansions,最多 max_expansions 2 次:漁夫 7 / 搬運工 10 / 收銀員 6)、熊入口 entriesExpanded2(東邊 x 54);雪地加寬到 x 55。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -85,7 +90,7 @@
 
 - `core/data/game_data.gd`:GameData(靜態載入 game.json / items.json / stations.json / counters.json / shop.json;`section(key)`、`helper(role)`、物品尺寸 / 顏色 / 翻譯名)
 - `core/economy/`:ItemStack(一疊同種物品,有容量)、StationLogic(輸入堆 -> 處理 -> 輸出堆,輸出滿停工,speed_mult)、PurchaseLogic(價格牌分期;repeatable / max_buys / cost_mult / buys,`complete()` 漲價、`restore(buys, remaining, lost)` 存檔還原;
-  僱用牌 `lose()` 退名額、lost / rebuy_mult 買回價、is_rebuy;expand_buys / `expand()` 擴建村莊多開放名額;currency cash / pelt / tooth、costs 逐次價、
+  僱用牌 `lose()` 退名額、lost / rebuy_mult 買回價、is_rebuy;expand_buys / `expand()` 擴建村莊多開放名額(每次擴建一次,expansions <= max_expansions 2);currency cash / pelt / tooth、costs 逐次價、
   base_max_buys / `raise_max(n)` 武器店升級多開名額)、CounterLogic(庫存 / 售價 / 賣出;static roll_want(權重, roll) 顧客要幾件)、PorterPlanner(搬運工派工:need_of / plan / best_dest / best_source,吃字典清單)
 - `core/input/move_input.gd`:MoveInput(螢幕方向 -> 世界 XZ;from_actions 鍵盤手把 + 觸控搖桿(static touch_dir,有推就以搖桿為準)、toward 合成輸入)
 - `core/guidance/guide_logic.gd`:GuideLogic(教學七步的完成條件與指向、教學後的提示 hint();吃世界狀態字典,回 {kind, target, text, arg};
@@ -121,10 +126,10 @@
 - `game/ui/guide.gd`:Guide(Node3D,掛在關卡下):每 0.1 秒把關卡狀態餵 GuideLogic,推進教學(GameState.tutorial_step)、解析目標座標、畫玩家頭上箭頭 + 目標彈跳箭頭、餵 HUD 文字;toggle_hints(H)
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
   西牆缺口 GATE_Z、_build_outside 村外武器店院子(店屋 WEAPON_SHOP、老闆 shopkeeper、武器牌 PAD_SPOTS.weapon)、bears(BearSpawner)、
-  helper_eaten 結算被吃的幫手(hire_pad_for(role).on_lost);守衛塔 TOWER_SPOTS 四角 + 村中央水邊兩座(牌 PAD_SPOTS.tower_n 同位置)、towers / _build_towers /
+  helper_eaten 結算被吃的幫手(hire_pad_for(role).on_lost);守衛塔 TOWER_SPOTS 主村六座 + 每塊擴建區六座(牌子位置直接取 TOWER_SPOTS;tower_area(id) 屬於哪塊地)、towers / _build_towers /
   tower_by_id / tower_pad_for / tooth_pad_for / alive_towers / tower_destroyed(牌 on_lost 修復價)/ _refresh_tower_pads(熊王牙牌只在塔完好未強化時開),_on_purchased "tower" 蓋 / 修、
   "tower_upgrade" 強化、"shop_upgrade" -> _apply_shop_level(武器牌 raise_max、招牌 shop_sign 顯示等級);掉落物 loot / drop_loot / loot_collected / _on_bear_defeated(熊被打跑掉毛皮、王掉熊王牙);東牆 east_walls(三段隱形牆 + 柵欄,擴建時整面拆;east_gate / east_gate_mesh 是門那段)、_build_annex 擴建區
-  (ANNEX_RECT:沙地、柵欄、隱形牆、深水池、FishArea2)、fish_areas / nearest_fish_area / pick_fish_area(漁夫挑人少的水區)、is_expanded、
+  (_build_annex(k):ANNEX_RECTS[k-1] 沙地、柵欄、隱形牆、深水池、FishArea<k+1>;東牆記在 annex_east_walls 下一塊拆)、annexes / expansion_level / fish_areas / nearest_fish_area / pick_fish_area(漁夫挑人少的水區)、is_expanded、
   route / gate_point(東牆拆了之後回空 / 原點,留給 Helper.go_to 以後補規則)、fish_eaten(王吃魚)、_physics_process 累加 GameState.play_time
 - `autoload/event_bus.gd`:fish_caught / items_processed / sale_made / cash_collected / purchase_progress / purchased / helper_hired / notice / items_moved(kind, item, from, to, count)/ tutorial_step_done / tutorial_finished /
   bear_appeared / bear_biting / bear_hit(bear, damage, hp_left)/ bear_defeated / bear_left(reason fled | no_prey)/ helper_eaten(role, helper)/ fish_eaten / bear_fed /
@@ -150,7 +155,7 @@
   pelts / teeth / shop_level(resource(kind) / add_resource / spend_resource,kind cash / pelt / tooth)/ 統計(含 items_trashed);
   apply_purchase(effect type:capacity / hire / unlock / upgrade / weapon / shop_upgrade;tower / repair / tower_upgrade 只記 unlocked)、lose_helper(role)、upgrade_mult、to_dict / from_dict
 - `autoload/save_manager.gd`:存檔 IO(user://manlife_save.json,VERSION 2;has_save / write / read / delete;測試改 save_path)
-- `data/config/game.json`:速度、容量、搬運速率(transferPerSec / cashPickupPerSec / payPerSec / payDelaySec / trashPerSec)、魚群、顧客、autosaveSec、helpers、upgrades、models(人物 GLB 資料夾與身高、player / worker / roles / customers / shopkeeper 用哪個人物、waterFish、
+- `data/config/game.json`(bear.entriesExpanded2 第二次擴建的入口):速度、容量、搬運速率(transferPerSec / cashPickupPerSec / payPerSec / payDelaySec / trashPerSec)、魚群、顧客、autosaveSec、helpers、upgrades、models(人物 GLB 資料夾與身高、player / worker / roles / customers / shopkeeper 用哪個人物、waterFish、
   bear.file 可選的熊模型)、bear(enabled / firstDelaySec / intervalSec / intervalMin / rampStartSec / rampSec / hpBase / hpPerMin / packChances /
   speed / fleeSpeed / biteSec / biteRadius / panicRadius / entries / entriesExpanded / length / king {atSec, respawnSec, hpMult, biteSec, fishBiteSec, buildingBiteSec, scale,
   growHelper, growFish, maxScale, healFish, healHelper, drop}、drop)、tower(hp / damage / … / strong {hp, damage})、weapon(attackIntervalSec、shopBaseLevels、levels[] ×6 damage / range / model)、
@@ -214,12 +219,13 @@
 - 強力守衛塔:熊王牙牌 tooth_tower_n 在塔底下(PAD_SPOTS 同塔位置,label 拉高到 6.4),Harbor._refresh_tower_pads 只在塔 alive 且 tier 0 時 set_open(true)
   (蓋好 / 修好 / 讀檔 / 拆掉都重算);付清 _on_purchased "tower_upgrade" -> Tower.upgrade():tier 1、hp_max = TowerLogic.hp(1)、血回滿、Arrow 傷害 damage(1)。
   存檔 towers{id: {state, hp, tier}};拆掉修好仍是 tier 1。
-- 擴建名額:UNLOCKS.village_2.expandShop -> 所有 PricePad.expand():PurchaseLogic.expand() 把 max_buys 加 expandBuys(只一次),買滿的牌重開、
+- 擴建名額:UNLOCKS.village_2 / village_3 的 expandShop -> 所有 PricePad.expand():PurchaseLogic.expand() 把 max_buys 加 expandBuys(每次擴建一次、最多兩次),買滿的牌重開、
   remaining 設成下一級價。讀檔順序 _spawn_unlock(expand)在 restore_world(restore 夾在新的 max_buys 內)之前,所以不用存。
 - 買回:幫手被吃 -> Harbor.hire_pad_for(role).on_lost() -> PurchaseLogic.lose()(buys -1、lost +1、價格 × rebuy_mult、已付保留)
   -> 牌子 _enable 重新出現。complete() 時 lost -1 回正常階梯。存檔 pads 多記 lost。
-- 擴建(village_2):UNLOCKS 的 `annex: true` 讓 _spawn_unlock 先 _build_annex(拆整面東牆 east_walls、蓋 annex StaticBatch、FishArea2),再生 station_3 / grill_2 /
-  fillet_counter_2 / grill_counter_2(座標在 STATION_SPOTS / COUNTER_SPOTS)。多水區:Harbor.fish_areas,漁夫在 idle -> fishing 時 pick_fish_area
+- 擴建(village_2 / village_3):UNLOCKS 的 `annex: k` 讓 _spawn_unlock 先 _build_annex(k)(k = 1 拆整面東牆 east_walls,k = 2 拆第一塊的東牆;蓋 Annex<k> StaticBatch、FishArea<k+1>),
+  再生 station_3 / grill_2 / fillet_counter_2 / grill_counter_2(k = 2:station_4 / grill_3 / *_counter_3;座標在 STATION_SPOTS / COUNTER_SPOTS)。
+  擴建區的塔牌與第二次擴建牌靠 _refresh_tower_pads 開關(建關卡、擴建、讀檔時都重算)。多水區:Harbor.fish_areas,漁夫在 idle -> fishing 時 pick_fish_area
   (漁夫最少、再最近),Guide 指 nearest_fish_area;熊的入口擴建後換 entriesExpanded。東牆沒拆前 x > 12.6 走不過去。
 - 顧客數量:want 由 CounterLogic.roll_want 抽,泡泡顯示 ×N,serve(want) 賣 min(want, 庫存) 就走(不等補貨)。
 - 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。

@@ -27,6 +27,20 @@
       "item": "grilled",
       "price": 5,
       "stockCap": 24
+    },
+    {
+      "id": "fillet_counter_3",
+      "name": "COUNTER_fillet",
+      "item": "fillet",
+      "price": 2,
+      "stockCap": 30
+    },
+    {
+      "id": "grill_counter_3",
+      "name": "COUNTER_grill",
+      "item": "grilled",
+      "price": 5,
+      "stockCap": 24
     }
   ]
 }

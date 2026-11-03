@@ -190,9 +190,14 @@ func flee_speed() -> float:
 
 
 ## 熊從哪幾個邊緣點進來(世界 XZ);expanded = 村莊擴建後用 entriesExpanded(沒設定就同 entries)
-func entries(expanded: bool = false) -> Array[Vector3]:
+## 入口:擴建幾次就用 entriesExpanded<n>(沒有就退回上一級、再退回 entries)
+func entries(expansion: int = 0) -> Array[Vector3]:
     var out: Array[Vector3] = []
-    var v = cfg.get("entriesExpanded", null) if expanded else null
+    var v = null
+    if expansion >= 2:
+        v = cfg.get("entriesExpanded2", null)
+    if typeof(v) != TYPE_ARRAY and expansion >= 1:
+        v = cfg.get("entriesExpanded", null)
     if typeof(v) != TYPE_ARRAY:
         v = cfg.get("entries", [])
     if typeof(v) == TYPE_ARRAY:

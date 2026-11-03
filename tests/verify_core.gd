@@ -67,7 +67,13 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    _check(shop.size() == 23 and costs == [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 200, 200, 200, 200, 200, 200, 3, 1, 1, 1, 1, 1, 1],
+    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 50, 60, 35, 1000, 2000]
+    for i in 18:
+        costs_expected.append(200)
+    costs_expected.append(3)
+    for i in 18:
+        costs_expected.append(1)
+    _check(shop.size() == 48 and costs == costs_expected,
             "shop.json:十四塊牌(含村外武器店、擴建村莊、四座守衛塔)%s" % str(costs))
     _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 2 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
             and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),
@@ -82,9 +88,9 @@ func _test_data() -> void:
             "武器牌:效果 weapon、三級")
     _check(bool(GameData.purchase("expand_table").get("buildSpot", false)) and GameData.purchase("nope").is_empty(),
             "建地牌旗標;未知購買回空")
-    _check(GameData.counters().size() == 4 and int(GameData.counter("grill_counter").get("price", 0)) == 5
+    _check(GameData.counters().size() == 6 and int(GameData.counter("grill_counter").get("price", 0)) == 5 and str(GameData.counter("grill_counter_3").get("item", "")) == "grilled"
             and str(GameData.counter("fillet_counter").get("item", "")) == "fillet" and str(GameData.counter("grill_counter_2").get("item", "")) == "grilled",
-            "counters.json:魚片櫃台 $2、烤魚櫃台 $5、擴建區的第二組")
+            "counters.json:魚片櫃台 $2、烤魚櫃台 $5、兩塊擴建區的第二、三組")
     _check(GameData.section("customers").get("wantWeights", []).size() == 5 and float(GameData.config().get("payScaleCost", 0.0)) > 0.0,
             "顧客要 1 ~ 5 件的權重;大額牌付款加速門檻")
     _check(str(GameData.station("grill").get("input", "")) == "fillet" and str(GameData.station("grill").get("output", "")) == "grilled"
@@ -209,7 +215,7 @@ func _test_purchase() -> void:
     var r5 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
     r5.restore(3, 0)
     _check(r5.is_exhausted() and r5.expand_buys == 2 and r5.expand() and not r5.is_exhausted() and r5.max_buys == 5 and r5.buys == 3
-            and r5.remaining == r5.current_cost() and r5.current_cost() == 58 and not r5.expand() and r5.max_buys == 5,
+            and r5.remaining == r5.current_cost() and r5.current_cost() == 58 and r5.expand() and r5.max_buys == 7 and not r5.expand() and r5.max_buys == 7,
             "擴建:漁夫牌 3 -> 5 次,買滿的牌重開、第四次 $%d(10 × 1.8³)、只加一次" % r5.current_cost())
     var r6 := PurchaseLogic.from_def(GameData.purchase("hire_porter"))
     r6.pay(30)
@@ -597,7 +603,8 @@ func _test_bear() -> void:
             and b.pack_size(0.899) == 2 and b.pack_size(0.9) == 1 and b.pack_size(1.0) == 1, "一次幾隻:10% 4 隻、30% 3 隻、50% 2 隻、10% 1 隻")
     _check(b.interval() == Vector2(35.0, 55.0) and is_equal_approx(b.first_delay(), 5.0) and is_equal_approx(b.first_at_sec(), 180.0),
             "第一群 3 分鐘後(再倒數 5 秒)才來、之後 35 ~ 55 秒")
-    _check(b.entries(true).size() == 2 and b.entries(true)[1].x > 30.0 and b.entries(false)[1].x < 20.0, "擴建後東邊入口移到 annex 外")
+    _check(b.entries(1).size() == 2 and b.entries(1)[1].x > 30.0 and b.entries(0)[1].x < 20.0 and b.entries(2)[1].x > 50.0
+            and b.entries(2)[0].x < 0.0, "擴建後東邊入口移到 annex 外、第二次擴建再往東")
     var prey := [{"id": 1, "pos": Vector3(10, 0, 0)}, {"id": 2, "pos": Vector3(3, 5, 4)}, {"id": 3, "pos": Vector3(-8, 0, 1)}]
     _check(BearLogic.pick_target(Vector3.ZERO, prey) == 2 and BearLogic.pick_target(Vector3(-7, 0, 0), prey) == 3
             and BearLogic.pick_target(Vector3.ZERO, []) == -1, "盯上平面距離最近的幫手(忽略高度);沒幫手回 -1")

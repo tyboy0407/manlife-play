@@ -101,6 +101,7 @@
     "panicRadius": 2.6,
     "entries": [[-16, -8], [16, -8]],
     "entriesExpanded": [[-16, -8], [35, -8]],
+    "entriesExpanded2": [[-16, -8], [54, -8]],
     "length": 2.6,
     "drop": "pelt",
     "dropCount": [1, 2]

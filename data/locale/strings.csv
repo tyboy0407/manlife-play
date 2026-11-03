@@ -115,3 +115,4 @@ HINT_take_jammed,A station is jammed. Take its products so the worker can contin
 TUT_earn,Earn $%d more to buy %s,再賺 $%d 就能買「%s」，先去做工
 HINT_BEAR_MONEY,A polar bear! Grab the cash on the money pad for a weapon,北極熊來了!先去錢格收錢，去武器店買武器
 HINT_BEAR_EARN,A polar bear! Earn $%d more to buy a weapon at the shop outside the village,北極熊來了!還差 $%d 才買得起武器，先賣貨賺錢
+SHOP_expand_village_2,Expand the village again,再擴建村莊

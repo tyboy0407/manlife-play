@@ -126,7 +126,7 @@ func spawn_pack(n: int) -> Array[Bear]:
 
 
 func _pick_entry() -> Vector3:
-    var es := logic.entries(level.is_expanded())
+    var es := logic.entries(level.expansion_level())
     return es[randi() % es.size()] if not es.is_empty() else Vector3(-16, 0, -8)
 
 
