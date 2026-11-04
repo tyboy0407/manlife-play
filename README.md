@@ -49,5 +49,7 @@
 - 守衛塔:村莊四個角落、以及村中央水邊(切魚台之間)各有一塊 $200 的地基牌,共六座(每塊擴建區也照同樣位置再六座,擴建後才出現),付清就蓋起守衛塔,塔頂守衛會朝靠近的北極熊射箭;熊靠近或被射中會來拆塔,
   血 800(一般熊咬一口 40,要咬 20 口)歸零塌成廢墟,站回地基花 $100 修復。數值在 `data/config/game.json` 的 `tower`。
 - 音效是程式合成的占位版(`tools/gen_sfx.py` 產生 `assets/sfx/*.wav`),之後拿正式音檔同名覆蓋即可。
+- 部署 / 雲端:原始碼與網頁成品同在 GitHub `tyboy0407/manlife-play`(成品在 `docs/`,Pages 從那裡發布);
+  `python tools/deploy_web.py` 匯出並推上去。Linux / claude.ai/code 雲端環境先 `bash tools/setup_cloud.sh` 裝 Godot,測試用 `bash tools/run_tests.sh`。
 - 數值:`data/config/game.json`(速度、容量、搬運 / 收錢 / 付錢速率與付錢前停留秒數、魚群、顧客、幫手、升級、自動存檔);物品 `data/items.json`;站點 `data/stations.json`;櫃台 `data/counters.json`;價格牌 `data/shop.json`;文字 `data/locale/strings.csv`。
 - 跑測試:`powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1`

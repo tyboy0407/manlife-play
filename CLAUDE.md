@@ -170,7 +170,8 @@
 - `tools/playtest.tscn` + `.gd`:自動試玩機器人(照 Guide 提示走、熊照正式規則來;工作站塞住 / 櫃台滿 / 牌子沒錢時做真人會做的事),
   印每 10 秒狀態、購買 / 被吃 / 熊事件與 SUMMARY;`godot --headless --path . res://tools/playtest.tscn -- <分鐘 20> <倍速 4> <seed>`;報告在 docs/playtest_2026-10-28.md
 - `tools/serve_web.py`:本機預覽 build/web(0.0.0.0,印 iPhone 可用的區網網址;8080 被台股 App 佔著,用 8090);`.claude/launch.json` 的 `web`
-- `tools/deploy_web.py`:`--export-release Web` -> 同步到 build/pages(tyboy0407/manlife-play 的 clone)-> commit(沿用本 repo 的 git 身分)-> push main;`--export-only` / `--no-export`
+- `tools/deploy_web.py`:`--export-release Web` -> 同步到 `docs/`(Pages 從這裡發布)-> 只 commit docs/ -> push origin main;`--export-only` / `--no-export` / `--no-push`
+- `tools/setup_cloud.sh`:Linux / 雲端裝 Godot 4.7(~/godot/godot)+ 可選 `--templates` 匯出模板,並先 --import 兩次;`tools/run_tests.sh`:bash 版測試跑法(timeout 600 / 個)
 - `export_presets.cfg`:Web 預設(不開執行緒、PWA 開、直式、圖示指到 assets/icons);`assets/fonts/NotoSansTC-VF.ttf`(OFL,見 LICENSE.md)是遊戲內唯一的中文字型
 - `autoload/game_state.gd`:wallet(add_wallet / spend)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost / play_time /
   pelts / teeth / shop_level(resource(kind) / add_resource / spend_resource,kind cash / pelt / tooth)/ 統計(含 items_trashed);
@@ -267,8 +268,13 @@
 - 匯出:`godot --headless --path . --export-release Web build/web/index.html`(模板在 `%APPDATA%\Godot\export_templates\4.7.stable\`,
   只解了 web_* 與 version.txt);產物 index.html / js / wasm(39.5 MB)/ pck / 圖示 / index.manifest.json / index.service.worker.js(快取版本 = 匯出時間,每次匯出自動換)。
   不開執行緒的模板不需要 COOP / COEP 標頭,GitHub Pages 才放得上。
-- 部署:`python tools/deploy_web.py`(匯出 + 推 Pages);網址 https://tyboy0407.github.io/manlife-play/,repo 只放匯出成品不放原始碼。
+- 部署:`python tools/deploy_web.py`(匯出 -> 複製到 `docs/` -> 只 commit docs/ -> push origin main);網址 https://tyboy0407.github.io/manlife-play/。
+  2026-11-04 起原始碼與網頁成品同一個 GitHub repo `tyboy0407/manlife-play`(public):原始碼在根目錄、成品在 `docs/`(含 .nojekyll、.gdignore),
+  Pages 設定從 main 的 /docs 發布(之前是成品 repo 從根目錄發布,舊的 build/pages clone 不再使用)。`build/` 要有 `.gdignore`,不然 Godot 會匯入成品 PNG。
   iPhone:Safari 開網址 -> 分享 -> 加入主畫面;存檔在瀏覽器儲存空間(IndexedDB)。
+- 雲端(claude.ai/code 的 Linux 環境,已連 manlife-play):沒有 Godot,先 `bash tools/setup_cloud.sh`(下載 4.7 Linux 執行檔到 ~/godot/godot 並匯入專案;
+  要匯出網頁版再加 `--templates` 下載匯出模板約 1 GB),測試用 `bash tools/run_tests.sh`(run_tests.ps1 的 bash 版,GODOT 環境變數可覆蓋),
+  部署 `python tools/deploy_web.py` 同一支(push 需要雲端的 GitHub 權限涵蓋 manlife-play)。雲端做不到:截圖工具(要視窗)。
 - 自動更新:Godot 的 service worker 本身不會 skipWaiting,新版裝好要全關再開兩次才生效。export_presets 的 `html/head_include`
   多了一段 JS:load 後抓 registration,`updatefound` -> 新 worker `installed`(且已有 controller)就 `postMessage('update')`
   (Godot SW 內建的訊息:skipWaiting + clients.claim + navigate),再聽 `controllerchange` 自己 reload 一次(Safari 沒有 WindowClient.navigate);
@@ -286,6 +292,7 @@
 
 ```
 powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
+bash tools/run_tests.sh          # Linux / 雲端(先 bash tools/setup_cloud.sh)
 ```
 
 先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
