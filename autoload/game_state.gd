@@ -24,6 +24,7 @@ var cash_earned := 0
 var fish_caught := 0
 var items_sold := 0
 var items_trashed := 0
+var offline_earned := 0        # 離線收益累計(領取時加)
 
 
 func _ready() -> void:
@@ -52,6 +53,7 @@ func reset() -> void:
     fish_caught = 0
     items_sold = 0
     items_trashed = 0
+    offline_earned = 0
     changed.emit()
 
 
@@ -174,6 +176,13 @@ func add_wallet(n: int) -> void:
         wallet += n
 
 
+## 領取離線收益:進錢包並記統計
+func claim_offline(cash: int) -> void:
+    if cash > 0:
+        wallet += cash
+        offline_earned += cash
+
+
 ## 從錢包扣 n(最多扣到 0),回傳實際扣掉的
 func spend(n: int) -> int:
     var paid := clampi(n, 0, wallet)
@@ -190,6 +199,7 @@ func to_dict() -> Dictionary:
         "upgrades": upgrades.duplicate(), "weapon_level": weapon_level, "helpers_lost": helpers_lost, "play_time": play_time,
         "pelts": pelts, "teeth": teeth, "shop_level": shop_level,
         "cash_earned": cash_earned, "fish_caught": fish_caught, "items_sold": items_sold, "items_trashed": items_trashed,
+        "offline_earned": offline_earned,
     }
 
 
@@ -220,6 +230,7 @@ func from_dict(d: Dictionary) -> void:
     fish_caught = int(d.get("fish_caught", 0))
     items_sold = int(d.get("items_sold", 0))
     items_trashed = int(d.get("items_trashed", 0))
+    offline_earned = maxi(int(d.get("offline_earned", 0)), 0)
     weapon_level = maxi(int(d.get("weapon_level", 0)), 0)
     helpers_lost = maxi(int(d.get("helpers_lost", 0)), 0)
     play_time = maxf(float(d.get("play_time", 0.0)), 0.0)

@@ -131,6 +131,9 @@ var scenery: StaticBatch   # 不會動的布景合併成一個網格
 var world: Node3D
 var autosave_sec := 10.0
 var loaded_from_save := false
+var offline: OfflineLogic               # 離線收益:在線記收入速率、讀檔時算離線收益
+var offline_sec := 0                    # 這次讀檔算出的離線秒數
+var _offline_pending := 0               # 還沒領的離線收益(面板開著)
 
 var _autosave_timer := 0.0
 var _spawned_unlocks := {}
@@ -194,10 +197,14 @@ func _ready() -> void:
     add_child(hud)
     autosave_sec = maxf(float(GameData.config().get("autosaveSec", 10.0)), 1.0)
     _autosave_timer = autosave_sec
+    offline = OfflineLogic.from_config(GameData.section("offline"))
     _load_save()
     _apply_shop_level()
     _refresh_tower_pads()
     EventBus.bear_defeated.connect(_on_bear_defeated)
+    EventBus.sale_made.connect(func(_item: String, _count: int, cash: int) -> void: offline.record(GameState.play_time, cash))
+    if _offline_pending > 0:
+        _show_offline()
     guide = Guide.new()
     guide.name = "Guide"
     guide.level = self
@@ -992,6 +999,7 @@ func snapshot() -> Dictionary:
         "player": {"item": player.stack.item_id, "count": player.stack.count},
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d, "towers": towers_d,
         "loot": loot_d, "traps": traps_d, "baits": baits_d, "belts": belts_d, "bear": bears.snapshot() if bears != null else {},
+        "income_rate": offline.rate(GameState.play_time) if offline != null else 0.0,
     }
 
 
@@ -1097,13 +1105,42 @@ func _load_save() -> void:
         for i in GameState.hired_count(str(role)):
             spawn_helper(str(role), true)
     var world_d = data.get("world", {})
+    var prev_rate := 0.0
     if typeof(world_d) == TYPE_DICTIONARY:
         restore_world(world_d)
+        prev_rate = maxf(float(world_d.get("income_rate", 0.0)), 0.0)
     loaded_from_save = true
+    offline.begin(GameState.play_time, prev_rate)
+    # 離線收益:教學做完才算;金額 > 0 才彈面板(_ready 最後 _show_offline)
+    if GameState.tutorial_step >= GuideLogic.tutorial_steps():
+        offline_sec = OfflineLogic.offline_seconds(int(data.get("savedAt", 0)), int(Time.get_unix_time_from_system()))
+        _offline_pending = offline.earnings(prev_rate, float(offline_sec))
+
+
+## 彈出離線收益面板並暫停遊戲(HUD 設成 ALWAYS 才收得到按鈕);領取走 _on_hud_action "offline_claim"
+func _show_offline() -> void:
+    hud.process_mode = Node.PROCESS_MODE_ALWAYS
+    hud.show_offline(_offline_pending, offline_sec, offline.counted_seconds(float(offline_sec)))
+    get_tree().paused = true
+
+
+func _claim_offline() -> void:
+    var cash := _offline_pending
+    _offline_pending = 0
+    get_tree().paused = false
+    hud.process_mode = Node.PROCESS_MODE_INHERIT
+    if cash <= 0:
+        return
+    GameState.claim_offline(cash)
+    EventBus.offline_claimed.emit(cash, offline_sec)
+    EventBus.items_moved.emit("cash", "cash", player.global_position + Vector3(0, 1.6, 0), player.global_position, 1)
+    EventBus.notice.emit(tr("NOTICE_OFFLINE") % cash)
+    save_now()
 
 
 func _physics_process(delta: float) -> void:
     GameState.play_time += delta
+    hud.income_rate = offline.rate(GameState.play_time)
     _autosave_timer -= delta
     if _autosave_timer <= 0.0:
         _autosave_timer = autosave_sec
@@ -1123,6 +1160,8 @@ func _on_hud_action(id: String) -> void:
                 guide.toggle_hints()
         "new_game":
             new_game()
+        "offline_claim":
+            _claim_offline()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1137,6 +1176,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func clear_save_and_state() -> void:
     SaveManager.delete()
     GameState.reset()
+
+
+func _exit_tree() -> void:
+    if get_tree() != null and get_tree().paused:
+        get_tree().paused = false   # 面板開著時換場景 / 測試拆關卡,別讓新關卡卡在暫停
 
 
 ## F9:刪存檔、清狀態、重載場景

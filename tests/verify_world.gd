@@ -685,6 +685,8 @@ func _run() -> void:
     _check(_level.loaded_from_save and GameState.cash_earned == earned_saved and GameState.hired_total() == hired_saved
             and GameState.upgrade_level("worker_speed") == 1 and GameState.wallet == wallet_saved and GameState.tutorial_step == 7
             and not _level.guide.in_tutorial, "重建關卡:讀回 GameState(含錢包 $%d、教學已完成)" % wallet_saved)
+    _check(not _level.hud.offline_open() and not get_tree().paused and _level.offline_sec < 60,
+            "剛存的檔(離線 %d 秒不滿 1 分鐘):沒有離線收益面板、遊戲沒暫停" % _level.offline_sec)
     var tailor2 := _level.station_at("tailor")
     _check(_level.stations.size() == 11 and grill2 != null and _level.counters.size() == 7 and _level.helpers.size() == hired_saved
             and _level.expansion_level() == 3 and _level.fish_areas.size() == 4 and _level.east_gate == null and _level.station_at("grill_2") != null
@@ -729,6 +731,34 @@ func _run() -> void:
             and not (_level.price_pads["tower_1"] as PricePad).visible and _level.tower_by_id("tower_2").state == "none"
             and fp2.logic.max_buys == 9 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 14,
             "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、三次擴建後的僱用名額還原" % tower_hp_saved)
+    # 離線收益:把存檔的 savedAt 撥回 3 小時前、收入速率寫成 2 $/s -> 重建關卡時彈面板、遊戲暫停 -> 領取 $10800 進錢包
+    _level.save_now()
+    var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SaveManager.save_path))
+    raw["savedAt"] = int(Time.get_unix_time_from_system()) - 3 * 3600
+    raw["world"]["income_rate"] = 2.0
+    var fw := FileAccess.open(SaveManager.save_path, FileAccess.WRITE)
+    fw.store_string(JSON.stringify(raw))
+    fw.close()
+    _level.queue_free()
+    await _step(3)
+    GameState.reset()
+    await _spawn_level()
+    var wallet_before := GameState.wallet
+    var rate_loaded := _level.offline.rate(GameState.play_time)
+    _check(_level.loaded_from_save and _level.hud.offline_open() and get_tree().paused and _level.hud.offline_cash() == 10800
+            and _level.offline_sec >= 3 * 3600 and _level.offline_sec < 3 * 3600 + 120 and absf(rate_loaded - 2.0) < 0.05,
+            "離線 3 小時、速率 2 $/s:面板彈出($10800 = 2 × 10800 × 0.5)、遊戲暫停、速率讀回 %.2f" % rate_loaded)
+    var pt_paused := GameState.play_time
+    await _step(5)
+    _check(is_equal_approx(GameState.play_time, pt_paused), "暫停時遊戲時間不走")
+    _level.hud.offline_action("claim")
+    await _step(3)
+    _check(not _level.hud.offline_open() and not get_tree().paused and GameState.wallet == wallet_before + 10800
+            and GameState.offline_earned == 10800 and GameState.play_time > pt_paused
+            and int(SaveManager.read().get("state", {}).get("offline_earned", 0)) == 10800,
+            "領取:面板關、恢復、錢包 +$10800、統計與存檔都記了")
+    _level.hud.offline_action("claim")
+    _check(GameState.wallet == wallet_before + 10800, "再按一次不會重複領")
     # F9 新遊戲
     _level.clear_save_and_state()
     _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0 and GameState.pelts == 0 and GameState.teeth == 0 and GameState.shop_level == 0,

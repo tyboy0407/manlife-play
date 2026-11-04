@@ -46,6 +46,7 @@ func _ready() -> void:
     EventBus.trap_triggered.connect(func(_t: Node3D, _b: Node3D) -> void: play("crash", 0.3))
     EventBus.bait_eaten.connect(func(_t: Node3D, _b: Node3D) -> void: play("chomp", 0.2))
     EventBus.conveyor_built.connect(func(_c: Node3D) -> void: play("unlock"))
+    EventBus.offline_claimed.connect(func(_cash: int, _sec: int) -> void: play("goal"))
     EventBus.tower_shot.connect(func(_t: Node3D, _b: Node3D) -> void: play("arrow"))
     EventBus.tower_destroyed.connect(func(_t: Node3D, _b: Node3D) -> void: play("crash"))
     EventBus.station_destroyed.connect(func(_s: Node3D, _b: Node3D) -> void: play("crash"))

@@ -22,6 +22,12 @@
     "wantWeights": [45, 25, 15, 10, 5]
   },
   "autosaveSec": 10,
+  "offline": {
+    "windowSec": 300,
+    "minSec": 60,
+    "maxSec": 28800,
+    "rateMult": 0.5
+  },
   "lootPickupRadius": 1.3,
   "trashPerSec": 12,
   "helpers": {

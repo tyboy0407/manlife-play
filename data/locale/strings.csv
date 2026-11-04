@@ -31,7 +31,7 @@ NOTICE_HIRED_porter,A porter joined you!,搬運工加入了!
 NOTICE_HIRED_cashier,A cashier joined you!,收銀員加入了!
 NOTICE_SAVED,Game saved,已存檔
 NOTICE_NEW_GAME,New game started,已重新開始
-HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d\nweapon Lv%d | eaten by bear %d | time %s\npelts %d | king teeth %d | weapon shop Lv%d,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d\n武器 Lv%d|被北極熊吃掉 %d|時間 %s\n毛皮 %d|熊王牙 %d|武器店 Lv%d
+HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d\nweapon Lv%d | eaten by bear %d | time %s\npelts %d | king teeth %d | weapon shop Lv%d\noffline earnings $%d | income $%d/min,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d\n武器 Lv%d|被北極熊吃掉 %d|時間 %s\n毛皮 %d|熊王牙 %d|武器店 Lv%d\n離線收益 $%d|收入 $%d/分
 HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / trash. Cash on the money pad goes into your wallet; stand on a price pad for a moment to pay. H toggles the hint arrow. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、丟棄。錢格的錢會收進錢包;在價格牌上站一下就開始付錢。H 開關提示箭頭。每 10 秒自動存檔;F9 重新開始。
 CUSTOMER_THANKS,Thanks!,謝謝!
 HUD_OBJECTIVE,Goal %d/%d: %s,目標 %d/%d:%s
@@ -130,3 +130,10 @@ NOTICE_TRAP_TRIGGERED,Snap! The trap caught a polar bear (-%d HP). Buy a new one
 NOTICE_BAIT_SET,Bait set! Nearby bears will go for the fish instead,誘餌放好了!附近的熊會先去吃魚堆
 NOTICE_BAIT_EATEN,The bears ate the bait. Buy a new one on the same spot,誘餌被吃光了，站回原位再買一堆
 NOTICE_CONVEYOR_BUILT,Conveyor belt built! Products ride straight to the counter,傳送帶蓋好了!成品會自己送到櫃台
+OFFLINE_TITLE,Welcome back!,歡迎回來!
+OFFLINE_BODY,You were away for %s.\nYour helpers earned $%d while you were gone.,你離開了 %s\n幫手替你賺了 $%d
+OFFLINE_BODY_FULL,You were away for %s (only %s counts).\nYour helpers earned $%d while you were gone.,你離開了 %s（只算 %s）\n幫手替你賺了 $%d
+OFFLINE_CLAIM,Claim,領取
+OFFLINE_TIME_HM,%d h %d min,%d 小時 %d 分
+OFFLINE_TIME_M,%d min,%d 分鐘
+NOTICE_OFFLINE,Claimed $%d of offline earnings,收到離線收益 $%d

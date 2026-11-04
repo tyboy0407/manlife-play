@@ -38,3 +38,4 @@ signal tower_upgraded(tower: Node3D)                    # 守衛塔強化
 signal trap_triggered(trap: Node3D, bear: Node3D)       # 捕熊夾夾到熊
 signal bait_eaten(bait: Node3D, bear: Node3D)           # 誘餌被熊吃光
 signal conveyor_built(conveyor: Node3D)                 # 傳送帶蓋好
+signal offline_claimed(cash: int, offline_sec: int)     # 領取離線收益

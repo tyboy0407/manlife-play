@@ -15,6 +15,7 @@ func _ready() -> void:
     _test_porter()
     _test_guide()
     _test_trap_and_belt()
+    _test_offline()
     _test_bear()
     _test_tower()
     _test_settings()
@@ -394,6 +395,10 @@ func _test_state() -> void:
     _check(GameState.wallet == 30 and GameState.spend(12) == 12 and GameState.wallet == 18 and GameState.spend(50) == 18
             and GameState.wallet == 0 and GameState.spend(1) == 0, "錢包:加錢 / 扣到 0 為止、負數不理")
     GameState.add_wallet(7)
+    GameState.claim_offline(25)
+    GameState.claim_offline(0)
+    _check(GameState.wallet == 32 and GameState.offline_earned == 25, "離線收益領取:進錢包、統計累計;0 不算")
+    GameState.wallet = 7
     GameState.sound_on = false
     GameState.play_time = 123.5
     var d := GameState.to_dict()
@@ -404,8 +409,46 @@ func _test_state() -> void:
     _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 1 and GameState.is_unlocked("grill_complex")
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher")
             and GameState.wallet == 7 and not GameState.sound_on and GameState.weapon_level == 2 and GameState.helpers_lost == 2
-            and is_equal_approx(GameState.play_time, 123.5), "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數、遊戲時間)")
+            and is_equal_approx(GameState.play_time, 123.5) and GameState.offline_earned == 25,
+            "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數、遊戲時間、離線收益統計)")
     GameState.reset()
+
+
+## --- 離線收益 ---
+
+func _test_offline() -> void:
+    var o := OfflineLogic.from_config(GameData.section("offline"))
+    _check(is_equal_approx(o.window_sec, 300.0) and is_equal_approx(o.min_sec, 60.0) and is_equal_approx(o.max_sec, 28800.0)
+            and is_equal_approx(o.mult, 0.5), "game.json offline:視窗 5 分鐘、最短 1 分鐘、上限 8 小時、五折")
+    o.begin(0.0)
+    _near(o.rate(0.0), 0.0, "新遊戲沒賣東西:速率 0", 0.0001)
+    o.record(10.0, 30)
+    o.record(100.0, 30)
+    _near(o.rate(100.0), 60.0 / 300.0, "視窗內賣了 $60:速率 = 60 / 300", 0.0001)
+    _near(o.rate(305.0), 60.0 / 300.0, "305 秒:兩筆都還在視窗內(10 >= 305 - 300)", 0.0001)
+    _near(o.rate(320.0), 30.0 / 300.0, "320 秒:第一筆掉出視窗、剩 $30", 0.0001)
+    _check(o.sample_count() == 1, "掉出視窗的樣本會清掉")
+    _near(o.rate(500.0), 0.0, "500 秒:全掉出視窗,速率 0", 0.0001)
+    # 讀檔帶進來的速率補還沒觀察到的部分
+    var o2 := OfflineLogic.from_config(GameData.section("offline"))
+    o2.begin(1000.0, 2.0)
+    _near(o2.rate(1000.0), 2.0, "剛讀檔:速率 = 存檔的 2.0", 0.0001)
+    o2.record(1050.0, 100)
+    _near(o2.rate(1100.0), (100.0 + 2.0 * 200.0) / 300.0, "觀察 100 秒賣 $100:(100 + 2 × 200) / 300", 0.0001)
+    _near(o2.rate(1300.0), 100.0 / 300.0, "觀察滿 300 秒:只看實際收入", 0.0001)
+    # 離線秒數與收益
+    _check(OfflineLogic.offline_seconds(1000, 4600) == 3600 and OfflineLogic.offline_seconds(0, 4600) == 0
+            and OfflineLogic.offline_seconds(5000, 4600) == 0, "離線秒數 = 現在 - savedAt;沒 savedAt / 時鐘倒退回 0")
+    _check(o2.earnings(2.0, 59.0) == 0 and o2.earnings(0.0, 3600.0) == 0, "不滿 60 秒 / 速率 0 -> 0")
+    _check(o2.earnings(2.0, 60.0) == 60 and o2.earnings(2.0, 3600.0) == 3600, "2 $/s 離線 1 小時 × 0.5 = $3600")
+    _check(o2.earnings(2.0, 100000.0) == 28800 and o2.counted_seconds(100000.0) == 28800 and o2.counted_seconds(500.0) == 500,
+            "超過 8 小時只算 8 小時($28800)")
+    _check(o2.earnings(0.3, 61.0) == 9, "小數無條件捨去(0.3 × 61 × 0.5 = 9.15 -> 9)")
+    var d := OfflineLogic.split_duration(3 * 3600 + 12 * 60 + 40)
+    var d2 := OfflineLogic.split_duration(20.0)
+    _check(int(d["h"]) == 3 and int(d["m"]) == 12 and int(d2["h"]) == 0 and int(d2["m"]) == 1, "秒數拆成 3 小時 12 分;不滿 1 分鐘算 1 分鐘")
+    var empty := OfflineLogic.from_config({})
+    _check(is_equal_approx(empty.window_sec, 300.0) and is_equal_approx(empty.mult, 0.5), "沒設定用預設值")
 
 
 ## --- 搬運工派工 ---

@@ -5,12 +5,14 @@ extends CanvasLayer
 ## 現金飛向錢包:聽 items_moved kind "cash",把 3D 位置投影到螢幕,生一個 "$" 飛到錢包數字再彈一下。
 ## 只讀狀態,不改遊戲;音效開關自己處理,其他選單動作用 action 訊號交給關卡。
 
-signal action(id: String)   # "hints" / "new_game"
+signal action(id: String)   # "hints" / "new_game" / "offline_claim"
 
 var player: Player = null
 var joystick: TouchJoystick
 var menu_button: Button
 var menu_panel: PanelContainer
+var offline_panel: PanelContainer   # 離線收益面板(回來時彈出,領取前遊戲暫停)
+var income_rate := 0.0              # 每秒收入速率(關卡每幀餵,統計面板顯示)
 
 var _wallet: Label
 var _info: Label
@@ -24,6 +26,9 @@ var _fps_btn: Button
 var _new_game_btn: Button
 var _fps: Label
 var _stats: Label            # 詳細統計(收進選單面板)
+var _offline_dim: ColorRect
+var _offline_body: Label
+var _offline_cash := 0
 var _notice_timer := 0.0
 var _objective_text := ""
 var _chips := 0
@@ -71,7 +76,8 @@ func _ready() -> void:
     _hint.text = tr("HUD_HINT_TOUCH") if is_touch_device() else tr("HUD_HINT")
     add_child(_hint)
     _build_menu()
-    joystick.exclusions = [menu_button, menu_panel]
+    _build_offline_panel()
+    joystick.exclusions = [menu_button, menu_panel, offline_panel]
     EventBus.notice.connect(show_notice)
     EventBus.items_moved.connect(_on_items_moved)
 
@@ -178,13 +184,101 @@ func menu_open() -> bool:
     return menu_panel.visible
 
 
+## 離線收益面板:置中,整個畫面蓋一層半透明黑擋住觸控;領取鈕走 offline_action
+func _build_offline_panel() -> void:
+    _offline_dim = ColorRect.new()
+    _offline_dim.name = "OfflineDim"
+    _offline_dim.color = Color(0, 0, 0, 0.55)
+    _offline_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _offline_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+    _offline_dim.visible = false
+    add_child(_offline_dim)
+    offline_panel = PanelContainer.new()
+    offline_panel.name = "OfflinePanel"
+    offline_panel.custom_minimum_size = Vector2(360, 0)
+    offline_panel.anchor_left = 0.5
+    offline_panel.anchor_right = 0.5
+    offline_panel.anchor_top = 0.4
+    offline_panel.anchor_bottom = 0.4
+    offline_panel.offset_left = -180
+    offline_panel.offset_right = 180
+    offline_panel.offset_top = 0
+    offline_panel.offset_bottom = 0
+    offline_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+    offline_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+    offline_panel.visible = false
+    add_child(offline_panel)
+    var box := VBoxContainer.new()
+    box.add_theme_constant_override("separation", 14)
+    offline_panel.add_child(box)
+    var title := Label.new()
+    title.text = tr("OFFLINE_TITLE")
+    title.add_theme_font_size_override("font_size", 28)
+    title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45))
+    title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    box.add_child(title)
+    _offline_body = Label.new()
+    _offline_body.add_theme_font_size_override("font_size", 20)
+    _offline_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _offline_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    box.add_child(_offline_body)
+    var claim := Button.new()
+    claim.name = "ClaimButton"
+    claim.text = tr("OFFLINE_CLAIM")
+    claim.custom_minimum_size = Vector2(0, 60)
+    claim.add_theme_font_size_override("font_size", 24)
+    claim.pressed.connect(offline_action.bind("claim"))
+    box.add_child(claim)
+
+
+## 秒數 -> 「3 小時 12 分」/「5 分鐘」
+static func duration_text(sec: float) -> String:
+    var d := OfflineLogic.split_duration(sec)
+    if int(d["h"]) > 0:
+        return tr_static("OFFLINE_TIME_HM") % [int(d["h"]), int(d["m"])]
+    return tr_static("OFFLINE_TIME_M") % int(d["m"])
+
+
+static func tr_static(key: String) -> String:
+    return TranslationServer.translate(key)
+
+
+## 顯示離線收益面板(關卡呼叫;counted_sec 是真正算進收益的秒數,離線超過上限時文字會說只算多久)
+func show_offline(cash: int, offline_sec: int, counted_sec: int) -> void:
+    _offline_cash = cash
+    if counted_sec < offline_sec:
+        _offline_body.text = tr("OFFLINE_BODY_FULL") % [duration_text(offline_sec), duration_text(counted_sec), cash]
+    else:
+        _offline_body.text = tr("OFFLINE_BODY") % [duration_text(offline_sec), cash]
+    menu_panel.visible = false
+    _offline_dim.visible = true
+    offline_panel.visible = true
+
+
+func offline_open() -> bool:
+    return offline_panel.visible
+
+
+func offline_cash() -> int:
+    return _offline_cash
+
+
+## 領取鈕(與測試)都走這裡:關面板、交給關卡進錢包
+func offline_action(id: String) -> void:
+    if id != "claim" or not offline_panel.visible:
+        return
+    offline_panel.visible = false
+    _offline_dim.visible = false
+    action.emit("offline_claim")
+
+
 ## 詳細統計(選單面板裡)
 func stats_text() -> String:
     return tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
             GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
             GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"),
             GameState.weapon_level, GameState.helpers_lost, "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60],
-            GameState.pelts, GameState.teeth, GameState.shop_level]
+            GameState.pelts, GameState.teeth, GameState.shop_level, GameState.offline_earned, int(round(income_rate * 60.0))]
 
 
 func confirming_new_game() -> bool:
