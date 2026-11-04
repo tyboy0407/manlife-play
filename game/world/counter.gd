@@ -20,8 +20,9 @@ var max_customers := 6
 var spawn_interval := 2.0
 var serve_interval := 0.35
 var queue_spacing := 1.3                    # 排隊位間距(counters.json queueSpacing 可蓋過)
-var spawn_offset := Vector3(12.0, 0, 1.5)   # local:顧客出生點
-var exit_offset := Vector3(12.0, 0, 4.0)    # local:離開點
+var spawn_offset := Vector3(12.0, 0, 1.5)   # local:顧客出生點(沒設 door 時用)
+var exit_offset := Vector3(12.0, 0, 4.0)    # local:離開點(沒設 door 時用)
+var door := Vector3.INF                     # 世界座標:這塊地的顧客門外(Harbor.customer_door);顧客從這裡來、買完走回這裡
 var served_total := 0
 var want_weights: Array = [1]
 
@@ -132,7 +133,7 @@ func _physics_process(delta: float) -> void:
         money_pad.add_cash(int(res["cash"]))
     EventBus.sale_made.emit(logic.item_id, sold, int(res["cash"]))
     EventBus.items_moved.emit("sold", logic.item_id, from, front.global_position + Vector3(0.0, 1.4, 0.0), sold)
-    front.leave(to_global(exit_offset))
+    front.leave(exit_point())
     customers.remove_at(0)
     _reassign_slots()
     _serve_timer = serve_interval
@@ -143,9 +144,18 @@ func _spawn_customer() -> void:
     c.want = CounterLogic.roll_want(want_weights, randf())
     c.item_name = GameData.item_name(logic.item_id)
     get_parent().add_child(c)
-    c.global_position = to_global(spawn_offset + Vector3(0, 0, randf_range(-0.5, 0.5)))
+    c.global_position = spawn_point() + Vector3(0, 0, randf_range(-0.5, 0.5))
     customers.append(c)
     c.set_target(slot_position(customers.size() - 1))
+
+
+## 顧客出生點 / 離開點:有顧客門就用門外,沒有(測試單獨建的櫃台)用櫃台東邊 12 格
+func spawn_point() -> Vector3:
+    return door if door != Vector3.INF else to_global(spawn_offset)
+
+
+func exit_point() -> Vector3:
+    return door if door != Vector3.INF else to_global(exit_offset)
 
 
 func _reassign_slots() -> void:

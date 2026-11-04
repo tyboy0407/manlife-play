@@ -13,13 +13,16 @@ var fish: Array[Fish] = []
 var area: Area3D
 var catchable := true
 
+const BASE_WATER_AREA := 112.0   # 主村水面 16 × 7,maxInWater 以它為準
+
 var _spawn_timer := 0.0
 
 
 func _ready() -> void:
     add_to_group("fish_area")
     var cfg := GameData.section("fish")
-    max_fish = int(cfg.get("maxInWater", max_fish))
+    # maxInWater 是主村水面(BASE_WATER_AREA)的數量,其他水區按面積等比(擴建區 11 × 7 -> 12 條),密度一樣
+    max_fish = maxi(int(round(float(cfg.get("maxInWater", max_fish)) * rect.get_area() / BASE_WATER_AREA)), 1)
     spawn_interval = maxf(float(cfg.get("spawnIntervalSec", spawn_interval)), 0.05)
     catch_radius = float(cfg.get("catchRadius", catch_radius))
     swim_speed = float(cfg.get("swimSpeed", swim_speed))

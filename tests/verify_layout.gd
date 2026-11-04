@@ -33,6 +33,16 @@ static func _overlaps(a: Rect2, b: Rect2) -> bool:
             and a.position.y < b.end.y - 0.001 and b.position.y < a.end.y - 0.001
 
 
+## 線段 a -> b(XZ)有沒有穿過矩形:每 0.2 取樣一點
+static func _segment_hits(r: Rect2, a: Vector3, b: Vector3) -> bool:
+    var n := maxi(int(ceil(a.distance_to(b) / 0.2)), 1)
+    for i in n + 1:
+        var p := a.lerp(b, float(i) / float(n))
+        if r.has_point(Vector2(p.x, p.z)):
+            return true
+    return false
+
+
 ## 牌子就是地基:牌與它蓋的東西同一位置,允許重疊
 static func _allowed(a: Dictionary, b: Dictionary) -> bool:
     var ids := [str(a["id"]), str(b["id"])]
@@ -135,6 +145,43 @@ func _ready() -> void:
                 outside += 1
                 print("    queue outside: %s slot %d x %.1f > %.1f" % [c.def_id, i + 1, x, limit])
     _check(outside == 0, "排隊位都在自己那塊地的柵欄內(%d 個超出)" % outside)
+    # 傳送帶路線(輸出格 -> 上架格)不經過守衛塔;架高 belt_h 要高過牌子標籤頂(1.85)才准從牌子上方經過(主村的牌子排在 z 5,帶子一定跨過)
+    var belt_h := float(GameData.section("conveyor").get("height", 0.0))
+    _check(belt_h >= 2.05, "傳送帶架高 %.1f:高過人物(1.5)與牌子標籤(1.85)" % belt_h)
+    var crossed := 0
+    for id in Harbor.CONVEYORS:
+        var spec: Dictionary = Harbor.CONVEYORS[id]
+        var st := _level.station_at(str(spec["from"]))
+        var ct := _level.counter_by_id(str(spec["to"]))
+        if st == null or ct == null:
+            continue
+        var a := st.output_pad.global_position
+        var b := ct.deposit_pad.global_position
+        for f in fps:
+            var fid := str(f["id"])
+            if not (fid.begins_with("pad:") and not fid.contains("/")) and not fid.begins_with("tower:"):
+                continue
+            if fid.begins_with("pad:") and belt_h >= 2.05:
+                continue
+            if _segment_hits(f["rect"], a, b):
+                crossed += 1
+                print("    belt %s crosses %s" % [id, fid])
+    _check(crossed == 0, "傳送帶不穿過守衛塔(%d 條)" % crossed)
+    # 顧客門:每塊地的櫃台都從自己那塊地的東柵欄外進來、走回同一點;門在顧客那排、柵欄外 1.5 格
+    var door_bad := 0
+    for c in _level.counters:
+        var area := Harbor.area_of_x(c.global_position.x)
+        var fence_x := 12.6 if area == 0 else (Harbor.ANNEX_RECTS[area - 1] as Rect2).end.x
+        var d := c.spawn_point()
+        if not is_equal_approx(d.x, fence_x + 1.5) or absf(d.z - 10.2) > 0.01 or d != c.exit_point() or d.x <= c.global_position.x:
+            door_bad += 1
+            print("    door: %s -> %s (area %d)" % [c.def_id, str(d), area])
+    _check(door_bad == 0, "七座櫃台的顧客都從自己那塊地的門外 (柵欄 + 1.5, 10.2) 出生與離開")
+    _check(Harbor.customer_door(0) == Vector3(14.1, 0, 10.2) and Harbor.customer_door(3) == Vector3(70.3, 0, 10.2)
+            and Harbor.area_of_x(12.0) == 0 and Harbor.area_of_x(13.0) == 1 and Harbor.area_of_x(60.0) == 3, "顧客門座標與分區")
+    # 魚群上限按水面面積:主村 16 × 7 = 18 條,擴建區 11 × 7 = 12 條
+    _check(_level.fish_areas[0].max_fish == 18 and _level.fish_areas[1].max_fish == 12 and _level.fish_areas[3].max_fish == 12,
+            "魚群上限按面積:主村 %d、擴建區 %d" % [_level.fish_areas[0].max_fish, _level.fish_areas[1].max_fish])
     _level.queue_free()
     await _step(2)
     if _fails == 0:

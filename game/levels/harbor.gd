@@ -40,7 +40,7 @@ const PAD_SPOTS := {
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
     "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0), "expand_village_2": Vector3(29.5, 0, 0.5),
     "upgrade_porter_cap": Vector3(-10.0, 0, -1.5),   # 西側走道、切魚台旁(價格牌排已經排滿)
-    "expand_village_3": Vector3(40.9, 0, 5.0),   # 第二塊擴建區裡,工作站輸出格與櫃台之間的走道
+    "expand_village_3": Vector3(36.4, 0, 5.0),   # 第二塊擴建區裡 z 5 的走道,35.4 ~ 37.4 是唯一沒有傳送帶經過的空隙
     "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
@@ -48,22 +48,22 @@ const PAD_SPOTS := {
     "tooth_tower_5": Vector3(-3.0, 0, -2.9), "tooth_tower_6": Vector3(3.0, 0, -2.9),
 }
 # 守衛塔(= 牌子的位置,牌是地基):四角 + 村中央水邊兩座(x ±3 是切魚台輸入格之間的空地,z -2.9 貼著淺水區南緣,屋頂只遮到水面);
-# 每塊擴建區照同樣布置六座(tower_7 ~ 12 第一塊、13 ~ 18 第二塊、19 ~ 24 第三塊:四角在沙地內 2.0 / 1.6 格,中央兩座在工作站輸入格之間的水邊)
+# 每塊擴建區照同樣布置六座(tower_7 ~ 12 第一塊、13 ~ 18 第二塊、19 ~ 24 第三塊:西側兩座在沙地內 2.0 / 1.4 格、東側兩座離東柵欄 2.3 格(塔基與捕熊夾離柵欄 1 格、離水 0.5 格),中央兩座在工作站輸入格之間的水邊)
 const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5),
     "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
-    "tower_7": Vector3(15.0, 0, -9.5), "tower_8": Vector3(30.0, 0, -9.5), "tower_9": Vector3(14.4, 0, 11.0), "tower_10": Vector3(30.0, 0, 11.0),   # 西南塔在魚片櫃台的上架格南邊,避開收銀格
+    "tower_7": Vector3(15.0, 0, -9.5), "tower_8": Vector3(29.3, 0, -9.5), "tower_9": Vector3(14.4, 0, 11.0), "tower_10": Vector3(29.3, 0, 11.0),   # 西南塔在魚片櫃台的上架格南邊,避開收銀格
     "tower_11": Vector3(21.5, 0, -2.9), "tower_12": Vector3(28.3, 0, -2.9),
-    "tower_13": Vector3(33.6, 0, -9.5), "tower_14": Vector3(48.6, 0, -9.5), "tower_15": Vector3(33.0, 0, 11.0), "tower_16": Vector3(48.6, 0, 11.0),
+    "tower_13": Vector3(33.6, 0, -9.5), "tower_14": Vector3(47.9, 0, -9.5), "tower_15": Vector3(33.0, 0, 11.0), "tower_16": Vector3(47.9, 0, 11.0),
     "tower_17": Vector3(40.9, 0, -2.9), "tower_18": Vector3(45.9, 0, -2.9),
-    "tower_19": Vector3(52.2, 0, -9.5), "tower_20": Vector3(67.2, 0, -9.5), "tower_21": Vector3(52.2, 0, 11.0), "tower_22": Vector3(67.2, 0, 11.0),
+    "tower_19": Vector3(52.2, 0, -9.5), "tower_20": Vector3(66.5, 0, -9.5), "tower_21": Vector3(52.2, 0, 11.0), "tower_22": Vector3(66.5, 0, 11.0),
     "tower_23": Vector3(56.5, 0, -2.9), "tower_24": Vector3(62.5, 0, -2.9)}
 const TOWERS_PER_AREA := 6   # tower_1 ~ 6 主村、7 ~ 12 第一塊擴建區、13 ~ 18 第二塊、19 ~ 24 第三塊
 # 捕熊夾:每塊地兩個(水區兩側的雪地上、角塔內側,熊從入口進來往村裡走會經過;觸發半徑 trap.radius),trap_1 / 2 主村、3 / 4 第一塊 …
 const TRAP_SPOTS := {"trap_1": Vector3(-11.2, 0, -6.8), "trap_2": Vector3(11.2, 0, -6.8),
-    "trap_3": Vector3(14.6, 0, -6.8), "trap_4": Vector3(30.0, 0, -6.8),
-    "trap_5": Vector3(33.2, 0, -6.8), "trap_6": Vector3(48.6, 0, -6.8),
-    "trap_7": Vector3(51.8, 0, -6.8), "trap_8": Vector3(67.2, 0, -6.8)}
+    "trap_3": Vector3(14.6, 0, -6.8), "trap_4": Vector3(29.3, 0, -6.8),
+    "trap_5": Vector3(33.2, 0, -6.8), "trap_6": Vector3(47.9, 0, -6.8),
+    "trap_7": Vector3(51.8, 0, -6.8), "trap_8": Vector3(66.5, 0, -6.8)}
 const TRAPS_PER_AREA := 2
 # 誘餌魚堆:每塊地一個(西側水邊的沙地上),bait_1 主村、2 ~ 4 三塊擴建區
 const BAIT_SPOTS := {"bait_1": Vector3(-10.3, 0, -4.3), "bait_2": Vector3(14.7, 0, -4.3), "bait_3": Vector3(33.3, 0, -4.3), "bait_4": Vector3(51.9, 0, -4.3)}
@@ -92,7 +92,9 @@ const UNLOCKS := {
 const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆中段的門(柵欄缺口的外觀;擴建時整面東牆都拆)
 const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 第一塊擴建區(x 13 ~ 31.6)
 const ANNEX_RECTS := [Rect2(13.0, -11.0, 18.6, 23.6), Rect2(31.6, -11.0, 18.6, 23.6), Rect2(50.2, -11.0, 18.6, 23.6)]   # 三塊擴建區(x 13 ~ 31.6 ~ 50.2 ~ 68.8)
-const ANNEX_WATER_W := 12.0   # 擴建區水區寬度(主村 16;擴建區窄,兩側各留 3.3 格沙地給角塔 / 捕熊夾 / 誘餌)
+const ANNEX_WATER_W := 11.0   # 擴建區水區寬度(主村 16;擴建區窄,兩側各留 3.8 格沙地給角塔 / 捕熊夾 / 誘餌,東側塔離柵欄 2.3 格)
+const CUSTOMER_DOOR_Z := Vector2(9.2, 11.2)   # 每塊地東柵欄上的「顧客門」(只開視覺柵欄,隱形牆留著);顧客從門外走進來、買完走回門外
+const CUSTOMER_DOOR_OUT := 1.5                # 顧客出生 / 離開點在柵欄外幾格
 const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
 const HELPER_SPAWN := Vector3(0.0, 0, -3.0)
@@ -262,9 +264,11 @@ func _build_terrain() -> void:
             Vector3(12.4, 0.45, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0))
     world.add_child(east_gate_mesh)
     east_walls.append(east_gate_mesh)
-    var east_fence := VisualFactory.box(Vector3(0.25, 0.9, 12.25 - EAST_GATE_Z.y), fence, Vector3(12.4, 0.45, (EAST_GATE_Z.y + 12.25) / 2.0))
-    world.add_child(east_fence)
-    east_walls.append(east_fence)
+    for seg in _fence_segments(EAST_GATE_Z.y, 12.25):   # 顧客門那段留空
+        var east_fence := VisualFactory.box(Vector3(0.25, 0.9, seg.y - seg.x), fence, Vector3(12.4, 0.45, (seg.x + seg.y) / 2.0))
+        world.add_child(east_fence)
+        east_walls.append(east_fence)
+    _add_doormat(scenery, 12.6)
     scenery.add_box(Vector3(0.25, 0.9, GATE_Z.x + 4.25), fence, Vector3(-12.4, 0.45, (GATE_Z.x - 4.25) / 2.0))
     scenery.add_box(Vector3(0.25, 0.9, 12.25 - GATE_Z.y), fence, Vector3(-12.4, 0.45, (GATE_Z.y + 12.25) / 2.0))
     scenery.add_box(Vector3(25, 0.9, 0.25), fence, Vector3(0, 0.45, 12.4))
@@ -337,13 +341,16 @@ func _build_annex(k: int = 1) -> void:
             continue
         batch.add_cylinder(0.14, 1.1, fence, Vector3(x, 0.55, -11.5))
     batch.add_box(Vector3(ANNEX_WATER_W, 0.3, 0.3), fence, Vector3(cx, 0.95, -11.5))
+    _add_doormat(batch, rect.end.x)
     batch.build()
-    var east_fence := VisualFactory.box(Vector3(0.25, 0.9, 16.5), fence, Vector3(rect.end.x - 0.2, 0.45, 4.0))
-    world.add_child(east_fence)
     var east_wall := _wall(Vector3(rect.end.x, 1, 0), Vector3(0.4, 2, 26))
     while annex_east_walls.size() < k:
         annex_east_walls.append([])
-    annex_east_walls[k - 1] = [east_wall, east_fence]
+    annex_east_walls[k - 1] = [east_wall]
+    for seg in _fence_segments(-4.25, 12.25):   # 顧客門那段留空
+        var east_fence := VisualFactory.box(Vector3(0.25, 0.9, seg.y - seg.x), fence, Vector3(rect.end.x - 0.2, 0.45, (seg.x + seg.y) / 2.0))
+        world.add_child(east_fence)
+        annex_east_walls[k - 1].append(east_fence)
     _wall(Vector3(cx, 1, 12.6), Vector3(rect.size.x + 0.4, 2, 0.4))
     _wall(Vector3(cx, 1, -11.2), Vector3(rect.size.x + 0.4, 2, 0.4))
     var fa := FishArea.new()
@@ -446,6 +453,37 @@ func pick_fish_area(h: Helper) -> FishArea:
     return best
 
 
+## 東柵欄分成兩段,中間 CUSTOMER_DOOR_Z 是顧客門
+static func _fence_segments(z0: float, z1: float) -> Array[Vector2]:
+    var out: Array[Vector2] = []
+    if CUSTOMER_DOOR_Z.x > z0:
+        out.append(Vector2(z0, CUSTOMER_DOOR_Z.x))
+    if z1 > CUSTOMER_DOOR_Z.y:
+        out.append(Vector2(CUSTOMER_DOOR_Z.y, z1))
+    return out
+
+
+## 顧客門外的小塊沙地路口(柵欄拆了之後也留著,顧客照樣從這裡走進來)
+func _add_doormat(batch: StaticBatch, fence_x: float) -> void:
+    batch.add_box(Vector3(2.6, 0.05, CUSTOMER_DOOR_Z.y - CUSTOMER_DOOR_Z.x + 0.4), Color(0.88, 0.76, 0.6),
+            Vector3(fence_x + 1.1, -0.02, (CUSTOMER_DOOR_Z.x + CUSTOMER_DOOR_Z.y) / 2.0))
+
+
+## 這個 x 屬於哪塊地:0 主村、1 ~ 3 擴建區
+static func area_of_x(x: float) -> int:
+    var area := 0
+    for k in ANNEX_RECTS.size():
+        if x >= (ANNEX_RECTS[k] as Rect2).position.x:
+            area = k + 1
+    return area
+
+
+## 第 area 塊地的顧客門外:顧客出生 / 離開點(世界座標)
+static func customer_door(area: int) -> Vector3:
+    var fence_x := 12.6 if area <= 0 else (ANNEX_RECTS[mini(area, ANNEX_RECTS.size()) - 1] as Rect2).end.x
+    return Vector3(fence_x + CUSTOMER_DOOR_OUT, 0.0, (CUSTOMER_DOOR_Z.x + CUSTOMER_DOOR_Z.y) / 2.0)
+
+
 func _wall(pos: Vector3, size: Vector3) -> StaticBody3D:
     var body := StaticBody3D.new()
     body.collision_layer = 1 << (Carrier.TERRAIN_LAYER - 1)
@@ -503,6 +541,7 @@ func _add_counter(id: String) -> Counter:
     var c := Counter.create(GameData.counter(id))
     c.position = COUNTER_SPOTS.get(id, Vector3(0, 0, 8.5))
     c.money_pad = money_pad
+    c.door = customer_door(area_of_x(c.position.x))
     world.add_child(c)
     counters.append(c)
     _assign_cashiers()

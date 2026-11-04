@@ -273,8 +273,8 @@ func _run() -> void:
             and _level.tower_by_id("tower_24").position.x > 60.0
             and Harbor.tower_area("tower_6") == 0 and Harbor.tower_area("tower_7") == 1 and Harbor.tower_area("tower_13") == 2 and Harbor.tower_area("tower_19") == 3,
             "六座守衛塔待建:只有地基牌(中央兩座在 x ±3 水邊);擴建區的十八座塔牌與第二 / 三次擴建牌先藏著")
-    _check(not _level.is_expanded() and _level.east_gate != null and _level.east_walls.size() == 5 and _level.fish_areas.size() == 1,
-            "東牆還在(三段牆 + 兩段柵欄)、只有一個水區(還沒擴建)")
+    _check(not _level.is_expanded() and _level.east_gate != null and _level.east_walls.size() == 6 and _level.fish_areas.size() == 1,
+            "東牆還在(三段牆 + 三段柵欄,顧客門上下各一段)、只有一個水區(還沒擴建)")
     _check(_level.bears != null and not _level.bears.has_bear() and _level.shopkeeper != null and _level.price_pads.has("weapon")
             and (_level.price_pads["weapon"] as PricePad).global_position.x < -13.0, "北極熊系統待命、村外有武器店老闆與武器牌")
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
@@ -733,6 +733,7 @@ func _run() -> void:
             "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、三次擴建後的僱用名額還原" % tower_hp_saved)
     # 離線收益:把存檔的 savedAt 撥回 3 小時前、收入速率寫成 2 $/s -> 重建關卡時彈面板、遊戲暫停 -> 領取 $10800 進錢包
     _level.save_now()
+    _level.set_physics_process(false)   # 關掉自動存檔:不然 queue_free 前的那一幀可能再存一次,把撥回去的 savedAt 蓋掉
     var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SaveManager.save_path))
     raw["savedAt"] = int(Time.get_unix_time_from_system()) - 3 * 3600
     raw["world"]["income_rate"] = 2.0
@@ -1030,7 +1031,8 @@ func _trap_section() -> void:
     var bought := await _pay_pad(tp)
     await _step(2)
     _check(bought and trap.is_armed() and not tp.visible and _count("purchased_trap_1") == 1, "買捕熊夾:夾子放好、牌子消失")
-    await _go(Vector3(-7.5, 0, 0.5))   # 走開:玩家有武器,靠太近會自動打熊(也別站在搬運工容量牌 (-10, -1.5) 上)
+    await _go(Vector3(-11.9, 0, 0.5))   # 沿西牆走,直線會擦過搬運工容量牌 (-10, -1.5) 的角付到錢
+    await _go(Vector3(-7.5, 0, 0.5))   # 走開:玩家有武器,靠太近會自動打熊
     var bs: BearSpawner = _level.bears
     var bear := bs.spawn()
     bear.set_physics_process(false)
@@ -1136,7 +1138,7 @@ func _expand_section() -> void:
             and ev3.global_position.x > 31.6 and ev3.global_position.x < 50.2,
             "第二塊的六座塔牌出現(第三塊的還藏著)、熊的東邊入口在第二塊外、僱用名額 7 / 10 / 6;第三次擴建牌 $8000 在第二塊擴建區裡")
     await _third_expansion(ev3, hf, hpp, hc)
-    await _go(Vector3(40.9, 0, 5.0), 900)
+    await _go(Vector3(36.4, 0, 5.0), 900)
     await _go(Vector3(20.0, 0, 3.0), 600)
     await _go(Vector3(11.0, 0, 0.5))
     await _go(Vector3(0, 0, 7))
