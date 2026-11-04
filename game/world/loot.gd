@@ -4,6 +4,7 @@ extends Node3D
 ## 沒有物理;外觀用方塊 / 圓錐占位,上下浮動慢慢轉。存檔記 {kind, x, z}(Harbor.snapshot "loot")。
 
 var kind := "pelt"
+var data := {}               # 寶箱(kind chest)的內容(KingLogic.chest 的字典),存檔一起記
 var level: Harbor = null
 var pickup_radius := 1.3
 var _t := 0.0
@@ -16,7 +17,14 @@ func _ready() -> void:
     _body = Node3D.new()
     _body.name = "Body"
     add_child(_body)
-    if kind == "tooth":
+    if kind == "chest":
+        var wood := Color(0.55, 0.35, 0.18)
+        var trim := Color(1.0, 0.82, 0.2) if str(data.get("grade", "")) == "perfect" else (Color(0.8, 0.82, 0.88) if str(data.get("grade", "")) == "good" else Color(0.45, 0.3, 0.18))
+        _body.add_child(VisualFactory.box(Vector3(1.1, 0.6, 0.8), wood, Vector3(0, 0.3, 0)))
+        _body.add_child(VisualFactory.box(Vector3(1.16, 0.3, 0.86), wood.darkened(0.2), Vector3(0, 0.75, 0)))
+        _body.add_child(VisualFactory.box(Vector3(1.2, 0.08, 0.2), trim, Vector3(0, 0.6, 0)))
+        _body.add_child(VisualFactory.box(Vector3(0.2, 0.3, 0.1), trim, Vector3(0, 0.55, 0.42)))
+    elif kind == "tooth":
         var ivory := Color(1.0, 0.97, 0.88)
         _body.add_child(VisualFactory.cone(0.22, 0.55, ivory, Vector3(0, 0.3, 0)))
         _body.add_child(VisualFactory.cylinder(0.24, 0.1, Color(1.0, 0.82, 0.2), Vector3(0, 0.05, 0)))
@@ -45,6 +53,11 @@ func collect(by: Node3D) -> int:
     if not is_physics_processing():
         return 0
     set_physics_process(false)
+    if kind == "chest":
+        if level != null:
+            level.chest_opened(self)
+        queue_free()
+        return 1
     var total := GameState.add_resource(kind, 1)
     var to := global_position + Vector3(0, 1.5, 0)
     if by != null and is_instance_valid(by) and by is Carrier:
@@ -58,4 +71,7 @@ func collect(by: Node3D) -> int:
 
 
 func snapshot() -> Dictionary:
-    return {"kind": kind, "x": global_position.x, "z": global_position.z}
+    var d := {"kind": kind, "x": global_position.x, "z": global_position.z}
+    if not data.is_empty():
+        d["data"] = data.duplicate(true)
+    return d

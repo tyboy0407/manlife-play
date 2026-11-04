@@ -20,11 +20,16 @@ var pack_eaten := 0    # 這一群總共吃了幾個幫手(到 packMaxEats 就�
 var leave_reason_last := ""
 var spawned_total := 0
 var kings_total := 0
+var king_logic: KingLogic
+var calm_until := -1.0          # 平靜券:遊戲時間到這之前一般熊不來(王照來)
+var _warned_sec := -1           # 上次發 king_warning 的秒數(每秒發一次)
 
 
 func _ready() -> void:
     logic = BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
     enabled = bool(GameData.section("bear").get("enabled", true))
+    if king_logic == null:
+        king_logic = KingLogic.from_config(GameData.section("bear").get("king", {}))
 
 
 func _prune() -> void:
@@ -92,8 +97,11 @@ func _physics_process(delta: float) -> void:
         king_next_sec = logic.king_at_sec()
     if not has_king() and GameState.play_time >= king_next_sec:
         spawn_king()
+    _tick_warning()
     if has_pack() or level.helpers.is_empty():
         return
+    if king_warning_active() or GameState.play_time < calm_until:
+        return   # 王來襲預告期間 / 平靜券生效中,一般熊不來(冷卻暫停)
     if GameState.play_time < logic.first_at_sec():
         return   # 開局前幾分鐘不來(firstAtSec),讓玩家先把經濟做起來
     if cooldown < 0.0:
@@ -125,9 +133,44 @@ func spawn_pack(n: int) -> Array[Bear]:
     return out
 
 
-func _pick_entry() -> Vector3:
+## 一般熊群的入口:避開插了嚇熊圖騰的那塊地(全部都插了就照舊);王不受圖騰影響(for_king)
+func _pick_entry(for_king: bool = false) -> Vector3:
     var es := logic.entries(level.expansion_level())
+    if not for_king:
+        var open: Array[Vector3] = []
+        for e in es:
+            if not level.has_totem(level.entry_area(e)):
+                open.append(e)
+        if not open.is_empty():
+            es = open
     return es[randi() % es.size()] if not es.is_empty() else Vector3(-16, 0, -8)
+
+
+## 王來襲倒數:king_next_sec 前 warnSec 秒開始,每秒發 king_warning(HUD 顯示),期間一般熊不來
+func king_warning_active() -> bool:
+    if has_king() or king_next_sec == INF or king_next_sec < 0.0 or level == null or level.helpers.is_empty():
+        return false
+    return GameState.play_time >= king_next_sec - king_logic.warn_sec() and GameState.play_time < king_next_sec
+
+
+func king_warning_left() -> int:
+    return maxi(int(ceil(king_next_sec - GameState.play_time)), 0) if king_warning_active() else -1
+
+
+func _tick_warning() -> void:
+    var left := king_warning_left()
+    if left != _warned_sec:
+        _warned_sec = left
+        EventBus.king_warning.emit(left)
+
+
+## 平靜券:sec 秒內一般熊不來
+func calm(sec: float) -> void:
+    calm_until = maxf(calm_until, GameState.play_time + sec)
+
+
+func calm_left() -> float:
+    return maxf(calm_until - GameState.play_time, 0.0)
 
 
 func _spawn_one(prefer: Helper, index: int, total: int, entry: Vector3 = Vector3(INF, 0, 0)) -> Bear:
@@ -165,12 +208,14 @@ func spawn_king() -> Bear:
     b.is_king = true
     b.level = level
     b.logic = logic
-    b.entry = _pick_entry()
+    b.entry = _pick_entry(true)
     b.position = b.entry
     b.left.connect(_on_left.bind(b))
     add_child(b)
     bears.append(b)
     king = b
+    _warned_sec = -1
+    EventBus.king_warning.emit(-1)
     kings_total += 1
     king_next_sec = INF   # 在場時不再生;打死後 _on_left 排下一次
     EventBus.bear_appeared.emit(b)
@@ -219,9 +264,11 @@ func snapshot() -> Dictionary:
     var king_at := king_next_sec
     if has_king():
         king_at = GameState.play_time + RETURN_SOON_SEC
-    return {"cooldown": RETURN_SOON_SEC if has_pack() else cooldown, "kingNextSec": king_at}
+    return {"cooldown": RETURN_SOON_SEC if has_pack() else cooldown, "kingNextSec": king_at, "calmLeft": calm_left()}
 
 
 func restore(d: Dictionary) -> void:
     cooldown = float(d.get("cooldown", -1.0))
     king_next_sec = float(d.get("kingNextSec", -1.0))
+    var cl := float(d.get("calmLeft", 0.0))
+    calm_until = GameState.play_time + cl if cl > 0.0 else -1.0

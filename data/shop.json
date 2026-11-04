@@ -872,6 +872,69 @@
         "type": "tower_upgrade",
         "target": "tower_24"
       }
+    },
+    {
+      "id": "altar_insurance",
+      "name": "SHOP_altar_insurance",
+      "cost": 1,
+      "currency": "tooth",
+      "repeatable": true,
+      "maxBuys": 99,
+      "costMult": 1.0,
+      "effect": {
+        "type": "coupon",
+        "key": "insurance"
+      }
+    },
+    {
+      "id": "altar_ice",
+      "name": "SHOP_altar_ice",
+      "cost": 3,
+      "currency": "tooth",
+      "effect": {
+        "type": "unlock",
+        "target": "ice_traps"
+      }
+    },
+    {
+      "id": "totem_1",
+      "name": "SHOP_totem",
+      "cost": 2,
+      "currency": "tooth",
+      "effect": {
+        "type": "totem",
+        "target": "totem_1"
+      }
+    },
+    {
+      "id": "totem_2",
+      "name": "SHOP_totem",
+      "cost": 2,
+      "currency": "tooth",
+      "effect": {
+        "type": "totem",
+        "target": "totem_2"
+      }
+    },
+    {
+      "id": "totem_3",
+      "name": "SHOP_totem",
+      "cost": 2,
+      "currency": "tooth",
+      "effect": {
+        "type": "totem",
+        "target": "totem_3"
+      }
+    },
+    {
+      "id": "totem_4",
+      "name": "SHOP_totem",
+      "cost": 2,
+      "currency": "tooth",
+      "effect": {
+        "type": "totem",
+        "target": "totem_4"
+      }
     }
   ],
   "repairStation": {

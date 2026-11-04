@@ -39,3 +39,9 @@ signal trap_triggered(trap: Node3D, bear: Node3D)       # 捕熊夾夾到熊
 signal bait_eaten(bait: Node3D, bear: Node3D)           # 誘餌被熊吃光
 signal conveyor_built(conveyor: Node3D)                 # 傳送帶蓋好
 signal offline_claimed(cash: int, offline_sec: int)     # 領取離線收益
+signal king_warning(sec_left: int)                      # 北極熊王來襲倒數(每秒)
+signal chest_opened(reward: Dictionary)                 # 熊王寶箱打開(三選一面板)
+signal chest_claimed(card: Dictionary)                  # 選了哪張卡
+signal king_leveled(level: int)                         # 王升級
+signal totem_planted(area: int)                         # 嚇熊圖騰插好
+signal helper_insured(role: String)                     # 保險券:被吃的幫手會回來

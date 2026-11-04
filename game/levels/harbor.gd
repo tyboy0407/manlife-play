@@ -44,6 +44,7 @@ const PAD_SPOTS := {
     "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
+    "altar_insurance": Vector3(-21.9, 0, 4.6), "altar_ice": Vector3(-15.5, 0, 1.5),   # 熊王祭壇(收熊王牙):武器店院子裡
     "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
     "tooth_tower_5": Vector3(-3.0, 0, -2.9), "tooth_tower_6": Vector3(3.0, 0, -2.9),
 }
@@ -93,6 +94,9 @@ const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆中段的門(柵欄缺口的
 const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 第一塊擴建區(x 13 ~ 31.6)
 const ANNEX_RECTS := [Rect2(13.0, -11.0, 18.6, 23.6), Rect2(31.6, -11.0, 18.6, 23.6), Rect2(50.2, -11.0, 18.6, 23.6)]   # 三塊擴建區(x 13 ~ 31.6 ~ 50.2 ~ 68.8)
 const ANNEX_WATER_W := 11.0   # 擴建區水區寬度(主村 16;擴建區窄,兩側各留 3.8 格沙地給角塔 / 捕熊夾 / 誘餌,東側塔離柵欄 2.3 格)
+# 嚇熊圖騰:每塊地一座(牌子就是位置,收 2 顆熊王牙),插好後一般熊群不從這塊地的入口進來
+const TOTEM_SPOTS := {"totem_1": Vector3(-6.5, 0, 11.0), "totem_2": Vector3(19.3, 0, 11.0), "totem_3": Vector3(37.9, 0, 11.0), "totem_4": Vector3(56.5, 0, 11.0)}
+const ALTAR_SIGN := Vector3(-18.7, 0, 3.0)
 const CUSTOMER_DOOR_Z := Vector2(9.2, 11.2)   # 每塊地東柵欄上的「顧客門」(只開視覺柵欄,隱形牆留著);顧客從門外走進來、買完走回門外
 const CUSTOMER_DOOR_OUT := 1.5                # 顧客出生 / 離開點在柵欄外幾格
 const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
@@ -135,6 +139,13 @@ var world: Node3D
 var autosave_sec := 10.0
 var loaded_from_save := false
 var offline: OfflineLogic               # 離線收益:在線記收入速率、讀檔時算離線收益
+var king_logic: KingLogic               # 北極熊王獎勵循環
+var totems: Array[Node3D] = []          # 插好的圖騰外觀(totem_<area+1>)
+var trophies: Node3D = null             # 武器店屋頂的戰利品牆(每殺一次王一顆頭骨)
+var king_eaten := 0                     # 這次王在村裡吃了幾個幫手(表現分)
+var king_wrecked := 0                   # 這次王拆了幾棟建築
+var pending_chest := {}                 # 打開的寶箱內容(三選一面板開著)
+var _insured: Array = []                # 保險券:[{role, at}] 到時間重新生幫手
 var offline_sec := 0                    # 這次讀檔算出的離線秒數
 var _offline_pending := 0               # 還沒領的離線收益(面板開著)
 
@@ -201,10 +212,19 @@ func _ready() -> void:
     autosave_sec = maxf(float(GameData.config().get("autosaveSec", 10.0)), 1.0)
     _autosave_timer = autosave_sec
     offline = OfflineLogic.from_config(GameData.section("offline"))
+    king_logic = KingLogic.from_config(GameData.section("bear").get("king", {}))
+    bears.king_logic = king_logic
     _load_save()
+    _refresh_totems()
+    _refresh_trophies()
     _apply_shop_level()
     _refresh_tower_pads()
     EventBus.bear_defeated.connect(_on_bear_defeated)
+    EventBus.bear_appeared.connect(func(b: Node3D) -> void:
+        if b is Bear and (b as Bear).is_king:
+            king_eaten = 0
+            king_wrecked = 0)
+    EventBus.king_warning.connect(func(left: int) -> void: hud.set_warning(tr("HUD_KING_WARNING") % left if left >= 0 else ""))
     EventBus.sale_made.connect(func(_item: String, _count: int, cash: int) -> void: offline.record(GameState.play_time, cash))
     if _offline_pending > 0:
         _show_offline()
@@ -297,6 +317,12 @@ func _build_outside() -> void:
     scenery.add_box(Vector3(3.4, 0.08, 0.8), sand, Vector3(WEAPON_SHOP.x, 0.94, 1.5))
     shop_sign = VisualFactory.label(tr("SIGN_WEAPON_SHOP"), WEAPON_SHOP + Vector3(0, 3.3, 0), 48, Color(1.0, 0.9, 0.7))
     world.add_child(shop_sign)
+    # 熊王祭壇:石台 + 招牌,牌子(altar_insurance / altar_ice)在旁邊
+    scenery.add_box(Vector3(1.4, 0.5, 1.0), Color(0.6, 0.6, 0.65), ALTAR_SIGN + Vector3(0, 0.25, 0))
+    world.add_child(VisualFactory.label(tr("SIGN_ALTAR"), ALTAR_SIGN + Vector3(0, 1.4, 0), 40, Color(1.0, 0.95, 0.8)))
+    trophies = Node3D.new()
+    trophies.name = "Trophies"
+    world.add_child(trophies)
     shopkeeper = Node3D.new()
     shopkeeper.name = "Shopkeeper"
     shopkeeper.position = SHOPKEEPER_SPOT
@@ -378,6 +404,8 @@ func _pad_spot(id: String) -> Vector3:
         return TOWER_SPOTS[id.trim_prefix("tooth_")]
     if TRAP_SPOTS.has(id):
         return TRAP_SPOTS[id]
+    if TOTEM_SPOTS.has(id):
+        return TOTEM_SPOTS[id]
     if BAIT_SPOTS.has(id):
         return BAIT_SPOTS[id]
     if CONVEYORS.has(id):
@@ -484,6 +512,56 @@ static func customer_door(area: int) -> Vector3:
     return Vector3(fence_x + CUSTOMER_DOOR_OUT, 0.0, (CUSTOMER_DOOR_Z.x + CUSTOMER_DOOR_Z.y) / 2.0)
 
 
+## --- 熊王祭壇:圖騰 / 戰利品牆 ---
+
+## totem_n 屬於第 n - 1 塊地
+static func totem_area(totem_id: String) -> int:
+    return maxi(int(totem_id.trim_prefix("totem_")) - 1, 0)
+
+
+func has_totem(area: int) -> bool:
+    return GameState.is_unlocked("totem_%d" % (area + 1))
+
+
+## 熊的入口屬於哪塊地(西邊 x < 13 是主村;東邊的入口在目前最東那塊地的外面)
+func entry_area(entry: Vector3) -> int:
+    return clampi(area_of_x(entry.x), 0, expansion_level())
+
+
+## 依 GameState.unlocked 擺圖騰外觀(讀檔 / 買了都叫)
+func _refresh_totems() -> void:
+    for t in totems:
+        if is_instance_valid(t):
+            t.queue_free()
+    totems.clear()
+    for id in TOTEM_SPOTS:
+        if not GameState.is_unlocked(str(id)):
+            continue
+        var n := Node3D.new()
+        n.name = "Totem_%s" % id
+        n.position = TOTEM_SPOTS[id]
+        var wood := Color(0.45, 0.3, 0.2)
+        n.add_child(VisualFactory.box(Vector3(0.5, 2.2, 0.5), wood, Vector3(0, 1.1, 0)))
+        n.add_child(VisualFactory.box(Vector3(0.7, 0.5, 0.6), Color(0.9, 0.25, 0.2), Vector3(0, 1.45, 0)))
+        n.add_child(VisualFactory.box(Vector3(0.9, 0.22, 0.6), Color(0.95, 0.96, 0.98), Vector3(0, 2.3, 0)))
+        n.add_child(VisualFactory.cone(0.5, 0.5, Color(0.9, 0.25, 0.2), Vector3(0, 2.66, 0)))
+        world.add_child(n)
+        totems.append(n)
+
+
+## 武器店屋頂一排熊頭骨:打死王幾次放幾顆(最多 trophyCap)
+func _refresh_trophies() -> void:
+    if trophies == null:
+        return
+    for c in trophies.get_children():
+        c.queue_free()
+    var n := mini(GameState.king_kills, king_logic.trophy_cap())
+    for i in n:
+        var x := WEAPON_SHOP.x - 2.0 + 0.45 * float(i)
+        trophies.add_child(VisualFactory.box(Vector3(0.32, 0.28, 0.3), Color(1.0, 0.97, 0.88), Vector3(x, 2.85, WEAPON_SHOP.z + 1.2)))
+        trophies.add_child(VisualFactory.box(Vector3(0.34, 0.08, 0.12), Color(0.1, 0.1, 0.12), Vector3(x, 2.8, WEAPON_SHOP.z + 1.36)))
+
+
 func _wall(pos: Vector3, size: Vector3) -> StaticBody3D:
     var body := StaticBody3D.new()
     body.collision_layer = 1 << (Carrier.TERRAIN_LAYER - 1)
@@ -584,7 +662,9 @@ func repair_pad_for(spot_id: String) -> PricePad:
 
 
 ## 工作站被北極熊王拆了:修復牌出現、通知、存檔
-func station_destroyed(s: Station, _by: Node3D) -> void:
+func station_destroyed(s: Station, by: Node3D) -> void:
+    if by is Bear and (by as Bear).is_king:
+        king_wrecked += 1
     var pad := repair_pad_for(s.spot_id)
     if pad != null:
         pad.on_lost()
@@ -631,7 +711,9 @@ func alive_towers() -> Array[Tower]:
 
 
 ## 塔被熊拆了:牌子重新出現(修復價)、通知、存檔
-func tower_destroyed(t: Tower, _by: Node3D) -> void:
+func tower_destroyed(t: Tower, by: Node3D) -> void:
+    if by is Bear and (by as Bear).is_king:
+        king_wrecked += 1
     var pad := tower_pad_for(t.id)
     if pad != null:
         pad.on_lost()
@@ -669,6 +751,10 @@ func _refresh_tower_pads() -> void:
         var bp: PricePad = price_pads.get(b.id, null)
         if bp != null:
             bp.set_open(bait_area(b.id) <= expansion_level())
+    for id in TOTEM_SPOTS:
+        var tp: PricePad = price_pads.get(id, null)
+        if tp != null:
+            tp.set_open(totem_area(str(id)) <= expansion_level())
     for id in CONVEYORS:
         var cp: PricePad = price_pads.get(id, null)
         if cp != null:
@@ -776,6 +862,9 @@ func _on_bear_defeated(bear: Node3D, _by: Node3D) -> void:
     if bear == null or not is_instance_valid(bear) or bears == null or bears.logic == null:
         return
     var king := bear is Bear and (bear as Bear).is_king
+    if king:
+        _king_slain(bear as Bear)
+        return
     var kind := bears.logic.drop(king)
     if kind == "":
         return
@@ -788,9 +877,80 @@ func _on_bear_defeated(bear: Node3D, _by: Node3D) -> void:
         drop_loot(kind, bear.global_position + off)
 
 
-func drop_loot(kind: String, pos: Vector3) -> Loot:
+## 打死王:算表現分與連勝、升級、里程碑,掉一個寶箱(走過去開 -> 三選一)
+func _king_slain(b: Bear) -> void:
+    var g := king_logic.grade(king_eaten, king_wrecked)
+    var reward := king_logic.chest(g, GameState.king_streak, GameState.king_level, offline.rate(GameState.play_time), randf())
+    reward["streak"] = king_logic.next_streak(GameState.king_streak, g)
+    var milestone := GameState.king_slain(int(reward["streak"]), king_logic)
+    drop_loot("chest", b.global_position, reward)
+    _refresh_trophies()
+    EventBus.king_leveled.emit(GameState.king_level)
+    EventBus.notice.emit(tr("NOTICE_KING_LEVEL") % GameState.king_level)
+    if milestone:
+        EventBus.notice.emit(tr("NOTICE_KING_MILESTONE") % GameState.king_kills)
+    save_now()
+
+
+## 寶箱打開(Loot kind chest):保底熊王牙進資源,三選一面板開著時遊戲暫停
+func chest_opened(l: Loot) -> void:
+    loot.erase(l)
+    pending_chest = l.data.duplicate(true)
+    GameState.add_resource("tooth", int(pending_chest.get("teeth", 0)))
+    EventBus.items_moved.emit("loot", "tooth", l.global_position + Vector3(0, 0.6, 0), player.stack_top(), int(pending_chest.get("teeth", 0)))
+    EventBus.chest_opened.emit(pending_chest)
+    var labels: Array[String] = []
+    for c in pending_chest.get("cards", []):
+        labels.append(card_text(c))
+    var body: String = tr("CHEST_BODY_%s" % str(pending_chest.get("grade", "normal"))) % [float(pending_chest.get("mult", 1.0)),
+            int(pending_chest.get("streak", 0)), int(pending_chest.get("teeth", 0))]
+    hud.process_mode = Node.PROCESS_MODE_ALWAYS
+    hud.show_choice(tr("CHEST_TITLE"), body, labels)
+    get_tree().paused = true
+
+
+func card_text(c: Dictionary) -> String:
+    match str(c.get("kind", "")):
+        "cash":
+            return tr("CARD_cash") % int(c.get("amount", 0))
+        "pelt":
+            return tr("CARD_pelt") % int(c.get("amount", 0))
+    return tr("CARD_coupon_%s" % str(c.get("coupon", "insurance")))
+
+
+## 選了第 i 張卡
+func _claim_chest(i: int) -> void:
+    get_tree().paused = false
+    hud.process_mode = Node.PROCESS_MODE_INHERIT
+    var cards: Array = pending_chest.get("cards", [])
+    pending_chest = {}
+    if i < 0 or i >= cards.size():
+        return
+    var c: Dictionary = cards[i]
+    match str(c.get("kind", "")):
+        "cash":
+            GameState.add_wallet(int(c.get("amount", 0)))
+            EventBus.items_moved.emit("cash", "cash", player.global_position + Vector3(0, 1.6, 0), player.global_position, 1)
+            EventBus.notice.emit(tr("NOTICE_CHEST_cash") % int(c.get("amount", 0)))
+        "pelt":
+            GameState.add_resource("pelt", int(c.get("amount", 0)))
+            EventBus.notice.emit(tr("NOTICE_CHEST_pelt") % int(c.get("amount", 0)))
+        "coupon":
+            var key := str(c.get("coupon", "insurance"))
+            if key == "calm":
+                bears.calm(king_logic.calm_sec())
+                EventBus.notice.emit(tr("NOTICE_CALM") % int(king_logic.calm_sec()))
+            else:
+                GameState.add_coupon(key, 1)
+                EventBus.notice.emit(tr("NOTICE_CHEST_coupon"))
+    EventBus.chest_claimed.emit(c)
+    save_now()
+
+
+func drop_loot(kind: String, pos: Vector3, data: Dictionary = {}) -> Loot:
     var l := Loot.new()
     l.kind = kind
+    l.data = data
     l.level = self
     l.name = "Loot_%s_%d" % [kind, loot.size() + 1]
     l.position = Vector3(pos.x, 0.0, pos.z)
@@ -847,15 +1007,25 @@ func helper_eaten(h: Helper, bear: Node3D) -> void:
     for c in counters:
         if c.cashier == h:
             c.cashier = null
-    GameState.lose_helper(h.role)
-    var pad := hire_pad_for(h.role)
-    if pad != null:
-        pad.on_lost()
+    if bear is Bear and (bear as Bear).is_king:
+        king_eaten += 1
+    var insured := GameState.use_coupon("insurance")
+    if insured:
+        # 保險券:名額不扣、牌子不漲,幾秒後同角色的幫手自己回來
+        _insured.append({"role": h.role, "at": GameState.play_time + king_logic.insurance_return_sec()})
+        EventBus.helper_insured.emit(h.role)
+        EventBus.notice.emit(tr("NOTICE_INSURANCE") % [tr("ROLE_%s" % h.role), int(king_logic.insurance_return_sec())])
+    else:
+        GameState.lose_helper(h.role)
+        var pad := hire_pad_for(h.role)
+        if pad != null:
+            pad.on_lost()
     h.be_eaten()
     EventBus.helper_eaten.emit(h.role, h)
     if bears != null:
         bears.on_helper_eaten(bear)   # 整群吃滿 packMaxEats 個就撤退
-    EventBus.notice.emit(tr("NOTICE_BEAR_ATE") % tr("ROLE_%s" % h.role))
+    if not insured:
+        EventBus.notice.emit(tr("NOTICE_BEAR_ATE") % tr("ROLE_%s" % h.role))
     _assign_cashiers()
     save_now()
 
@@ -1002,6 +1172,14 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
             var belt := build_conveyor(str(effect.get("target", "")))
             if belt != null:
                 EventBus.notice.emit(tr("NOTICE_CONVEYOR_BUILT"))
+        "totem":
+            _refresh_totems()
+            EventBus.totem_planted.emit(totem_area(str(effect.get("target", ""))))
+            EventBus.notice.emit(tr("NOTICE_TOTEM"))
+        "coupon":
+            pass   # GameState.apply_purchase 已經加券
+    if str(effect.get("type", "")) == "unlock" and str(effect.get("target", "")) == "ice_traps":
+        EventBus.notice.emit(tr("NOTICE_ICE_TRAPS"))
 
 
 ## --- 存檔 ---
@@ -1092,7 +1270,8 @@ func restore_world(d: Dictionary) -> void:
     if typeof(loot_d) == TYPE_ARRAY:
         for e in loot_d:
             if typeof(e) == TYPE_DICTIONARY and e.has("kind"):
-                drop_loot(str(e["kind"]), Vector3(float(e.get("x", 0.0)), 0.0, float(e.get("z", 0.0))))
+                var dd = e.get("data", {})
+                drop_loot(str(e["kind"]), Vector3(float(e.get("x", 0.0)), 0.0, float(e.get("z", 0.0))), dd if typeof(dd) == TYPE_DICTIONARY else {})
     # 捕熊夾 / 誘餌:存檔記放好沒;牌子買過卻沒放好(舊檔、或用掉的瞬間沒存到)就讓牌子重新出現
     var traps_d = d.get("traps", {})
     for t in traps:
@@ -1181,6 +1360,9 @@ func _claim_offline() -> void:
 func _physics_process(delta: float) -> void:
     GameState.play_time += delta
     hud.income_rate = offline.rate(GameState.play_time)
+    if not _insured.is_empty() and GameState.play_time >= float(_insured[0].get("at", 0.0)):
+        var e: Dictionary = _insured.pop_front()
+        spawn_helper(str(e.get("role", "fisher")))
     _autosave_timer -= delta
     if _autosave_timer <= 0.0:
         _autosave_timer = autosave_sec
@@ -1202,6 +1384,9 @@ func _on_hud_action(id: String) -> void:
             new_game()
         "offline_claim":
             _claim_offline()
+        _:
+            if id.begins_with("choice:"):
+                _claim_chest(int(id.trim_prefix("choice:")))
 
 
 func _unhandled_input(event: InputEvent) -> void:

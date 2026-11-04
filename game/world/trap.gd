@@ -71,6 +71,7 @@ func trigger(bear: Bear) -> void:
     armed = false
     triggers_total += 1
     _apply_state()
+    logic.ice = GameState.is_unlocked("ice_traps")   # 熊王祭壇解鎖冰封夾:所有夾子一起變強
     var dmg := logic.damage(bear.is_king)
     bear.stun(logic.stun_sec())
     bear.take_hit(dmg, self)

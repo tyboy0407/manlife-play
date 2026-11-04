@@ -16,6 +16,7 @@ func _ready() -> void:
     _test_guide()
     _test_trap_and_belt()
     _test_offline()
+    _test_king()
     _test_bear()
     _test_tower()
     _test_settings()
@@ -81,8 +82,9 @@ func _test_data() -> void:
     costs_expected.append(3)
     for i in 24:
         costs_expected.append(1)
-    _check(shop.size() == 86 and costs == costs_expected,
-            "shop.json:八十六塊牌(含搬運工容量 $80、三次擴建、八個捕熊夾 $40、四堆誘餌 $30、十二條傳送帶 $150、二十四座守衛塔)%s" % str(costs))
+    costs_expected.append_array([1, 3, 2, 2, 2, 2])   # 熊王祭壇:保險券 1 牙、冰封夾 3 牙、四座圖騰各 2 牙
+    _check(shop.size() == 92 and costs == costs_expected,
+            "shop.json:九十二塊牌(含搬運工容量 $80、三次擴建、八個捕熊夾 $40、四堆誘餌 $30、十二條傳送帶 $150、二十四座守衛塔、熊王祭壇六塊)%s" % str(costs))
     var pc := GameData.purchase("upgrade_porter_cap")
     _check(str(pc.get("effect", {}).get("key", "")) == "porter_cap" and int(pc.get("maxBuys", 0)) == 3 and is_equal_approx(float(pc.get("costMult", 0.0)), 2.0)
             and str(GameData.purchase("trap_1").get("effect", {}).get("type", "")) == "trap" and str(GameData.purchase("bait_4").get("effect", {}).get("target", "")) == "bait_4"
@@ -449,6 +451,68 @@ func _test_offline() -> void:
     _check(int(d["h"]) == 3 and int(d["m"]) == 12 and int(d2["h"]) == 0 and int(d2["m"]) == 1, "秒數拆成 3 小時 12 分;不滿 1 分鐘算 1 分鐘")
     var empty := OfflineLogic.from_config({})
     _check(is_equal_approx(empty.window_sec, 300.0) and is_equal_approx(empty.mult, 0.5), "沒設定用預設值")
+
+
+## --- 北極熊王獎勵循環 ---
+
+func _test_king() -> void:
+    var k := KingLogic.from_config(GameData.section("bear").get("king", {}))
+    _check(is_equal_approx(k.warn_sec(), 45.0) and k.max_level() == 10 and k.teeth() == 3 and is_equal_approx(k.calm_sec(), 120.0)
+            and is_equal_approx(k.insurance_return_sec(), 10.0) and k.trophy_cap() == 10, "game.json king.reward:預告 45 秒、上限 Lv10、保底 3 顆牙、平靜 120 秒、保險 10 秒回來")
+    _near(k.hp_mult(0), 1.0, "Lv0 血 ×1", 0.001)
+    _near(k.hp_mult(4), 2.0, "Lv4 血 ×2(每級 +25%)", 0.001)
+    _near(k.hp_mult(99), 3.5, "等級夾在 10:血 ×3.5", 0.001)
+    _near(k.scale_mult(2), 1.1, "Lv2 體型 ×1.1", 0.001)
+    _near(k.building_bite_mult(2), 0.81, "Lv2 咬建築 ×0.81(拆更快)", 0.001)
+    _near(k.reward_level_mult(3), 1.6, "Lv3 寶箱 ×1.6", 0.001)
+    _check(k.grade(0, 0) == "perfect" and k.grade(2, 0) == "good" and k.grade(0, 1) == "normal" and k.grade(3, 2) == "normal",
+            "表現分:沒吃沒拆 perfect、只吃人 good、拆了建築 normal")
+    _near(k.grade_mult("perfect"), 2.0, "perfect ×2", 0.001)
+    _near(k.grade_mult("good"), 1.5, "good ×1.5", 0.001)
+    _near(k.grade_mult("normal"), 1.0, "normal ×1", 0.001)
+    _check(k.next_streak(3, "perfect") == 4 and k.next_streak(3, "good") == 0 and k.next_streak(0, "normal") == 0, "連勝:perfect +1、其他歸零")
+    _near(k.streak_bonus(3), 0.3, "連勝 3 層 +30%", 0.001)
+    _near(k.streak_bonus(9), 0.5, "連勝加成上限 +50%", 0.001)
+    _near(k.total_mult("perfect", 1, 0), 2.0 * 1.2, "perfect、之前連勝 1(這次變 2)、Lv0:2 × 1.2", 0.001)
+    _near(k.total_mult("normal", 4, 2), 1.0 * 1.0 * 1.4, "normal 連勝歸零、Lv2:1 × 1 × 1.4", 0.001)
+    _check(k.cash_card(2.0, 1.0) == 180 and k.cash_card(0.0, 2.0) == 100 and k.cash_card(2.0, 2.4) == 432, "現金卡:速率 × 90 秒 × 倍率,至少 $100")
+    _check(k.pelt_card(1.0) == 5 and k.pelt_card(2.4) == 12, "毛皮卡:5 × 倍率")
+    _check(k.coupon_card(0.0) == "insurance" and k.coupon_card(0.5) == "calm" and k.coupon_card(0.95) == "upgrade",
+            "券卡權重 2 / 2 / 1:0 保險、0.5 平靜、0.95 免費升級")
+    var ch := k.chest("perfect", 0, 0, 1.0, 0.0)
+    _check(int(ch["teeth"]) == 3 and str(ch["grade"]) == "perfect" and is_equal_approx(float(ch["mult"]), 2.2) and ch["cards"].size() == 3
+            and int(ch["cards"][0]["amount"]) == 198 and int(ch["cards"][1]["amount"]) == 11 and str(ch["cards"][2]["coupon"]) == "insurance",
+            "寶箱:perfect 第一次 ×2.2 -> 現金 $198 / 毛皮 11 / 保險券,保底 3 顆牙")
+    _check(k.is_milestone(5) and k.is_milestone(10) and not k.is_milestone(3), "里程碑 5 / 10 次")
+    var empty := KingLogic.from_config({})
+    _check(is_equal_approx(empty.warn_sec(), 45.0) and empty.grade(0, 0) == "perfect" and empty.coupon_card(0.9) == "upgrade", "沒設定用預設值")
+    # GameState:打死王、券
+    GameState.reset()
+    GameState.king_streak = 2
+    var ms := GameState.king_slain(3, k)
+    _check(GameState.king_level == 1 and GameState.king_kills == 1 and GameState.king_streak == 3 and not ms and GameState.capacity_bonus == 0,
+            "打死第一次:Lv1、擊殺 1、連勝 3、不是里程碑")
+    for i in 4:
+        GameState.king_slain(0, k)
+    _check(GameState.king_kills == 5 and GameState.king_level == 5 and GameState.king_streak == 0 and GameState.capacity_bonus == 1, "第五次:里程碑背包 +1、連勝歸零")
+    GameState.add_coupon("insurance", 2)
+    _check(GameState.coupon("insurance") == 2 and GameState.use_coupon("insurance") and GameState.coupon("insurance") == 1
+            and GameState.use_coupon("insurance") and not GameState.use_coupon("insurance") and GameState.coupon("calm") == 0, "券:加兩張、用兩張、第三張用不了")
+    GameState.apply_purchase("altar_insurance", {"type": "coupon", "key": "insurance"})
+    _check(GameState.coupon("insurance") == 1, "祭壇牌 effect coupon:保險券 +1")
+    GameState.add_coupon("upgrade", 1)
+    var d := GameState.to_dict()
+    GameState.reset()
+    GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
+    _check(GameState.king_level == 5 and GameState.king_kills == 5 and GameState.coupon("insurance") == 1 and GameState.coupon("upgrade") == 1,
+            "存檔往返:王等級 / 擊殺 / 券")
+    GameState.reset()
+    # 冰封夾
+    var tl := TrapLogic.from_config(GameData.section("trap"))
+    var base_dmg := tl.damage(false)
+    tl.ice = true
+    _check(is_equal_approx(base_dmg, 60.0) and is_equal_approx(tl.damage(false), 150.0) and is_equal_approx(tl.damage(true), 300.0)
+            and is_equal_approx(tl.stun_sec(), 6.0), "冰封夾:傷害 150 / 王 300、定住 6 秒(一般 60 / 3 秒)")
 
 
 ## --- 搬運工派工 ---

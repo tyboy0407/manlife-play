@@ -65,7 +65,18 @@ func _on_carrier_stay(c: Carrier, delta: float) -> void:
     var dwell := float(_dwell.get(key, 0.0)) + delta
     _dwell[key] = dwell
     var have := GameState.resource(logic.currency)
-    if dwell < pay_delay or have <= 0:
+    if dwell < pay_delay:
+        return
+    # 免費升級券:站滿 payDelaySec 就直接付清這張升級牌(不扣錢)
+    if str(logic.effect.get("type", "")) == "upgrade" and logic.is_cash() and GameState.coupon("upgrade") > 0:
+        GameState.use_coupon("upgrade")
+        logic.pay(logic.remaining)
+        EventBus.notice.emit(tr("NOTICE_COUPON_UPGRADE"))
+        EventBus.purchase_progress.emit(logic.id, logic.remaining)
+        _update_label()
+        _complete(c)
+        return
+    if have <= 0:
         return
     var scale_cost := maxf(float(GameData.config().get("payScaleCost", 100.0)), 1.0)
     var rate := float(GameData.config().get("payPerSec", 15.0)) * maxf(1.0, float(logic.current_cost()) / scale_cost)

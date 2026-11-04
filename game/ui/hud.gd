@@ -12,6 +12,7 @@ var joystick: TouchJoystick
 var menu_button: Button
 var menu_panel: PanelContainer
 var offline_panel: PanelContainer   # 離線收益面板(回來時彈出,領取前遊戲暫停)
+var choice_panel: PanelContainer    # 三選一面板(熊王寶箱),選之前遊戲暫停
 var income_rate := 0.0              # 每秒收入速率(關卡每幀餵,統計面板顯示)
 
 var _wallet: Label
@@ -29,6 +30,11 @@ var _stats: Label            # 詳細統計(收進選單面板)
 var _offline_dim: ColorRect
 var _offline_body: Label
 var _offline_cash := 0
+var _choice_title: Label
+var _choice_body: Label
+var _choice_box: VBoxContainer
+var _choice_buttons: Array[Button] = []
+var _warning: Label                 # 北極熊王來襲倒數(目標文字下方,紅字)
 var _notice_timer := 0.0
 var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
 var _objective_text := ""
@@ -76,9 +82,16 @@ func _ready() -> void:
     _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _hint.text = tr("HUD_HINT_TOUCH") if is_touch_device() else tr("HUD_HINT")
     add_child(_hint)
+    _warning = _make_label(20, Color(1.0, 0.45, 0.4))
+    _wide(_warning, 176, 14)
+    _warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _warning.visible = false
+    add_child(_warning)
     _build_menu()
     _build_offline_panel()
-    joystick.exclusions = [menu_button, menu_panel, offline_panel]
+    _build_choice_panel()
+    joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel]
     EventBus.notice.connect(show_notice)
     EventBus.items_moved.connect(_on_items_moved)
 
@@ -232,6 +245,83 @@ func _build_offline_panel() -> void:
     box.add_child(claim)
 
 
+## 三選一面板(熊王寶箱):標題 + 說明 + N 個按鈕,按了發 action "choice:<i>"
+func _build_choice_panel() -> void:
+    choice_panel = PanelContainer.new()
+    choice_panel.name = "ChoicePanel"
+    choice_panel.custom_minimum_size = Vector2(380, 0)
+    choice_panel.anchor_left = 0.5
+    choice_panel.anchor_right = 0.5
+    choice_panel.anchor_top = 0.35
+    choice_panel.anchor_bottom = 0.35
+    choice_panel.offset_left = -190
+    choice_panel.offset_right = 190
+    choice_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+    choice_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+    choice_panel.visible = false
+    add_child(choice_panel)
+    _choice_box = VBoxContainer.new()
+    _choice_box.add_theme_constant_override("separation", 12)
+    choice_panel.add_child(_choice_box)
+    _choice_title = Label.new()
+    _choice_title.add_theme_font_size_override("font_size", 28)
+    _choice_title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45))
+    _choice_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _choice_box.add_child(_choice_title)
+    _choice_body = Label.new()
+    _choice_body.add_theme_font_size_override("font_size", 18)
+    _choice_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _choice_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _choice_box.add_child(_choice_body)
+
+
+func show_choice(title: String, body: String, options: Array[String]) -> void:
+    for b in _choice_buttons:
+        b.queue_free()
+    _choice_buttons.clear()
+    _choice_title.text = title
+    _choice_body.text = body
+    for i in options.size():
+        var b := Button.new()
+        b.name = "Choice%d" % i
+        b.text = options[i]
+        b.custom_minimum_size = Vector2(0, 56)
+        b.add_theme_font_size_override("font_size", 22)
+        b.pressed.connect(choice_action.bind(i))
+        _choice_box.add_child(b)
+        _choice_buttons.append(b)
+    menu_panel.visible = false
+    _offline_dim.visible = true
+    choice_panel.visible = true
+
+
+func choice_open() -> bool:
+    return choice_panel.visible
+
+
+func choice_count() -> int:
+    return _choice_buttons.size()
+
+
+## 按了第 i 個選項(與測試)
+func choice_action(i: int) -> void:
+    if not choice_panel.visible:
+        return
+    choice_panel.visible = false
+    _offline_dim.visible = offline_panel.visible
+    action.emit("choice:%d" % i)
+
+
+## 北極熊王來襲倒數等警告文字("" = 隱藏)
+func set_warning(text: String) -> void:
+    _warning.text = text
+    _warning.visible = text != ""
+
+
+func warning_text() -> String:
+    return _warning.text if _warning.visible else ""
+
+
 ## 秒數 -> 「3 小時 12 分」/「5 分鐘」
 static func duration_text(sec: float) -> String:
     var d := OfflineLogic.split_duration(sec)
@@ -279,7 +369,9 @@ func stats_text() -> String:
             GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
             GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"),
             GameState.weapon_level, GameState.helpers_lost, "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60],
-            GameState.pelts, GameState.teeth, GameState.shop_level, GameState.offline_earned, int(round(income_rate * 60.0))]
+            GameState.pelts, GameState.teeth, GameState.shop_level, GameState.offline_earned, int(round(income_rate * 60.0))] \
+            + "\n" + tr("HUD_KING_STATS") % [GameState.king_level, GameState.king_kills, GameState.king_streak] \
+            + "\n" + tr("HUD_COUPONS") % [GameState.coupon("insurance"), GameState.coupon("calm"), GameState.coupon("upgrade")]
 
 
 func confirming_new_game() -> bool:

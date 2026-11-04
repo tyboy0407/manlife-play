@@ -39,6 +39,8 @@ func _ready() -> void:
     EventBus.trap_triggered.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("trap_triggered"))
     EventBus.bait_eaten.connect(func(_t: Node3D, _b: Node3D) -> void: _bump("bait_eaten"))
     EventBus.conveyor_built.connect(func(_c: Node3D) -> void: _bump("conveyor_built"))
+    EventBus.chest_claimed.connect(func(_c: Dictionary) -> void: _bump("chest_claimed"))
+    EventBus.helper_insured.connect(func(_r: String) -> void: _bump("helper_insured"))
     EventBus.items_moved.connect(func(kind: String, _i: String, _f: Vector3, _t: Vector3, n: int) -> void:
         _bump("moved", n)
         _bump("moved_" + kind, n))
@@ -252,7 +254,7 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 87 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、八十六塊價格牌 + 切魚台的修復牌、沒有存檔")
+            and _level.price_pads.size() == 93 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、九十二塊價格牌 + 切魚台的修復牌、沒有存檔")
     _check(_level.traps.size() == 8 and _level.baits.size() == 4 and _level.conveyors.is_empty() and (_level.price_pads["trap_1"] as PricePad).visible
             and (_level.price_pads["bait_1"] as PricePad).visible and not (_level.price_pads["trap_3"] as PricePad).visible
             and not (_level.price_pads["bait_2"] as PricePad).visible and (_level.price_pads["belt_station_1"] as PricePad).visible
@@ -280,7 +282,7 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 93, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 八十六塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 99, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 九十二塊價格牌 / 修復牌(%d)" % pads)
     var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
     var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
     _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"
@@ -733,15 +735,15 @@ func _run() -> void:
             "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、三次擴建後的僱用名額還原" % tower_hp_saved)
     # 離線收益:把存檔的 savedAt 撥回 3 小時前、收入速率寫成 2 $/s -> 重建關卡時彈面板、遊戲暫停 -> 領取 $10800 進錢包
     _level.save_now()
-    _level.set_physics_process(false)   # 關掉自動存檔:不然 queue_free 前的那一幀可能再存一次,把撥回去的 savedAt 蓋掉
+    _level.set_physics_process(false)   # 關掉自動存檔
+    _level.queue_free()
+    await _step(3)   # 舊關卡完全釋放後才改檔:它活著時任何事件(購買 / 被吃 / 領取)都會再存一次,把撥回去的 savedAt 蓋掉
     var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SaveManager.save_path))
     raw["savedAt"] = int(Time.get_unix_time_from_system()) - 3 * 3600
     raw["world"]["income_rate"] = 2.0
     var fw := FileAccess.open(SaveManager.save_path, FileAccess.WRITE)
     fw.store_string(JSON.stringify(raw))
     fw.close()
-    _level.queue_free()
-    await _step(3)
     GameState.reset()
     await _spawn_level()
     var wallet_before := GameState.wallet
@@ -760,6 +762,7 @@ func _run() -> void:
             "領取:面板關、恢復、錢包 +$10800、統計與存檔都記了")
     _level.hud.offline_action("claim")
     _check(GameState.wallet == wallet_before + 10800, "再按一次不會重複領")
+    await _coupon_section()
     # F9 新遊戲
     _level.clear_save_and_state()
     _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0 and GameState.pelts == 0 and GameState.teeth == 0 and GameState.shop_level == 0,
@@ -1222,11 +1225,21 @@ func _king_section() -> void:
     if t1_alive:
         t1.state = "none"   # 王吃魚會繞到西北角順手把塔拆了;這段先把塔收起來(存檔檢查要看它)
         t1._apply_state()
+    # 來襲預告:王出場前 45 秒 HUD 倒數、一般熊不來(冷卻擺 0.1 也不生)
+    GameState.play_time = bs.logic.king_at_sec() - 40.0
+    bs.cooldown = 0.1
+    bs.enabled = true
+    await _step(8)
+    _check(bs.king_warning_active() and bs.king_warning_left() >= 38 and bs.king_warning_left() <= 41 and not bs.has_king() and not bs.has_pack()
+            and _level.hud.warning_text().contains(str(bs.king_warning_left())) or _level.hud.warning_text() != "",
+            "王來襲預告:倒數 %d 秒、HUD 紅字、一般熊群暫停(冷卻 0.1 也沒生)" % bs.king_warning_left())
+    _check(not bs.has_pack() and bs.king_warning_active(), "預告期間一般熊沒來")
     GameState.play_time = bs.logic.king_at_sec() + 1.0
     bs.cooldown = 999.0   # 這段只看王,一般熊先不要來
-    bs.enabled = true
     await _step(3)
     var king := bs.king
+    _check(not bs.king_warning_active() and _level.hud.warning_text() == "" and king != null and king.king_level == 0 and GameState.king_level == 0,
+            "王出場:預告消失、第一隻是 Lv0")
     _check(king != null and bs.has_king() and king.is_king and bs.kings_total == 1 and bs.king_next_sec == INF
             and king.size_scale > 1.5 and absf(king.hp_max - bs.logic.hp(GameState.play_time) * bs.logic.king_hp_mult()) < 2.0,
             "5 分鐘:北極熊王出場(體型 %.1f、血 %.0f)" % [king.size_scale if king != null else 0.0, king.hp_max if king != null else 0.0])
@@ -1274,11 +1287,39 @@ func _king_section() -> void:
     king.hp = minf(king.hp, 35.0 * 4.0)   # 測試不想打幾十下:留四下的血(牠在水邊還會邊吃魚邊回血,所以實際會多幾下)
     var hp_left := king.hp
     await _chase_bear(king, 1200)
-    var dead := await _wait_until(func() -> bool: return not bs.has_king(), 900)
-    _check(dead and _count("bear_defeated") >= 5 and not is_instance_valid(king) and bs.kings_total == 1
-            and bs.king_next_sec >= GameState.play_time + bs.logic.king_respawn_sec() - 5.0 and bs.king_next_sec < INF,
-            "王被打到血條歸零(剩 %.0f 血)倒下,下一隻 %.0f 秒後(狀態 %s)" % [hp_left, bs.king_next_sec - GameState.play_time,
-            (king.state + "/hp %.0f" % king.hp) if is_instance_valid(king) else "freed"])
+    # 王倒在玩家腳邊,寶箱掉下來通常立刻被踩到打開(三選一面板、遊戲暫停);沒踩到就走過去
+    var down := await _wait_until(func() -> bool: return _level.hud.choice_open() or not bs.has_king(), 900)
+    _check(down and _count("bear_defeated") >= 5 and (not is_instance_valid(king) or not king.alive()) and bs.kings_total == 1,
+            "王被打到血條歸零(剩 %.0f 血)倒下(狀態 %s)" % [hp_left, (king.state + "/hp %.0f" % king.hp) if is_instance_valid(king) else "freed"])
+    var teeth0 := GameState.teeth
+    if not _level.hud.choice_open():
+        var chest: Loot = null
+        for l in _level.loot:
+            if l.kind == "chest":
+                chest = l
+        _check(chest != null and int(chest.data.get("teeth", 0)) == 3, "打死王掉下寶箱(走過去開)")
+        if chest != null:
+            await _go(chest.global_position)
+            await _step(3)
+    var pc: Dictionary = _level.pending_chest.duplicate(true)
+    _check(_level.hud.choice_open() and _level.hud.choice_count() == 3 and get_tree().paused and GameState.teeth == 3 and teeth0 <= 3
+            and int(pc.get("teeth", 0)) == 3 and pc.get("cards", []).size() == 3 and GameState.king_level == 1 and GameState.king_kills == 1
+            and _level.trophies.get_child_count() == 2,
+            "寶箱打開:保底 3 顆牙、三選一面板、遊戲暫停;王 Lv1、擊殺 1、戰利品牆一顆頭骨(表現 %s ×%.1f)" % [str(pc.get("grade", "")), float(pc.get("mult", 0.0))])
+    _check(str(pc.get("grade", "")) == "normal" and is_equal_approx(float(pc.get("mult", 0.0)), 1.0) and int(pc.get("streak", -1)) == 0,
+            "這隻王吃了搬運工、拆了切魚台:表現 normal ×1.0、連勝 0")
+    var wallet_c := GameState.wallet
+    var cash_card := int(pc["cards"][0]["amount"]) if pc.has("cards") else 0
+    var pelts_c := GameState.pelts
+    _level.hud.choice_action(0)
+    await _step(3)
+    _check(not _level.hud.choice_open() and not get_tree().paused and GameState.wallet == wallet_c + cash_card and cash_card >= 100
+            and _level.pending_chest.is_empty() and _count("chest_claimed") == 1, "選現金卡:錢包 +$%d、恢復" % cash_card)
+    _level.hud.choice_action(1)
+    _check(GameState.pelts == pelts_c, "面板關了再按不會重複拿")
+    var gone := await _wait_until(func() -> bool: return not bs.has_king(), 900)
+    _check(gone and not is_instance_valid(king) and bs.king_next_sec >= GameState.play_time + bs.logic.king_respawn_sec() - 5.0 and bs.king_next_sec < INF,
+            "王逃走消失,下一隻 %.0f 秒後" % (bs.king_next_sec - GameState.play_time))
     _check(str(_level.hud.objective_text()) != "" and _level.hud.stats_text().contains(":") and _level.hud._info.text.contains("Lv"), "HUD:左上只剩資源 / 武器,統計收進選單(有遊戲時間)")
     if t1_alive:
         t1.restore({"state": "alive", "hp": t1.hp_max})
@@ -1291,15 +1332,6 @@ func _tower_strong_section() -> void:
     var t1: Tower = _level.tower_by_id("tower_1")
     var tp: PricePad = _level.price_pads["tooth_tower_1"]
     var tp2: PricePad = _level.price_pads["tooth_tower_2"]
-    var teeth_on_ground := 0
-    for l in _level.loot:
-        if l.kind == "tooth":
-            teeth_on_ground += 1
-    _check(GameState.teeth + teeth_on_ground == 3, "打死王掉下 3 顆熊王牙")
-    for l in _level.loot.duplicate():
-        if is_instance_valid(l) and l.kind == "tooth":
-            await _go(l.global_position)
-            await _step(3)
     _check(GameState.teeth == 3 and t1.is_alive() and t1.tier == 0 and tp.visible and not tp.logic.is_exhausted() and tp.logic.currency == "tooth"
             and tp.logic.remaining == 1 and tp.label.text.contains(tr("COST_tooth") % 1) and not tp2.visible,
             "撿到熊王牙;完好的守衛塔底下有強化牌(收 1 顆),沒蓋的塔沒有")
@@ -1314,6 +1346,72 @@ func _tower_strong_section() -> void:
     await _go(Vector3(-11.6, 0, -6.0))
     await _go(Vector3(-11.6, 0, 7.0))
     await _go(Vector3(0, 0, 7))
+
+
+## 券:保險券(被吃的幫手名額不扣、10 秒後自己回來)、平靜券(一般熊 120 秒不來、存檔記剩餘秒數)、免費升級券(站上升級牌直接付清不扣錢)、
+## 嚇熊圖騰(插了的那塊地入口不選)、冰封夾解鎖
+func _coupon_section() -> void:
+    var bs: BearSpawner = _level.bears
+    bs.enabled = false
+    var fisher := _find_helper("fisher")
+    if fisher == null:
+        fisher = _level.spawn_helper("fisher", true)
+        GameState.hired["fisher"] = GameState.hired_count("fisher") + 1
+    var hired0 := GameState.hired_count("fisher")
+    var helpers0 := _level.helpers.size()
+    var fp: PricePad = _level.price_pads["hire_fisher"]
+    var fp_rem := fp.logic.remaining
+    GameState.add_coupon("insurance", 1)
+    var b := bs.spawn(fisher)
+    b.set_physics_process(false)
+    _level.helper_eaten(fisher, b)
+    await _step(3)
+    _check(GameState.coupon("insurance") == 0 and GameState.hired_count("fisher") == hired0 and _level.helpers.size() == helpers0 - 1
+            and fp.logic.remaining == fp_rem and _count("helper_insured") == 1, "保險券:漁夫被吃但名額不扣、牌不漲、券用掉")
+    var came_back := await _wait_until(func() -> bool: return _level.helpers.size() == helpers0, 60 * 12)
+    _check(came_back and _find_helper("fisher") != null, "10 秒後漁夫自己回來")
+    b.queue_free()
+    await _step(2)
+    bs.bears.clear()
+    # 平靜券
+    bs.calm(bs.king_logic.calm_sec())
+    _check(bs.calm_left() > 119.0 and bs.calm_left() <= 120.0 and absf(float(bs.snapshot().get("calmLeft", 0.0)) - bs.calm_left()) < 0.5, "平靜券:120 秒內一般熊不來、快照記剩餘秒數")
+    bs.calm_until = -1.0
+    # 免費升級券:站上工人速度牌(第二級 $34)直接付清
+    var up: PricePad = _level.price_pads["upgrade_worker_speed"]
+    var lv0 := GameState.upgrade_level("worker_speed")
+    var wallet0 := GameState.wallet
+    GameState.add_coupon("upgrade", 1)
+    await _go(up.global_position)
+    var free := await _wait_until(func() -> bool: return GameState.upgrade_level("worker_speed") == lv0 + 1, 120)
+    _check(free and GameState.coupon("upgrade") == 0 and GameState.wallet == wallet0 and _count("purchased_upgrade_worker_speed") >= 1,
+            "免費升級券:工人速度 Lv%d -> Lv%d、錢包沒扣、券用掉" % [lv0, lv0 + 1])
+    await _go(Vector3(0, 0, 7))
+    # 圖騰:主村插了之後一般熊的入口不會是主村的(西邊)
+    GameState.apply_purchase("totem_1", {"type": "totem", "target": "totem_1"})
+    await _step(2)
+    var west := 0
+    for i in 40:
+        if _level.entry_area(bs._pick_entry()) == 0:
+            west += 1
+    var king_west := 0
+    for i in 40:
+        if _level.entry_area(bs._pick_entry(true)) == 0:
+            king_west += 1
+    _check(_level.has_totem(0) and _level.totems.size() == 1 and west == 0 and king_west > 0, "主村圖騰:一般熊群 40 次都不從主村入口來(王不受影響,%d 次)" % king_west)
+    # 冰封夾
+    GameState.apply_purchase("altar_ice", {"type": "unlock", "target": "ice_traps"})
+    var trap := _level.trap_by_id("trap_2")
+    trap.arm()
+    var b2 := bs.spawn()
+    b2.set_physics_process(false)
+    b2.hp = b2.hp_max
+    var hp0 := b2.hp
+    trap.trigger(b2)
+    _check(GameState.is_unlocked("ice_traps") and absf(hp0 - b2.hp - 150.0) < 0.01 or (hp0 - 150.0 <= 0.0 and not b2.alive()), "冰封夾:夾到扣 150(一般夾 60)")
+    b2.queue_free()
+    await _step(2)
+    bs.bears.clear()
 
 
 ## 王拆建築:把牠放到第二座切魚台旁邊盯著咬,10 秒就拆掉 -> 廢墟、工人不見、格子停用、搬運工 / 漁夫不再送去、修復牌出現 $200;

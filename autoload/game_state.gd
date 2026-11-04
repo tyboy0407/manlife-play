@@ -25,6 +25,10 @@ var fish_caught := 0
 var items_sold := 0
 var items_trashed := 0
 var offline_earned := 0        # 離線收益累計(領取時加)
+var king_level := 0            # 北極熊王等級(每打死一次 +1,KingLogic 夾上限)
+var king_kills := 0            # 打死王幾次(戰利品牆)
+var king_streak := 0           # 連續完美擊殺數
+var coupons := {}              # 券:insurance / calm / upgrade -> 張數
 
 
 func _ready() -> void:
@@ -54,6 +58,10 @@ func reset() -> void:
     items_sold = 0
     items_trashed = 0
     offline_earned = 0
+    king_level = 0
+    king_kills = 0
+    king_streak = 0
+    coupons = {}
     changed.emit()
 
 
@@ -75,8 +83,41 @@ func apply_purchase(id: String, effect: Dictionary) -> void:
             weapon_level += 1
         "shop_upgrade":
             shop_level += 1
+        "coupon":
+            add_coupon(str(effect.get("key", "insurance")), 1)
     changed.emit()
     EventBus.purchased.emit(id, effect)
+
+
+## --- 券(熊王寶箱 / 祭壇)---
+
+func coupon(key: String) -> int:
+    return int(coupons.get(key, 0))
+
+
+func add_coupon(key: String, n: int) -> void:
+    coupons[key] = maxi(coupon(key) + n, 0)
+
+
+## 用掉一張;沒有回 false
+func use_coupon(key: String) -> bool:
+    if coupon(key) <= 0:
+        return false
+    coupons[key] = coupon(key) - 1
+    changed.emit()
+    return true
+
+
+## 打死王:等級 / 擊殺 / 連勝;回傳這次是不是里程碑(背包 +1)
+func king_slain(new_streak: int, logic: KingLogic) -> bool:
+    king_kills += 1
+    king_level = logic.clamp_level(king_level + 1)
+    king_streak = maxi(new_streak, 0)
+    var milestone := logic.is_milestone(king_kills)
+    if milestone:
+        capacity_bonus += 1
+    changed.emit()
+    return milestone
 
 
 ## 幫手被吃掉:該角色人數 -1(不會低於 0),統計 +1
@@ -200,6 +241,7 @@ func to_dict() -> Dictionary:
         "pelts": pelts, "teeth": teeth, "shop_level": shop_level,
         "cash_earned": cash_earned, "fish_caught": fish_caught, "items_sold": items_sold, "items_trashed": items_trashed,
         "offline_earned": offline_earned,
+        "king_level": king_level, "king_kills": king_kills, "king_streak": king_streak, "coupons": coupons.duplicate(),
     }
 
 
@@ -231,6 +273,14 @@ func from_dict(d: Dictionary) -> void:
     items_sold = int(d.get("items_sold", 0))
     items_trashed = int(d.get("items_trashed", 0))
     offline_earned = maxi(int(d.get("offline_earned", 0)), 0)
+    king_level = maxi(int(d.get("king_level", 0)), 0)
+    king_kills = maxi(int(d.get("king_kills", 0)), 0)
+    king_streak = maxi(int(d.get("king_streak", 0)), 0)
+    coupons = {}
+    var cp = d.get("coupons", {})
+    if typeof(cp) == TYPE_DICTIONARY:
+        for k in cp:
+            coupons[str(k)] = maxi(int(cp[k]), 0)
     weapon_level = maxi(int(d.get("weapon_level", 0)), 0)
     helpers_lost = maxi(int(d.get("helpers_lost", 0)), 0)
     play_time = maxf(float(d.get("play_time", 0.0)), 0.0)

@@ -100,7 +100,28 @@
       "healHelper": 0,
       "buildingBiteSec": 10,
       "drop": "tooth",
-      "dropCount": 3
+      "dropCount": 3,
+      "reward": {
+        "warnSec": 45,
+        "maxLevel": 10,
+        "hpPerLevel": 0.25,
+        "scalePerLevel": 0.05,
+        "biteMultPerLevel": 0.9,
+        "rewardPerLevel": 0.2,
+        "perfectMult": 2.0,
+        "goodMult": 1.5,
+        "streakStep": 0.1,
+        "streakMax": 0.5,
+        "teeth": 3,
+        "cashSec": 90,
+        "cashMin": 100,
+        "pelts": 5,
+        "couponWeights": [2, 2, 1],
+        "calmSec": 120,
+        "insuranceReturnSec": 10,
+        "milestones": [5, 10],
+        "trophyCap": 10
+      }
     },
     "speed": 4.0,
     "fleeSpeed": 7.5,
@@ -155,6 +176,11 @@
     "kingDamage": 150,
     "stunSec": 3.0,
     "radius": 2.5,
+    "ice": {
+      "damage": 150,
+      "kingDamage": 300,
+      "stunSec": 6.0
+    },
     "bait": {
       "radius": 8.0,
       "eatSec": 10.0,

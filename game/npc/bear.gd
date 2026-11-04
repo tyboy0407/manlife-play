@@ -24,6 +24,8 @@ var eaten_total := 0
 var hp := 30.0
 var hp_max := 30.0
 var is_king := false
+var king_level := 0            # 王的等級(GameState.king_level,血 / 體型 / 咬建築速度看 KingLogic)
+var king_logic: KingLogic = null
 var size_scale := 1.0         # 體型倍率(王吃東西會變大)
 var hits_taken := 0
 var towers_broken := 0
@@ -48,8 +50,14 @@ func _ready() -> void:
     if logic == null:
         logic = BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
     hp_max = logic.hp(GameState.play_time) * (logic.king_hp_mult() if is_king else 1.0)
-    hp = hp_max
     size_scale = logic.king_scale() if is_king else 1.0
+    if is_king:
+        if king_logic == null:
+            king_logic = KingLogic.from_config(GameData.section("bear").get("king", {}))
+        king_level = king_logic.clamp_level(GameState.king_level)
+        hp_max *= king_logic.hp_mult(king_level)
+        size_scale *= king_logic.scale_mult(king_level)
+    hp = hp_max
     _body = Node3D.new()
     _body.name = "Body"
     add_child(_body)
@@ -109,6 +117,9 @@ func _build_hp_bar() -> void:
     _hp_fill = VisualFactory.box(Vector3(1.6, 0.14, 0.08), Color(0.9, 0.2, 0.2), Vector3(0, 0, 0))
     _hp_fill.material_override = VisualFactory.material(Color(0.9, 0.2, 0.2), Color(0.5, 0.05, 0.05))
     _hp_bar.add_child(_hp_fill)
+    if is_king:
+        var crown := VisualFactory.label(tr("HUD_KING_LV") % king_level, Vector3(0, 0.55, 0), 40, Color(1.0, 0.85, 0.3))
+        _hp_bar.add_child(crown)
     _update_hp_bar()
 
 
@@ -237,7 +248,7 @@ func _reach() -> float:
 
 func _bite_sec_for(t: Node3D) -> float:
     if is_king and (t is Tower or t is Station):
-        return logic.king_building_bite_sec()
+        return logic.king_building_bite_sec() * (king_logic.building_bite_mult(king_level) if king_logic != null else 1.0)
     if t is Tower:
         return (t as Tower).logic.bite_sec()
     if t is Fish:

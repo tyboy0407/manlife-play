@@ -5,6 +5,7 @@ extends RefCounted
 ## 誘餌魚堆:放好後 bait.radius 內的熊(王也是)會改去吃它,咬滿 bait.eatSec 秒吃光(消失,牌子重新出現)。
 
 var cfg := {}
+var ice := false   # 冰封夾(熊王祭壇解鎖):傷害 / 定住秒數用 cfg.ice
 
 
 static func from_config(c: Dictionary) -> TrapLogic:
@@ -13,14 +14,23 @@ static func from_config(c: Dictionary) -> TrapLogic:
     return t
 
 
+func _src() -> Dictionary:
+    if ice:
+        var i = cfg.get("ice", {})
+        if typeof(i) == TYPE_DICTIONARY and not i.is_empty():
+            return i
+    return cfg
+
+
 func damage(king: bool) -> float:
+    var c := _src()
     if king:
-        return maxf(float(cfg.get("kingDamage", 150.0)), 0.0)
-    return maxf(float(cfg.get("damage", 60.0)), 0.0)
+        return maxf(float(c.get("kingDamage", cfg.get("kingDamage", 150.0))), 0.0)
+    return maxf(float(c.get("damage", cfg.get("damage", 60.0))), 0.0)
 
 
 func stun_sec() -> float:
-    return maxf(float(cfg.get("stunSec", 3.0)), 0.0)
+    return maxf(float(_src().get("stunSec", cfg.get("stunSec", 3.0))), 0.0)
 
 
 ## 夾子的觸發半徑(熊走進來就夾)
