@@ -31,8 +31,8 @@ const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0
 const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill", "station_3": "cutting_table", "grill_2": "grill",
     "station_4": "cutting_table", "grill_3": "grill", "grill_4": "grill", "grill_5": "grill", "grill_6": "grill", "grill_7": "grill", "tailor": "tailor"}
 const COUNTER_SPOTS := {"fillet_counter": Vector3(-9.0, 0, 8.5), "grill_counter": Vector3(3.0, 0, 8.5),
-    "fillet_counter_2": Vector3(15.0, 0, 8.5), "grill_counter_2": Vector3(25.0, 0, 8.5),
-    "fillet_counter_3": Vector3(33.6, 0, 8.5), "grill_counter_3": Vector3(43.6, 0, 8.5),
+    "fillet_counter_2": Vector3(16.6, 0, 8.5), "grill_counter_2": Vector3(25.4, 0, 8.5),   # 擴建區 18.6 寬放兩座櫃台:上架格貼西邊、排 4 個顧客(counters.json maxCustomers)
+    "fillet_counter_3": Vector3(35.2, 0, 8.5), "grill_counter_3": Vector3(44.0, 0, 8.5),   # 排隊位才不會排進隔壁的上架格或穿過東柵欄
     "sweater_counter": Vector3(59.5, 0, 8.5)}
 const PAD_SPOTS := {
     "hire_fisher": Vector3(-10.0, 0, 5.0), "hire_porter": Vector3(-6.0, 0, 5.0), "hire_cashier": Vector3(-2.0, 0, 5.0),
@@ -52,9 +52,9 @@ const PAD_SPOTS := {
 const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5),
     "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
-    "tower_7": Vector3(15.0, 0, -9.5), "tower_8": Vector3(30.0, 0, -9.5), "tower_9": Vector3(15.0, 0, 11.0), "tower_10": Vector3(30.0, 0, 11.0),
+    "tower_7": Vector3(15.0, 0, -9.5), "tower_8": Vector3(30.0, 0, -9.5), "tower_9": Vector3(14.4, 0, 11.0), "tower_10": Vector3(30.0, 0, 11.0),   # 西南塔在魚片櫃台的上架格南邊,避開收銀格
     "tower_11": Vector3(21.5, 0, -2.9), "tower_12": Vector3(28.3, 0, -2.9),
-    "tower_13": Vector3(33.6, 0, -9.5), "tower_14": Vector3(48.6, 0, -9.5), "tower_15": Vector3(33.6, 0, 11.0), "tower_16": Vector3(48.6, 0, 11.0),
+    "tower_13": Vector3(33.6, 0, -9.5), "tower_14": Vector3(48.6, 0, -9.5), "tower_15": Vector3(33.0, 0, 11.0), "tower_16": Vector3(48.6, 0, 11.0),
     "tower_17": Vector3(40.9, 0, -2.9), "tower_18": Vector3(45.9, 0, -2.9),
     "tower_19": Vector3(52.2, 0, -9.5), "tower_20": Vector3(67.2, 0, -9.5), "tower_21": Vector3(52.2, 0, 11.0), "tower_22": Vector3(67.2, 0, 11.0),
     "tower_23": Vector3(56.5, 0, -2.9), "tower_24": Vector3(62.5, 0, -2.9)}
@@ -92,6 +92,7 @@ const UNLOCKS := {
 const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆中段的門(柵欄缺口的外觀;擴建時整面東牆都拆)
 const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 第一塊擴建區(x 13 ~ 31.6)
 const ANNEX_RECTS := [Rect2(13.0, -11.0, 18.6, 23.6), Rect2(31.6, -11.0, 18.6, 23.6), Rect2(50.2, -11.0, 18.6, 23.6)]   # 三塊擴建區(x 13 ~ 31.6 ~ 50.2 ~ 68.8)
+const ANNEX_WATER_W := 12.0   # 擴建區水區寬度(主村 16;擴建區窄,兩側各留 3.3 格沙地給角塔 / 捕熊夾 / 誘餌)
 const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
 const HELPER_SPAWN := Vector3(0.0, 0, -3.0)
@@ -329,13 +330,13 @@ func _build_annex(k: int = 1) -> void:
     var cx := rect.get_center().x
     batch.add_box(Vector3(rect.size.x + 0.8, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(cx - 0.4, -0.02, 4.0))   # 沙地接到西邊那塊,中間沒縫
     batch.add_box(Vector3(rect.size.x, 0.9, 0.25), fence, Vector3(cx, 0.45, 12.4))
-    batch.add_box(Vector3(16, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(cx, -0.04, -14.0))
-    for i in 17:
-        var x := cx - 8.0 + float(i)
+    batch.add_box(Vector3(ANNEX_WATER_W, 0.12, 5), Color(0.2, 0.45, 0.85), Vector3(cx, -0.04, -14.0))
+    for i in int(ANNEX_WATER_W) + 1:
+        var x := cx - ANNEX_WATER_W / 2.0 + float(i)
         if absf(x - cx) <= 1.5:
             continue
         batch.add_cylinder(0.14, 1.1, fence, Vector3(x, 0.55, -11.5))
-    batch.add_box(Vector3(16, 0.3, 0.3), fence, Vector3(cx, 0.95, -11.5))
+    batch.add_box(Vector3(ANNEX_WATER_W, 0.3, 0.3), fence, Vector3(cx, 0.95, -11.5))
     batch.build()
     var east_fence := VisualFactory.box(Vector3(0.25, 0.9, 16.5), fence, Vector3(rect.end.x - 0.2, 0.45, 4.0))
     world.add_child(east_fence)
@@ -347,7 +348,7 @@ func _build_annex(k: int = 1) -> void:
     _wall(Vector3(cx, 1, -11.2), Vector3(rect.size.x + 0.4, 2, 0.4))
     var fa := FishArea.new()
     fa.name = "FishArea%d" % (k + 1)
-    fa.rect = Rect2(cx - 8.0, -11.0, 16.0, 7.0)
+    fa.rect = Rect2(cx - ANNEX_WATER_W / 2.0, -11.0, ANNEX_WATER_W, 7.0)   # 擴建區只有 18.6 寬,水區比主村窄,四角塔 / 捕熊夾 / 誘餌才在沙地上
     world.add_child(fa)
     fish_areas.append(fa)
     annexes.append(batch)

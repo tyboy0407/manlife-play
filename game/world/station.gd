@@ -94,6 +94,7 @@ func _ready() -> void:
     add_child(_rubble)
     # 格子
     input_pad = StationPad.new()
+    input_pad.name = "InputPad"
     input_pad.station = self
     input_pad.mode = "input"
     input_pad.color = Color(0.3, 0.26, 0.22)
@@ -101,6 +102,7 @@ func _ready() -> void:
     input_pad.position = Vector3(0, 0, -2.2)
     add_child(input_pad)
     output_pad = StationPad.new()
+    output_pad.name = "OutputPad"
     output_pad.station = self
     output_pad.mode = "output"
     output_pad.color = Color(0.26, 0.3, 0.26)

@@ -99,6 +99,11 @@
   我定的配套:不滿 60 秒(minSec)不算;教學沒做完不算;離線期間熊不來、幫手不會被吃(什麼都不模擬,只算錢);速率視窗裡還沒觀察到的部分
   用存檔帶進來的速率補(剛讀檔就關掉也不會歸零);領取 GameState.claim_offline 進錢包 + offline_earned 統計、EventBus.offline_claimed、goal 音效、
   $ 飛向錢包、通知、立刻存檔;存檔版本不升(舊檔沒 income_rate 當 0)。
+- 2026-11-04(使用者:修掉體驗不好與區域重疊的地方,如收銀格與守衛塔重疊,用測試全過證明):加 tests/verify_layout 把全部占地(格子、工作站桌子、
+  櫃台本體與排隊位、塔、捕熊夾、誘餌、水區、牆)蒐集起來兩兩查重疊(牌子就是地基的組合除外),並要求排隊位留在自己那塊地的柵欄內。修掉的:
+  1 擴建區的 fillet_counter_2 / _3 收銀格壓在 tower_9 / tower_15 底下 -> 塔挪到上架格南邊(x 14.4 / 33.0);2 擴建區水區 16 寬把四角塔、捕熊夾、誘餌都泡在水裡
+  -> 擴建區水區改 12 寬(Harbor.ANNEX_WATER_W,魚欄裝飾跟著縮);3 擴建區兩座櫃台各排 6 個顧客(每 1.3 格)會排進隔壁櫃台的上架格、穿過東柵欄 ->
+  counters.json 的 maxCustomers 4 / queueSpacing 1.2(Counter 讀 def 蓋過 customers.max),櫃台改放 x 16.6 / 25.4、35.2 / 44.0(上架格貼西邊)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -136,7 +141,7 @@
   `bear.gd`(Bear:從 entry 進來,hunting 盯最近的幫手 -> 靠到 panicRadius 幫手嚇呆 -> biteRadius 內 biting 咬 biteSec 秒 -> Harbor.helper_eaten -> 找下一個;
   hp / hp_max = BearLogic.hp(play_time),take_hit 扣血閃紅、頭上血條,歸零 defeat 逃回 entry(fleeing);沒人可吃 leaving;is_king:體型 size_scale、
   連 Fish 也當獵物、_feast 回血變大、沒獵物就在村中間等;白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
-- `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad(原料是資源(GameState.is_resource:pelt / tooth)時 _resource_input:玩家站滿 resourceInputDelaySec 才從 GameState 扣)、Station(`Station.create(def)`;id tailor 畫衣架 + 毛衣,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json;上架格 + 收銀格 ServicePad + 排隊位;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
+- `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad(原料是資源(GameState.is_resource:pelt / tooth)時 _resource_input:玩家站滿 resourceInputDelaySec 才從 GameState 扣)、Station(`Station.create(def)`;id tailor 畫衣架 + 毛衣,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json(maxCustomers / queueSpacing 可蓋過 customers.max 與 1.3 間距);上架格 DepositPad + 收銀格 ServicePad + 排隊位 slot_position;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
   on_lost 退名額重新開放並標「買回 ×1.5」(守衛塔牌標「修復」)、expand() 擴建多開名額、raise_max(n)、set_open(開關)、is_tower_pad / is_repair_pad、restore_state;
   currency 不是 cash 的牌從 GameState.resource 扣、標籤用 COST_<currency>)、Loot(掉落物 pelt / tooth:浮動旋轉,玩家走到 lootPickupRadius 內 collect -> GameState.add_resource、
   EventBus.loot_collected、Harbor.loot_collected;snapshot {kind, x, z})、
@@ -254,6 +259,8 @@
   remaining 設成下一級價。讀檔順序 _spawn_unlock(expand)在 restore_world(restore 夾在新的 max_buys 內)之前,所以不用存。
 - 買回:幫手被吃 -> Harbor.hire_pad_for(role).on_lost() -> PurchaseLogic.lose()(buys -1、lost +1、價格 × rebuy_mult、已付保留)
   -> 牌子 _enable 重新出現。complete() 時 lost -1 回正常階梯。存檔 pads 多記 lost。
+- 版面:新加會占地的東西(格子、塔、夾、誘餌、水區、牆、櫃台排隊位)跑 tests/verify_layout 看有沒有壓到別人;擴建區只有 18.6 寬,水區 12 寬(ANNEX_WATER_W)、
+  兩座櫃台的上架格貼西邊、各排 4 個顧客;新的「牌子就是地基」組合要加進 verify_layout._allowed。
 - 擴建(village_2 / 3 / 4):UNLOCKS 的 `annex: k` 讓 _spawn_unlock 先 _build_annex(k)(k = 1 拆整面東牆 east_walls,k >= 2 拆前一塊的東牆 annex_east_walls[k-2];蓋 Annex<k> StaticBatch、FishArea<k+1>),
   再生那塊的建築(k = 1:station_3 / grill_2 / *_counter_2;k = 2:station_4 / grill_3 ~ 5 / *_counter_3;k = 3:grill_6 / grill_7 / tailor / sweater_counter;座標在 STATION_SPOTS / COUNTER_SPOTS)。
   擴建區的塔牌與下一次擴建牌(expand_village_k 要擴建 k - 1 次後才出現)靠 _refresh_tower_pads 開關(建關卡、擴建、讀檔時都重算)。
@@ -310,7 +317,7 @@ bash tools/run_tests.sh          # Linux / 雲端(先 bash tools/setup_cloud.sh)
 GitHub Actions(`.github/workflows/tests.yml`)在推到 main 時(docs/、README、CLAUDE.md 的改動除外)或手動觸發,於 ubuntu-latest 跑同樣兩支腳本,約 7 分鐘;
 2026-11-04 首次執行全過(Godot v4.7.stable.official,四套測試 ALL OK),這也證明 setup_cloud.sh / run_tests.sh 在 Linux 雲端能跑。
 
-先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
+先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_layout`(擴建三次後蒐集所有占地矩形兩兩查重疊、排隊位不出自己那塊地的柵欄,約 5 秒)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
 漁夫去擴建區的水再回主村卸貨、route 回空,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數(不回血、咬建築 10 秒)、掉落物、武器店等級賣到第幾級、盯最近的 / TowerLogic 數值(血 800 = 20 口、強力塔 2000 = 50 口)、幾箭射死、射程內最近的活熊 / TrapLogic 數值、觸發、挑誘餌 / ConveyorLogic 拿貨 / 前進 / 排隊 / 存檔 / PurchaseLogic 買回、擴建名額、捕熊夾牌同價重現、守衛塔牌修復 / 工作站修復價 / 收毛皮的逐次價牌、武器牌 raise_max / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 + 搬運工容量 Lv1(8 -> 12)-> 傳送帶 $150(切魚台 -> 魚片櫃台,自己送 3 件)-> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、空的烤魚攤原料區優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
 追著熊 Lv1 每下 10 打到血條歸零才逃、掉毛皮走過去撿 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、每隻兩下打跑、冷卻照當時的間隔、再掉三張毛皮 ->
 5 張毛皮升級武器店 Lv1、武器牌重新出現買 Lv4 $172)->

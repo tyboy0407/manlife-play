@@ -19,6 +19,7 @@ var cashier: Helper = null
 var max_customers := 6
 var spawn_interval := 2.0
 var serve_interval := 0.35
+var queue_spacing := 1.3                    # 排隊位間距(counters.json queueSpacing 可蓋過)
 var spawn_offset := Vector3(12.0, 0, 1.5)   # local:顧客出生點
 var exit_offset := Vector3(12.0, 0, 4.0)    # local:離開點
 var served_total := 0
@@ -43,7 +44,8 @@ func _ready() -> void:
     base_stock_cap = int(def.get("stockCap", 30))
     logic.price = int(def.get("price", 2))
     var ccfg := GameData.section("customers")
-    max_customers = int(ccfg.get("max", 6))
+    max_customers = int(def.get("maxCustomers", ccfg.get("max", 6)))   # counters.json 可蓋過(擴建區的櫃台排 4 個就到柵欄了)
+    queue_spacing = maxf(float(def.get("queueSpacing", ccfg.get("queueSpacing", 1.3))), 0.6)
     spawn_interval = maxf(float(ccfg.get("spawnIntervalSec", 2.0)), 0.1)
     serve_interval = maxf(float(ccfg.get("serveIntervalSec", 0.35)), 0.0)
     var ww = def.get("wantWeights", ccfg.get("wantWeights", [1]))   # counters.json 可蓋過(毛衣櫃台一次只買一件)
@@ -53,12 +55,14 @@ func _ready() -> void:
     var title := str(def.get("name", "COUNTER_%s" % def_id))
     add_child(VisualFactory.label("%s  $%d" % [tr(title), logic.price], Vector3(0, 2.4, 0), 44, Color(1.0, 0.95, 0.8)))
     deposit_pad = CounterPad.new()
+    deposit_pad.name = "DepositPad"
     deposit_pad.counter = self
     deposit_pad.color = Color(0.3, 0.26, 0.3)
     deposit_pad.label_text = "%s\n%s" % [tr("PAD_COUNTER"), GameData.item_name(logic.item_id)]
     deposit_pad.position = Vector3(-2.2, 0, 0)
     add_child(deposit_pad)
     service_pad = ServicePad.new()
+    service_pad.name = "ServicePad"
     service_pad.counter = self
     service_pad.position = Vector3(0, 0, 2.2)
     add_child(service_pad)
@@ -94,7 +98,7 @@ func has_server() -> bool:
 
 
 func slot_position(index: int) -> Vector3:
-    return to_global(Vector3(1.6 + float(index) * 1.3, 0.0, 0.0))
+    return to_global(Vector3(1.6 + float(index) * queue_spacing, 0.0, 0.0))
 
 
 func waiting_customers() -> int:
