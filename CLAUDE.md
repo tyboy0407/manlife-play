@@ -64,7 +64,7 @@
   切魚台輸入格之間的空地(x ±3 是 3.8 寬的空隙;屋頂只遮到水面不遮格子)。理由:四角塔射程 9 照不到村中央(station_2 離最近的角塔 14.5),
   熊咬搬運工 / 工人、王拆切魚台都在這裡;加上這兩座後主村每個點都在某座塔射程內(水中央 5.5、價格牌排 8.5、櫃台由南角塔管)。
   牌與熊王牙牌(tooth_tower_5 / 6)照舊同位置,shop.json 共 23 塊牌。
-- 2026-10-28(試玩報告 docs/playtest_2026-10-28.md 後,使用者逐項裁示,14 項改):1 第一群熊 3 分鐘後才來(bear.firstAtSec 180 + firstDelaySec 5);
+- 2026-10-28(試玩報告 notes/playtest_2026-10-28.md 後,使用者逐項裁示,14 項改):1 第一群熊 3 分鐘後才來(bear.firstAtSec 180 + firstDelaySec 5);
   2 一群熊最多吃 2 個幫手就整群撤退(packMaxEats,BearSpawner.on_helper_eaten -> Bear.retreat,理由 "full"、NOTICE_BEAR_FULL);4 工作站塞住(成品滿停工)
   提示改指輸出格 / 背著原料先指垃圾桶(HINT_take_jammed / HINT_station_jammed,state.stations[].blocked);5 櫃台滿又沒人收銀提示指收銀格(HINT_counter_full_serve);
   6 王 8 分鐘才來(king.atSec 480);7 教學第 7 步錢不夠時箭頭回工作循環、文字「再賺 $N 就能買」(TUT_earn,args);9 熊來了沒武器又錢不夠:
@@ -181,7 +181,7 @@
 - `tools/snap_scene.tscn` + `.gd`:開小視窗跑主場景、把玩家 / 熊擺到幾個位置截 PNG(村子、武器店、熊咬幫手、Lv3 武器),接新外觀時看一眼用;
   `godot --path . --resolution 900x900 res://tools/snap_scene.tscn -- <輸出資料夾>`(要用場景跑,`--script` 模式沒有 Autoload)
 - `tools/playtest.tscn` + `.gd`:自動試玩機器人(照 Guide 提示走、熊照正式規則來;工作站塞住 / 櫃台滿 / 牌子沒錢時做真人會做的事),
-  印每 10 秒狀態、購買 / 被吃 / 熊事件與 SUMMARY;`godot --headless --path . res://tools/playtest.tscn -- <分鐘 20> <倍速 4> <seed>`;報告在 docs/playtest_2026-10-28.md
+  印每 10 秒狀態、購買 / 被吃 / 熊事件與 SUMMARY;`godot --headless --path . res://tools/playtest.tscn -- <分鐘 20> <倍速 4> <seed>`;報告在 notes/playtest_2026-10-28.md
 - `tools/serve_web.py`:本機預覽 build/web(0.0.0.0,印 iPhone 可用的區網網址;8080 被台股 App 佔著,用 8090);`.claude/launch.json` 的 `web`
 - `tools/deploy_web.py`:`--export-release Web` -> 同步到 `docs/`(Pages 從這裡發布)-> 只 commit docs/ -> push origin main;`--export-only` / `--no-export` / `--no-push`
 - `tools/setup_cloud.sh`:Linux / 雲端裝 Godot 4.7(~/godot/godot)+ 可選 `--templates` 匯出模板,並先 --import 兩次;`tools/run_tests.sh`:bash 版測試跑法(timeout 600 / 個)
