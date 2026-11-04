@@ -169,8 +169,9 @@ func _physics_process(delta: float) -> void:
             if player.global_position.distance_to(_last_pos) < 0.3 and player.planar_distance_to(_target) > 0.6:
                 _stuck_count += 1
                 _sidestep = 0.8
-                _log("卡住 #%d:在 (%.1f, %.1f) 要去 (%.1f, %.1f) 提示 %s" % [_stuck_count, player.global_position.x, player.global_position.z,
-                        _target.x, _target.z, kind])
+                var mi := _provide()
+                _log("卡住 #%d:在 (%.1f, %.1f) 要去 (%.1f, %.1f) 提示 %s | vel %.2f dir (%.2f, %.2f) unloading %.2f sidestep %.2f commit %.2f busy %s stack %d" % [_stuck_count, player.global_position.x, player.global_position.z,
+                        _target.x, _target.z, kind, player.velocity.length(), mi.dir.x, mi.dir.y, _unloading, _sidestep, _commit_t, str(player.busy_with_bear), player.stack.count])
             _stuck_timer = 0.0
             _last_pos = player.global_position
     if _sidestep > 0.0:

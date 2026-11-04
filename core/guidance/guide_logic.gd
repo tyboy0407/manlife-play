@@ -103,6 +103,11 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
     if count > 0 and item != "":
         var ct := _counter_with_space(state, item)
         if not ct.is_empty():
+            # 櫃台放不下整疊、又沒人收銀:先站收銀格賣到放得下再上架。不然每賣一件提示就在上架格 / 收銀格之間翻一次,
+            # 玩家在兩格之間來回跑(試玩機器人的「卡住」其實是這個)
+            var free := maxi(int(ct.get("cap", 0)) - int(ct.get("stock", 0)), 0)
+            if free < count and int(ct.get("stock", 0)) > 0 and not bool(ct.get("has_server", false)) and not bool(ct.get("has_cashier", false)):
+                return {"kind": "service", "target": str(ct["id"]), "text": "HINT_counter_full_serve"}
             return {"kind": "counter_deposit", "target": str(ct["id"]), "text": "HINT_to_counter"}
         var st := _station_accepting(state, item)
         if not st.is_empty():

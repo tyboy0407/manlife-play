@@ -632,6 +632,22 @@ func _test_guide() -> void:
     _check(GuideLogic.hint(state)["kind"] == "station_output", "錢格沒錢:照塞住規則")
     state["wallet"] = 50
     state["stations"][0]["blocked"] = false
+    # 櫃台放不下整疊、沒人收銀:先去收銀格賣到放得下(提示不在兩格之間翻來翻去)
+    state = _guide_state()
+    state["carry_item"] = "fillet"
+    state["carry_count"] = 5
+    state["counters"][0]["stock"] = 27
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "service" and h["text"] == "HINT_counter_full_serve", "背 5 片、櫃台 27 / 30 沒人收銀:先去收銀格賣")
+    state["counters"][0]["stock"] = 25
+    _check(GuideLogic.hint(state)["kind"] == "counter_deposit", "賣到 25 / 30 放得下 5 片:去上架")
+    state["counters"][0]["stock"] = 27
+    state["counters"][0]["has_cashier"] = true
+    _check(GuideLogic.hint(state)["kind"] == "counter_deposit", "有收銀員:直接上架(能放幾片放幾片)")
+    state["counters"][0]["has_cashier"] = false
+    state["counters"][0]["stock"] = 0
+    state["counters"][0]["cap"] = 3
+    _check(GuideLogic.hint(state)["kind"] == "counter_deposit", "櫃台是空的(放不下整疊也先上架,不然沒東西可賣)")
     # 武器打不過熊、幫手被吃過:先存錢升級武器,不提重僱
     state = _guide_state()
     state["wallet"] = 20

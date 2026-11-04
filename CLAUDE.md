@@ -111,6 +111,9 @@
   (ceil(血 / 攻擊力) × 間隔 × 2)超過咬一口 biteSec 就算打不過;GuideLogic 在「幫手被吃過 (helpers_lost > 0) 且打不過」時先存錢升級武器(武器牌買得起就指牌、
   錢格有錢先收、不然工作循環 + HINT_SAVE_WEAPON 還差 $N),不提其他牌(#8 挑最便宜只在打得過時適用)。同 seed 機器人:武器 Lv1 -> Lv3、打跑 18 -> 44 隻。
   沒改(使用者 10-28 裁示不改):塔價 $200 / 提示挑最便宜 / 熊群頻率,所以機器人 20 分鐘仍買不到塔、幫手仍會被吃完。
+  7 機器人的「卡住」其實是提示箭頭來回翻:背著貨、櫃台快滿又沒人收銀,每賣一件提示就在上架格 / 收銀格之間翻一次,玩家在兩格之間來回跑
+  (卡住紀錄裡速度是全速 6.5)-> GuideLogic 加遲滯:櫃台放不下整疊且有庫存又沒人收銀,先指收銀格賣到放得下再上架(空櫃台照舊先上架)。
+  tools/playtest 的卡住紀錄多印速度 / 輸入 / 內部狀態,以後別再誤判成撞牆。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -283,7 +286,7 @@
   -> _claim_offline(解除暫停、GameState.claim_offline、offline_claimed 事件、items_moved "cash" 從玩家頭上飛向錢包、通知、save_now)。暫停時 play_time 不走、
   自動存檔不跑(沒領就關掉,下次回來照舊算);_exit_tree 解除暫停免得換場景卡住。測試要離線收益就改存檔 JSON 的 savedAt / world.income_rate 再重建關卡。
 - 顧客數量:want 由 CounterLogic.roll_want 抽,泡泡顯示 ×N,serve(want) 賣 min(want, 庫存) 就走(不等補貨)。
-- 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 錢格 + 錢包買得起牌而錢包自己不夠(先收錢)> 幫手被吃過且武器打不過(state.outmatched)先存錢升級武器 > 工作站塞住拿成品 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
+- 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理(櫃台放不下整疊且沒人收銀先去收銀格)> 錢格 + 錢包買得起牌而錢包自己不夠(先收錢)> 幫手被吃過且武器打不過(state.outmatched)先存錢升級武器 > 工作站塞住拿成品 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
 
 ## 網頁 / 手機(PWA)
 
