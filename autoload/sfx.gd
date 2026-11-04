@@ -4,7 +4,7 @@ extends Node
 ## 純表現層:headless 測試時照常呼叫(Dummy 音訊驅動),用 played 計數驗證。
 
 const SFX_DIR := "res://assets/sfx/"
-const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "hit", "arrow", "crash", "ambient_waves"]
+const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "hit", "arrow", "crash", "warn", "chest", "card", "ambient_waves"]
 const MIN_GAP := {"coin": 0.05, "pay": 0.05, "drop": 0.04, "pick": 0.04, "catch": 0.06, "sale": 0.1, "roar": 0.5, "chomp": 0.3, "hit": 0.1, "arrow": 0.08, "crash": 0.4}
 const VOLUMES := {"coin": -6.0, "pay": -8.0, "drop": -4.0, "pick": -6.0, "catch": -3.0, "trash": -4.0, "roar": -2.0, "chomp": -2.0, "hit": -3.0, "arrow": -9.0, "crash": -2.0,
     "ambient_waves": -16.0}
@@ -47,6 +47,11 @@ func _ready() -> void:
     EventBus.bait_eaten.connect(func(_t: Node3D, _b: Node3D) -> void: play("chomp", 0.2))
     EventBus.conveyor_built.connect(func(_c: Node3D) -> void: play("unlock"))
     EventBus.offline_claimed.connect(func(_cash: int, _sec: int) -> void: play("goal"))
+    EventBus.king_warning.connect(func(left: int) -> void:
+        if left == 10 or left == 3 or (left > 10 and left % 15 == 0):   # 倒數開始、每 15 秒、10 秒、3 秒各響一次
+            play("warn"))
+    EventBus.chest_opened.connect(func(_r: Dictionary) -> void: play("chest"))
+    EventBus.chest_claimed.connect(func(_c: Dictionary) -> void: play("card"))
     EventBus.tower_shot.connect(func(_t: Node3D, _b: Node3D) -> void: play("arrow"))
     EventBus.tower_destroyed.connect(func(_t: Node3D, _b: Node3D) -> void: play("crash"))
     EventBus.station_destroyed.connect(func(_s: Node3D, _b: Node3D) -> void: play("crash"))

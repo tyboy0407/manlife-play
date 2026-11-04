@@ -132,6 +132,14 @@
   (TOTEM_SPOTS 各塊地南側,牌隨擴建開;插了的那塊地一般熊群入口不選(BearSpawner._pick_entry 用 Harbor.has_totem(entry_area)),全插了照舊;王不受影響)。
   免費升級券:PricePad 站滿 payDelaySec 直接付清 effect upgrade 的牌(不扣錢)。存檔:GameState king_level / king_kills / king_streak / coupons、
   loot 多記 data(寶箱)、bear.calmLeft;圖騰靠 unlocked。
+- 2026-11-04(使用者點名:寶箱卡片 UI、統計分頁、技術債全修):9 寶箱三選一改成卡片(Hud.show_choice 吃 [{title, desc, color}]:色塊 + 標題 + 說明,整張是按鈕;
+  Harbor.chest_opened 的說明列倍率拆解 CHEST_MULT「表現 ×2.0｜連勝 N 層 +%｜王 Lv +% = ×總」,card_desc 說明現金怎麼算 / 券的用途);
+  10 統計分三頁 TabContainer(經濟 / 幫手與熊 / 王與券,HUD_STATS_ECON / _HELPERS / _KING + HUD_COUPONS;stats_pages() / stats_text() 合併給測試,面板開著每 0.5 秒重算);
+  11 docs/ 只放匯出成品(deploy_web 同步會清空),文件搬到 notes/(playtest 報告、model_candidates);12 verify_world 拆成兩段(見測試);
+  13 熊王里程碑的背包 +1 改記 GameState.king_capacity_bonus(與 capacity 牌分開,Player 容量用 total_capacity_bonus());
+  14 效能:HUD 錢包 / 背包文字只在數字變了才重排(_wallet_shown / _info_key)、Fx 幽靈與 HUD 的 $ 用物件池(飛完藏起來重用,Fx.pooled())、
+  物理 30 Hz 只在網頁(project.godot physics_ticks_per_second.web=30,桌機與測試仍 60)+ physics_interpolation 開著讓 30 Hz 不抖;
+  15 音效:warn(王來襲預告:倒數開始、每 15 秒、10 秒、3 秒)、chest(開箱)、card(選卡),tools/gen_sfx.py 可指定名字只產生那幾個。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -185,7 +193,7 @@
   王:king / king_next_sec,play_time 到 king.atSec 自動 spawn_king,打死後 respawnSec 再來;spawn(prefer) / spawn_pack(n) / spawn_king() 強制出現、
   enabled 給測試關掉;snapshot / restore 記冷卻秒數(熊在場時存 8 秒)與 kingNextSec)
 - `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z);直式(高 >= 寬)KEEP_WIDTH、fov 40、偏移 (0, 13.5, 9.5),橫式 KEEP_HEIGHT、fov 42、偏移 (0, 17, 11.5),視窗轉向時重算
-- `game/ui/hud.gd`:Hud(class_name):三選一面板(show_choice(title, body, options) / choice_action(i) 發 action "choice:<i>" / choice_open / choice_count)、set_warning 紅字警告、通知排隊(show_notice 上一則不到 0.9 秒就排隊、同類只留最新)、離線收益面板(show_offline(cash, 離線秒, 算進的秒) 半透明遮罩 + 置中面板 + 領取鈕,offline_action("claim") 發 action "offline_claim";offline_open / offline_cash、income_rate 給統計)、錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
+- `game/ui/hud.gd`:Hud(class_name):三選一卡片面板(show_choice(title, body, [{title, desc, color}]) / choice_action(i) 發 action "choice:<i>" / choice_open / choice_count / choice_title)、統計分頁 stats_pages / stats_text / stats_tab_count、set_warning 紅字警告、通知排隊(show_notice 上一則不到 0.9 秒就排隊、同類只留最新)、離線收益面板(show_offline(cash, 離線秒, 算進的秒) 半透明遮罩 + 置中面板 + 領取鈕,offline_action("claim") 發 action "offline_claim";offline_open / offline_cash、income_rate 給統計)、錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
 - `game/ui/touch_joystick.gd`:TouchJoystick(鋪滿畫面最底層、mouse_filter IGNORE;_unhandled_input 收 ScreenTouch / ScreenDrag,按下點為中心、RADIUS 90、只跟第一根手指、exclusions 範圍不算;handle_event 給測試)
 - `game/ui/guide.gd`:Guide(Node3D,掛在關卡下):每 0.1 秒把關卡狀態餵 GuideLogic,推進教學(GameState.tutorial_step)、解析目標座標、畫玩家頭上箭頭 + 目標彈跳箭頭、餵 HUD 文字;toggle_hints(H)
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):king_logic / king_eaten / king_wrecked / _king_slain(寶箱)/ chest_opened / _claim_chest / pending_chest、TOTEM_SPOTS / totem_area / has_totem / entry_area / _refresh_totems、trophies / _refresh_trophies、_insured 保險券回來、ALTAR_SIGN 祭壇、offline(OfflineLogic,聽 sale_made 記收入;snapshot 多 income_rate、_load_save 算 _offline_pending 與 offline_sec,_ready 最後 _show_offline 暫停、_claim_offline 領取;_exit_tree 解除暫停)、星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
@@ -200,9 +208,9 @@
   tower_built / tower_shot / tower_damaged / tower_destroyed / station_destroyed / station_repaired / loot_dropped(kind, pos)/ loot_collected(kind, total)/ shop_upgraded(level)/ tower_upgraded(tower)
 - `autoload/settings.gd`:Settings(裝置偏好,user://settings.json 與存檔分開:quality smooth / fine、show_fps;沒檔案時觸控裝置預設 smooth;is_touch_device、scaling_3d、toggle_quality、changed 訊號)
 - `autoload/sfx.gd`:Sfx(聽事件播 assets/sfx/<name>.wav,10 個 player 輪播、每種最短間隔、環境音執行期開 loop;played 計數給測試;
-  北極熊 roar(出現 / 被打跑)、chomp(吃掉幫手 / 魚)、hit(打到熊)、arrow(守衛塔射箭)、crash(塔塌 / 工作站被拆)、pick(撿掉落物)、unlock(武器店升級 / 塔強化))
-- `autoload/fly_fx.gd`:Fx(聽 items_moved 生物品幽靈拋物線飛,掛在自己底下;kind "cash" 交給 HUD)
-- `tools/gen_sfx.py`:純 Python 合成占位音效(正弦 / 噪音 / 包絡),輸出 assets/sfx/*.wav(22050 Hz 16-bit mono)
+  北極熊 roar(出現 / 被打跑)、chomp(吃掉幫手 / 魚)、hit(打到熊)、arrow(守衛塔射箭)、crash(塔塌 / 工作站被拆)、pick(撿掉落物)、unlock(武器店升級 / 塔強化)、warn(王預告)、chest(開箱)、card(選卡))
+- `autoload/fly_fx.gd`:Fx(聽 items_moved 生物品幽靈拋物線飛,掛在自己底下,幽靈節點物件池 _pool / pooled();kind "cash" 交給 HUD)
+- `tools/gen_sfx.py`:純 Python 合成占位音效(正弦 / 噪音 / 包絡),輸出 assets/sfx/*.wav(22050 Hz 16-bit mono);命令列給名字只產生那幾個(`python tools/gen_sfx.py warn chest card`)
 - `tools/gen_icons.py`:Pillow 畫占位圖示(assets/icons/icon_128 / 144 / 180 / 512.png)與啟動畫面 splash.png
 - `tools/inspect_models.gd`:headless 印出模型場景結構(節點、網格 AABB、材質、骨架 rest 位置、動畫清單);
   `godot --headless --path . --script tools/inspect_models.gd -- res://assets/models/game/characters/character-male-a.glb`
@@ -216,7 +224,7 @@
 - `tools/deploy_web.py`:`--export-release Web` -> 同步到 `docs/`(Pages 從這裡發布)-> 只 commit docs/ -> push origin main;`--export-only` / `--no-export` / `--no-push`
 - `tools/setup_cloud.sh`:Linux / 雲端裝 Godot 4.7(~/godot/godot)+ 可選 `--templates` 匯出模板,並先 --import 兩次;`tools/run_tests.sh`:bash 版測試跑法(timeout 600 / 個)
 - `export_presets.cfg`:Web 預設(不開執行緒、PWA 開、直式、圖示指到 assets/icons);`assets/fonts/NotoSansTC-VF.ttf`(OFL,見 LICENSE.md)是遊戲內唯一的中文字型
-- `autoload/game_state.gd`:king_level / king_kills / king_streak / coupons(coupon / add_coupon / use_coupon,effect type coupon)/ king_slain(new_streak, logic)、wallet(add_wallet / spend / claim_offline 離線收益進錢包 + offline_earned 統計)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost / play_time /
+- `autoload/game_state.gd`:king_level / king_kills / king_streak / king_capacity_bonus(total_capacity_bonus() = capacity 牌 + 里程碑)/ coupons(coupon / add_coupon / use_coupon,effect type coupon)/ king_slain(new_streak, logic)、wallet(add_wallet / spend / claim_offline 離線收益進錢包 + offline_earned 統計)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost / play_time /
   pelts / teeth / shop_level(resource(kind) / add_resource / spend_resource,kind cash / pelt / tooth)/ 統計(含 items_trashed);
   apply_purchase(effect type:capacity / hire / unlock / upgrade / weapon / shop_upgrade;tower / repair / tower_upgrade 只記 unlocked)、lose_helper(role)、upgrade_mult、to_dict / from_dict
 - `autoload/save_manager.gd`:存檔 IO(user://manlife_save.json,VERSION 2;has_save / write / read / delete;測試改 save_path)
@@ -341,7 +349,7 @@
   畫質由 Settings 決定,Harbor._apply_quality 套用:smooth = 關 DirectionalLight 陰影 + 顯示 blob_shadow 群組的腳下圓影 + `viewport.scaling_3d_scale` 0.75;
   fine = 即時陰影(專案設定 2048 貼圖、低軟陰影、光源兩層分割、最遠 45)+ 全解析度。選單可切、可顯示 FPS。
   像素密度在 export_presets 的 `html/head_include` 用一小段 JS 把 `window.devicePixelRatio` 蓋成最多 2(Godot 網頁版讀這個值決定畫布大小)。
-  堆疊(StackVisual)整堆一個 MultiMesh;地形 / 牆 / 雪堆 / 魚欄合併成 Harbor.scenery(StaticBatch)。還沒做:HUD 文字節流、幽靈與 $ 物件池、物理 30 Hz。
+  堆疊(StackVisual)整堆一個 MultiMesh;地形 / 牆 / 雪堆 / 魚欄合併成 Harbor.scenery(StaticBatch)。2026-11-04 補上:HUD 文字只在數字變了才重排、幽靈與 $ 物件池、網頁物理 30 Hz + 插值(桌機 / 測試仍 60)。
 
 ## 測試
 
@@ -353,15 +361,16 @@ bash tools/run_tests.sh          # Linux / 雲端(先 bash tools/setup_cloud.sh)
 GitHub Actions(`.github/workflows/tests.yml`)在推到 main 時(docs/、README、CLAUDE.md 的改動除外)或手動觸發,於 ubuntu-latest 跑同樣兩支腳本,約 7 分鐘;
 2026-11-04 首次執行全過(Godot v4.7.stable.official,四套測試 ALL OK),這也證明 setup_cloud.sh / run_tests.sh 在 Linux 雲端能跑。
 
-先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_layout`(擴建三次後蒐集所有占地矩形兩兩查重疊、排隊位不出自己那塊地的柵欄、傳送帶架高且不穿塔、顧客門、魚群上限按面積,約 5 秒)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
-漁夫去擴建區的水再回主村卸貨、route 回空,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數(不回血、咬建築 10 秒)、掉落物、武器店等級賣到第幾級、盯最近的 / TowerLogic 數值(血 800 = 20 口、強力塔 2000 = 50 口)、幾箭射死、射程內最近的活熊 / TrapLogic 數值、觸發、挑誘餌 / ConveyorLogic 拿貨 / 前進 / 排隊 / 存檔 / PurchaseLogic 買回、擴建名額、捕熊夾牌同價重現、守衛塔牌修復 / 工作站修復價 / 收毛皮的逐次價牌、武器牌 raise_max / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 + 搬運工容量 Lv1(8 -> 12)-> 傳送帶 $150(切魚台 -> 魚片櫃台,自己送 3 件)-> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、空的烤魚攤原料區優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
+先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`(verify_world 與 verify_world2 共用 tests/world_test_base.gd:WorldTestBase 有建關卡、合成輸入走路、
+付牌、追熊、事件計數、存檔路徑與收尾;子類別覆寫 _tag() / _run();verify_world 跑完把存檔複製到 user://_verify_world_handoff.json,verify_world2 從它接手,所以 world2 要在 world 之後跑、單跑會 FAIL 提示):`verify_core`(見下)、`verify_layout`(擴建三次後蒐集所有占地矩形兩兩查重疊、排隊位不出自己那塊地的柵欄、傳送帶架高且不穿塔、顧客門、魚群上限按面積,約 5 秒)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
+漁夫去擴建區的水再回主村卸貨、route 回空,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數(不回血、咬建築 10 秒)、掉落物、武器店等級賣到第幾級、盯最近的 / TowerLogic 數值(血 800 = 20 口、強力塔 2000 = 50 口)、幾箭射死、射程內最近的活熊 / TrapLogic 數值、觸發、挑誘餌 / ConveyorLogic 拿貨 / 前進 / 排隊 / 存檔 / PurchaseLogic 買回、擴建名額、捕熊夾牌同價重現、守衛塔牌修復 / 工作站修復價 / 收毛皮的逐次價牌、武器牌 raise_max / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合第一段,約 3 分鐘,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 + 搬運工容量 Lv1(8 -> 12)-> 傳送帶 $150(切魚台 -> 魚片櫃台,自己送 3 件)-> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、空的烤魚攤原料區優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
 追著熊 Lv1 每下 10 打到血條歸零才逃、掉毛皮走過去撿 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、每隻兩下打跑、冷卻照當時的間隔、再掉三張毛皮 ->
 5 張毛皮升級武器店 Lv1、武器牌重新出現買 Lv4 $172)->
 守衛塔(沿西牆走到西北角買 tower_1 $200 -> 熊放在入口:塔射箭、熊被射中改來拆塔、30 血三箭射死玩家沒出手 -> 塔剩 10 血被厚血熊咬塌:廢墟、
-牌重現「修復」$200 -> 修好血回滿)-> 捕熊夾 $40(熊踩到扣 60 定住 3 秒、牌同價重現)+ 誘餌 $30(熊被引走吃 10 秒、牌重現)-> 擴建村莊(錢包直接 +1000、7 秒付清 -> 東牆整面拆、第二水區有魚、第二組建築、新櫃台有顧客、僱用牌 5 / 6 / 4 次 -> $2000 第二次:切魚台 + 三座烤魚攤、名額 7 / 10 / 6 ->
+牌重現「修復」$200 -> 修好血回滿)-> 捕熊夾 $40(熊踩到扣 60 定住 3 秒、牌同價重現)+ 誘餌 $30(熊被引走吃 10 秒、牌重現)-> items_moved / 幽靈 / 音效計數、畫質切換(陰影 / 圓影 / 3D 縮放)、FPS 開關、布景合併 -> 寫交接存檔)、`verify_world2`(第二段,約 3 分鐘:從交接存檔接手 -> 擴建村莊(錢包直接 +1000、7 秒付清 -> 東牆整面拆、第二水區有魚、第二組建築、新櫃台有顧客、僱用牌 5 / 6 / 4 次 -> $2000 第二次:切魚台 + 三座烤魚攤、名額 7 / 10 / 6 ->
 $8000 第三次:兩座烤魚攤 + 服飾店 + 毛衣櫃台、名額 9 / 14 / 8、帶毛皮走過服飾店輸入格不放、站著放 10 張 -> 做 2 件毛衣 -> 上架賣 $200)-> 北極熊王(play_time 撥到出場前 40 秒:預告倒數、一般熊暫停 -> 王出場 Lv0 血 ×4 體型 1.6 ->
 吃魚只變大不回血 -> 吃搬運工不回血更大、牌可買回 -> 盯著切魚台咬 10 秒拆掉:廢墟、工人不見、格子停用、不再是搬運工 / 漁夫的目的地、
-修復牌 $200 出現(快照記 broken)-> 站上廢墟修好 -> 打死:寶箱當場開(保底 3 顆牙、三選一、暫停;表現 normal ×1.0、王 Lv1、戰利品牆一顆頭骨)-> 選現金卡進錢包、再按不重複 -> 王消失 300 秒後再來 -> 站到 tower_1 底下付 1 顆牙:強力守衛塔血 2000 每箭 25)-> items_moved / 幽靈 / 音效計數、畫質切換(陰影 / 圓影 / 3D 縮放)、FPS 開關、布景合併 -> 存檔 / 重建關卡還原(含武器等級、買回的漁夫、三塊擴建區(十一座工作站含服飾店、七座櫃台)、熊的冷卻、遊戲時間、王的下次時間、守衛塔狀態與血量與強化、武器店等級、毛皮數、地上的掉落物、擴建後的僱用名額)-> 離線收益(存檔 savedAt 撥回 3 小時、速率 2 $/s -> 重建關卡面板彈出 $10800、暫停、領取進錢包、再按不重複)-> 券 / 祭壇(保險券被吃不扣名額 10 秒回來、平靜券 120 秒與快照、免費升級券站上牌直接付清、主村圖騰後一般熊 40 次都不走主村入口而王照走、冰封夾扣 150)-> 新遊戲,約 5.5 分鐘)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
+修復牌 $200 出現(快照記 broken)-> 站上廢墟修好 -> 打死:寶箱當場開(保底 3 顆牙、三選一、暫停;表現 normal ×1.0、王 Lv1、戰利品牆一顆頭骨)-> 選現金卡進錢包、再按不重複 -> 王消失 300 秒後再來 -> 站到 tower_1 底下付 1 顆牙:強力守衛塔血 2000 每箭 25)-> 存檔 / 重建關卡還原(含武器等級、買回的漁夫、三塊擴建區(十一座工作站含服飾店、七座櫃台)、熊的冷卻、遊戲時間、王的下次時間、守衛塔狀態與血量與強化、武器店等級、毛皮數、地上的掉落物、擴建後的僱用名額)-> 離線收益(存檔 savedAt 撥回 3 小時、速率 2 $/s -> 重建關卡面板彈出 $10800、暫停、領取進錢包、再按不重複)-> 券 / 祭壇(保險券被吃不扣名額 10 秒回來、平靜券 120 秒與快照、免費升級券站上牌直接付清、主村圖騰後一般熊 40 次都不走主村入口而王照走、冰封夾扣 150)-> 新遊戲)。Godot 路徑預設是桌面上的 4.7 console exe,可用環境變數 `GODOT` 覆蓋。
 
 - 新增腳本或資源後要先 `--import`,否則 class_name 找不到;第一次 import 會因為 .translation 還沒產生而印錯誤,第二次就正常。
 - 測試指令一定加 timeout:測試場景若編譯失敗,headless 永遠不會結束。
@@ -370,6 +379,7 @@ $8000 第三次:兩座烤魚攤 + 服飾店 + 毛衣櫃台、名額 9 / 14 / 8�
   買武器期間把熊 `set_physics_process(false)` 定住、再挪到缺口附近,不然它會先把收銀員吃掉讓後面的存檔檢查失敗。
   要改存檔 JSON 再重建關卡:先 queue_free 舊關卡、等 3 幀完全釋放再改檔(它活著時任何事件都會再存一次把 savedAt 蓋掉);
   從捕熊夾 trap_1 走回村裡要沿西牆 (-11.9, 0.5) 繞,直線會擦過搬運工容量牌 (-10, -1.5) 的角付到錢。
+  world2 從交接存檔重生的幫手都在出生點,王的段落先把漁夫傳到擴建區水裡 (22.3, -7),不然王會順手吃掉牠讓存檔檢查少一個幫手。
   顧客一次買好幾件後錢格的錢常常收不完,記錢包數字前先等 `money_pad.cash == 0`;Guide 每 0.1 秒才重算,查提示前 `_step(8)`。
   血量跟著 play_time 連續變,比對 hp_max 用 1.0 的容差;逃走的熊到邊緣就 free,群體檢查要把 freed 也算逃走;王在水邊會邊吃魚邊回血,
   守衛塔段落:走到西北角要沿西牆(x -11.6)繞,直線會穿過切魚台的格子順手拿貨;$200 以每秒 30 付要站 7 秒,測試先 logic.pay(80);
@@ -412,7 +422,7 @@ $8000 第三次:兩座烤魚攤 + 服飾店 + 毛衣櫃台、名額 9 / 14 / 8�
 
 5. 模型(完成 2026-10-27):Kenney Mini Characters 人物(玩家 / 漁夫 / 搬運工 / 收銀員 / 工人各一種、顧客 7 種輪流)+ idle / walk / interact / emote 動畫、
    Survival Kit 的魚當貨物模型(堆疊與飛行幽靈共用)、Quaternius 動畫魚在水裡游;ModelLibrary / CharacterModel 資料驅動,沒模型退回占位。
-   候選清單在 docs/model_candidates.md(魚片 / 烤魚模型可用 Quaternius Modular Sushi Restaurant Kit)。
+   候選清單在 notes/model_candidates.md(魚片 / 烤魚模型可用 Quaternius Modular Sushi Restaurant Kit)。
 
 6. 北極熊與武器店(完成 2026-10-27;同日追加:被吃幫手 1.5 倍買回、熊成群且更頻繁、$1000 擴建村莊(東邊 annex:第二水區 / 工作站 / 櫃台)、
    顧客要 1 ~ 5 件;再追加:幫手繞東門不卡牆(verify_nav)、熊有血條要打到歸零、武器只加攻擊力、血量與出沒頻率隨遊戲時間變難、

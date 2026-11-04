@@ -1,4 +1,5 @@
 """匯出網頁版並推到 GitHub Pages(原始碼與網頁成品同一個 repo:tyboy0407/manlife-play,Pages 從 main 的 docs/ 發布)。
+注意:docs/ 只放匯出成品,同步時會整個清空;文件放 notes/。
 用法:python tools/deploy_web.py [--export-only] [--no-export] [--no-push] [--message "..."]
 需要:Godot 4.7(環境變數 GODOT;Windows 預設桌面的 console exe、Linux 預設 ~/godot/godot = tools/setup_cloud.sh 裝的)、
       已安裝 4.7 的 Web 匯出模板(Linux:bash tools/setup_cloud.sh --templates)、本 repo 的 origin 指到 GitHub 且有 push 權限。

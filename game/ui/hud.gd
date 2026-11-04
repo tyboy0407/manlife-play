@@ -39,8 +39,14 @@ var _notice_timer := 0.0
 var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
 var _objective_text := ""
 var _chips := 0
+var _chip_pool: Array[Label] = []   # 飛完的 $(藏著,下次重用)
+var _wallet_shown := -1             # 上次畫的錢包數字(沒變就不重排文字)
+var _info_key := ""                 # 上次畫的背包 / 資源狀態(沒變就不重排文字)
+var _tabs: TabContainer
+var _stat_pages: Array[Label] = []
 var _confirm_new_game := false
 var _fps_timer := 0.0
+var _stats_timer := 0.0
 
 
 func _ready() -> void:
@@ -165,13 +171,21 @@ func _build_menu() -> void:
     var box := VBoxContainer.new()
     box.add_theme_constant_override("separation", 8)
     menu_panel.add_child(box)
-    _stats = Label.new()
-    _stats.name = "Stats"
-    _stats.add_theme_font_size_override("font_size", 14)
-    _stats.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
-    _stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _stats.custom_minimum_size = Vector2(236, 0)
-    box.add_child(_stats)
+    # 統計分三頁(經濟 / 幫手與熊 / 王與券),手機上才不會一長串
+    _tabs = TabContainer.new()
+    _tabs.name = "StatsTabs"
+    _tabs.custom_minimum_size = Vector2(236, 0)
+    box.add_child(_tabs)
+    for key in ["TAB_economy", "TAB_helpers", "TAB_king"]:
+        var l := Label.new()
+        l.name = tr(key)
+        l.add_theme_font_size_override("font_size", 14)
+        l.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
+        l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        l.custom_minimum_size = Vector2(220, 0)
+        _tabs.add_child(l)
+        _stat_pages.append(l)
+    _stats = _stat_pages[0]
     _hints_btn = _make_button("", "hints")
     box.add_child(_hints_btn)
     _sound_btn = _make_button("", "sound")
@@ -275,19 +289,50 @@ func _build_choice_panel() -> void:
     _choice_box.add_child(_choice_body)
 
 
-func show_choice(title: String, body: String, options: Array[String]) -> void:
+## cards:每張 {title, desc, color};畫成「色塊 + 標題 + 說明」的卡片,整張卡就是按鈕
+func show_choice(title: String, body: String, cards: Array) -> void:
     for b in _choice_buttons:
         b.queue_free()
     _choice_buttons.clear()
     _choice_title.text = title
     _choice_body.text = body
-    for i in options.size():
+    for i in cards.size():
+        var c: Dictionary = cards[i] if typeof(cards[i]) == TYPE_DICTIONARY else {"title": str(cards[i])}
         var b := Button.new()
         b.name = "Choice%d" % i
-        b.text = options[i]
-        b.custom_minimum_size = Vector2(0, 56)
-        b.add_theme_font_size_override("font_size", 22)
+        b.custom_minimum_size = Vector2(0, 68)
         b.pressed.connect(choice_action.bind(i))
+        var row := HBoxContainer.new()
+        row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+        row.offset_left = 10
+        row.offset_right = -10
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_theme_constant_override("separation", 12)
+        b.add_child(row)
+        var swatch := ColorRect.new()
+        swatch.color = c.get("color", Color(0.7, 0.7, 0.7))
+        swatch.custom_minimum_size = Vector2(26, 26)
+        swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_child(swatch)
+        var col := VBoxContainer.new()
+        col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_child(col)
+        var t := Label.new()
+        t.text = str(c.get("title", ""))
+        t.add_theme_font_size_override("font_size", 22)
+        t.add_theme_color_override("font_color", c.get("color", Color(1, 1, 1)).lightened(0.3))
+        t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        col.add_child(t)
+        var d := Label.new()
+        d.text = str(c.get("desc", ""))
+        d.add_theme_font_size_override("font_size", 14)
+        d.add_theme_color_override("font_color", Color(0.85, 0.87, 0.9))
+        d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        col.add_child(d)
         _choice_box.add_child(b)
         _choice_buttons.append(b)
     menu_panel.visible = false
@@ -301,6 +346,13 @@ func choice_open() -> bool:
 
 func choice_count() -> int:
     return _choice_buttons.size()
+
+
+## 第 i 張卡的標題(給測試)
+func choice_title(i: int) -> String:
+    if i < 0 or i >= _choice_buttons.size():
+        return ""
+    return (_choice_buttons[i].get_child(0).get_child(1).get_child(0) as Label).text
 
 
 ## 按了第 i 個選項(與測試)
@@ -363,15 +415,34 @@ func offline_action(id: String) -> void:
     action.emit("offline_claim")
 
 
-## 詳細統計(選單面板裡)
+## 詳細統計三頁(選單面板的分頁):經濟 / 幫手與熊 / 王與券
+func stats_pages() -> Array[String]:
+    var t := "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60]
+    return [
+        tr("HUD_STATS_ECON") % [GameState.cash_earned, int(round(income_rate * 60.0)), GameState.offline_earned, GameState.fish_caught,
+                GameState.items_sold, GameState.items_trashed, t],
+        tr("HUD_STATS_HELPERS") % [GameState.hired_count("fisher"), GameState.hired_count("porter"), GameState.hired_count("cashier"),
+                GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"), GameState.upgrade_level("porter_cap"),
+                GameState.weapon_level, GameState.shop_level, GameState.helpers_lost, GameState.pelts],
+        tr("HUD_STATS_KING") % [GameState.king_level, GameState.king_kills, GameState.king_streak, GameState.teeth, GameState.king_capacity_bonus]
+                + "\n" + tr("HUD_COUPONS") % [GameState.coupon("insurance"), GameState.coupon("calm"), GameState.coupon("upgrade")],
+    ]
+
+
+## 三頁合起來(給測試 / 除錯)
 func stats_text() -> String:
-    return tr("HUD_STATS") % [GameState.cash_earned, GameState.fish_caught, GameState.items_sold,
-            GameState.items_trashed, GameState.hired_count("fisher"), GameState.hired_count("porter"),
-            GameState.hired_count("cashier"), GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"),
-            GameState.weapon_level, GameState.helpers_lost, "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60],
-            GameState.pelts, GameState.teeth, GameState.shop_level, GameState.offline_earned, int(round(income_rate * 60.0))] \
-            + "\n" + tr("HUD_KING_STATS") % [GameState.king_level, GameState.king_kills, GameState.king_streak] \
-            + "\n" + tr("HUD_COUPONS") % [GameState.coupon("insurance"), GameState.coupon("calm"), GameState.coupon("upgrade")]
+    return "\n".join(stats_pages())
+
+
+func _refresh_stats() -> void:
+    var pages := stats_pages()
+    for i in _stat_pages.size():
+        if i < pages.size():
+            _stat_pages[i].text = pages[i]
+
+
+func stats_tab_count() -> int:
+    return _tabs.get_tab_count() if _tabs != null else 0
 
 
 func confirming_new_game() -> bool:
@@ -384,7 +455,8 @@ func menu_action(id: String) -> void:
         "toggle":
             menu_panel.visible = not menu_panel.visible
             if menu_panel.visible:
-                _stats.text = stats_text()
+                _refresh_stats()
+                _stats_timer = 0.5
             _confirm_new_game = false
         "close":
             menu_panel.visible = false
@@ -473,10 +545,15 @@ func _on_items_moved(kind: String, _item: String, from: Vector3, _to: Vector3, _
     if cam == null:
         return
     var start := cam.unproject_position(from)
-    var chip := _make_label(20, Color(0.55, 0.95, 0.45))
-    chip.text = "$"
+    var chip: Label
+    if not _chip_pool.is_empty():
+        chip = _chip_pool.pop_back()
+        chip.visible = true
+    else:
+        chip = _make_label(20, Color(0.55, 0.95, 0.45))
+        chip.text = "$"
+        add_child(chip)
     chip.position = start
-    add_child(chip)
     _chips += 1
     var end := _wallet.position + Vector2(10.0, 4.0)
     var tw := chip.create_tween()
@@ -492,7 +569,8 @@ func _step_chip(t: float, chip: Control, start: Vector2, end: Vector2) -> void:
 func _chip_done(chip: Control) -> void:
     _chips = maxi(_chips - 1, 0)
     if is_instance_valid(chip):
-        chip.queue_free()
+        chip.visible = false
+        _chip_pool.append(chip)
     _wallet.pivot_offset = _wallet.size / 2.0
     _wallet.scale = Vector2(1.25, 1.25)
     var tw := _wallet.create_tween()
@@ -514,14 +592,22 @@ func _process(delta: float) -> void:
         if _fps_timer <= 0.0:
             _fps_timer = 0.25
             _fps.text = "FPS %d" % Engine.get_frames_per_second()
-    _wallet.text = tr("HUD_WALLET") % GameState.wallet
+    if GameState.wallet != _wallet_shown:   # 文字只在數字變了才重排(每幀重排 Label 在手機上很貴)
+        _wallet_shown = GameState.wallet
+        _wallet.text = tr("HUD_WALLET") % GameState.wallet
     if player == null or not is_instance_valid(player):
         return
-    var carry := tr("HUD_EMPTY")
-    if not player.stack.is_empty():
-        carry = tr("HUD_CARRY") % [GameData.item_name(player.stack.item_id), player.stack.count, player.stack.capacity]
-    else:
-        carry = "%s(%d)" % [carry, player.stack.capacity]
-    _info.text = "%s\n%s" % [carry, tr("HUD_RES") % [GameState.pelts, GameState.teeth, GameState.weapon_level]]
+    var key := "%s/%d/%d/%d/%d/%d" % [player.stack.item_id, player.stack.count, player.stack.capacity, GameState.pelts, GameState.teeth, GameState.weapon_level]
+    if key != _info_key:
+        _info_key = key
+        var carry := tr("HUD_EMPTY")
+        if not player.stack.is_empty():
+            carry = tr("HUD_CARRY") % [GameData.item_name(player.stack.item_id), player.stack.count, player.stack.capacity]
+        else:
+            carry = "%s(%d)" % [carry, player.stack.capacity]
+        _info.text = "%s\n%s" % [carry, tr("HUD_RES") % [GameState.pelts, GameState.teeth, GameState.weapon_level]]
     if menu_panel.visible:
-        _stats.text = stats_text()
+        _stats_timer -= delta
+        if _stats_timer <= 0.0:
+            _stats_timer = 0.5
+            _refresh_stats()

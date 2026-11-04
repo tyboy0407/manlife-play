@@ -494,7 +494,8 @@ func _test_king() -> void:
             "打死第一次:Lv1、擊殺 1、連勝 3、不是里程碑")
     for i in 4:
         GameState.king_slain(0, k)
-    _check(GameState.king_kills == 5 and GameState.king_level == 5 and GameState.king_streak == 0 and GameState.capacity_bonus == 1, "第五次:里程碑背包 +1、連勝歸零")
+    _check(GameState.king_kills == 5 and GameState.king_level == 5 and GameState.king_streak == 0 and GameState.king_capacity_bonus == 1
+            and GameState.capacity_bonus == 0 and GameState.total_capacity_bonus() == 1, "第五次:里程碑背包 +1(king_capacity_bonus,與 capacity 牌分開記)、連勝歸零")
     GameState.add_coupon("insurance", 2)
     _check(GameState.coupon("insurance") == 2 and GameState.use_coupon("insurance") and GameState.coupon("insurance") == 1
             and GameState.use_coupon("insurance") and not GameState.use_coupon("insurance") and GameState.coupon("calm") == 0, "券:加兩張、用兩張、第三張用不了")
@@ -504,8 +505,8 @@ func _test_king() -> void:
     var d := GameState.to_dict()
     GameState.reset()
     GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
-    _check(GameState.king_level == 5 and GameState.king_kills == 5 and GameState.coupon("insurance") == 1 and GameState.coupon("upgrade") == 1,
-            "存檔往返:王等級 / 擊殺 / 券")
+    _check(GameState.king_level == 5 and GameState.king_kills == 5 and GameState.coupon("insurance") == 1 and GameState.coupon("upgrade") == 1
+            and GameState.king_capacity_bonus == 1, "存檔往返:王等級 / 擊殺 / 券 / 里程碑背包")
     GameState.reset()
     # 冰封夾
     var tl := TrapLogic.from_config(GameData.section("trap"))

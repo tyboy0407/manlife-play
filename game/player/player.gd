@@ -30,7 +30,7 @@ func _ready() -> void:
 
 
 func _refresh_capacity() -> void:
-    stack.set_capacity(int(GameData.config().get("carryCapacity", 8)) + GameState.capacity_bonus)
+    stack.set_capacity(int(GameData.config().get("carryCapacity", 8)) + GameState.total_capacity_bonus())
 
 
 ## 武器等級變了就換腰間的模型(等比例縮到 model.length 高;沒模型就木棒 + 鐵頭占位)

@@ -899,13 +899,17 @@ func chest_opened(l: Loot) -> void:
     GameState.add_resource("tooth", int(pending_chest.get("teeth", 0)))
     EventBus.items_moved.emit("loot", "tooth", l.global_position + Vector3(0, 0.6, 0), player.stack_top(), int(pending_chest.get("teeth", 0)))
     EventBus.chest_opened.emit(pending_chest)
-    var labels: Array[String] = []
+    var cards: Array = []
     for c in pending_chest.get("cards", []):
-        labels.append(card_text(c))
-    var body: String = tr("CHEST_BODY_%s" % str(pending_chest.get("grade", "normal"))) % [float(pending_chest.get("mult", 1.0)),
-            int(pending_chest.get("streak", 0)), int(pending_chest.get("teeth", 0))]
+        cards.append({"title": card_text(c), "desc": card_desc(c), "color": card_color(c)})
+    var g := str(pending_chest.get("grade", "normal"))
+    var streak := int(pending_chest.get("streak", 0))
+    var lvl := GameState.king_level - 1   # 寶箱倍率用的是打死前的等級
+    var body: String = tr("CHEST_BODY_%s" % g) % [int(pending_chest.get("teeth", 0))] + "\n" + tr("CHEST_MULT") % [
+            tr("GRADE_%s" % g), king_logic.grade_mult(g), streak, int(round(king_logic.streak_bonus(streak) * 100.0)),
+            maxi(lvl, 0), int(round((king_logic.reward_level_mult(maxi(lvl, 0)) - 1.0) * 100.0)), float(pending_chest.get("mult", 1.0))]
     hud.process_mode = Node.PROCESS_MODE_ALWAYS
-    hud.show_choice(tr("CHEST_TITLE"), body, labels)
+    hud.show_choice(tr("CHEST_TITLE"), body, cards)
     get_tree().paused = true
 
 
@@ -916,6 +920,25 @@ func card_text(c: Dictionary) -> String:
         "pelt":
             return tr("CARD_pelt") % int(c.get("amount", 0))
     return tr("CARD_coupon_%s" % str(c.get("coupon", "insurance")))
+
+
+## 卡片說明:這個數字怎麼來的 / 券有什麼用
+func card_desc(c: Dictionary) -> String:
+    match str(c.get("kind", "")):
+        "cash":
+            return tr("CARD_DESC_cash") % [int(round(offline.rate(GameState.play_time) * 60.0)), int(king_logic.cfg.get("cashSec", 90)), int(king_logic.cfg.get("cashMin", 100))]
+        "pelt":
+            return tr("CARD_DESC_pelt") % int(king_logic.cfg.get("pelts", 5))
+    return tr("CARD_DESC_coupon_%s" % str(c.get("coupon", "insurance")))
+
+
+static func card_color(c: Dictionary) -> Color:
+    match str(c.get("kind", "")):
+        "cash":
+            return Color(1.0, 0.82, 0.25)
+        "pelt":
+            return Color(0.85, 0.9, 1.0)
+    return Color(0.45, 0.9, 0.55)
 
 
 ## 選了第 i 張卡

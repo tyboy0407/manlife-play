@@ -5,6 +5,7 @@ import math
 import os
 import random
 import struct
+import sys
 import wave
 
 SR = 22050
@@ -64,7 +65,12 @@ def normalize(samples, peak=0.8):
     return [v / m * peak for v in samples]
 
 
+ONLY = set(sys.argv[1:])   # 命令列給了名字就只寫那幾個(例如 python tools/gen_sfx.py warn chest card)
+
+
 def write(name, samples):
+    if ONLY and name not in ONLY:
+        return
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name + ".wav")
     data = b"".join(struct.pack("<h", int(max(-1.0, min(1.0, v)) * 32767)) for v in samples)
@@ -125,6 +131,14 @@ def main():
     # 守衛塔塌掉:低頻撞擊 + 碎石噪音拖長
     write("crash", normalize(mix(tone(90, 0.5, 1.0, decay=8, sweep_to=45, harmonics=((1, 1.0), (2, 0.4))),
                                  noise(0.6, 0.8, decay=6, lowpass=0.15), delay(noise(0.3, 0.5, decay=12, lowpass=0.25), 0.15))))
+    # 北極熊王來襲預告:兩聲低沉警報(往下滑的方波感)
+    write("warn", normalize(mix(tone(330, 0.22, 1.0, decay=6, sweep_to=262, harmonics=((1, 1.0), (3, 0.3), (5, 0.12)), attack=0.01),
+                                delay(tone(330, 0.22, 1.0, decay=6, sweep_to=262, harmonics=((1, 1.0), (3, 0.3), (5, 0.12)), attack=0.01), 0.3))))
+    # 熊王寶箱打開:木箱喀一聲 + 往上的琶音
+    write("chest", normalize(mix(noise(0.05, 0.7, decay=60, lowpass=0.25),
+                                 *[delay(tone(f, 0.35, 0.7, decay=8, harmonics=((1, 1.0), (2, 0.3))), 0.06 + 0.07 * i) for i, f in enumerate((659, 784, 988, 1319))])))
+    # 選卡:乾淨的雙音「叮咚」
+    write("card", normalize(mix(tone(1047, 0.12, decay=16, harmonics=((1, 1.0), (2, 0.2))), delay(tone(1568, 0.22, 0.8, decay=12), 0.09))))
     write("ambient_waves", normalize(ambient(), peak=0.6))
 
 

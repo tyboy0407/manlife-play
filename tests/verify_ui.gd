@@ -41,6 +41,13 @@ func _ready() -> void:
             and not hud.joystick.is_excluded(Vector2(vp.x * 0.5, vp.y * 0.8)), "搖桿排除區涵蓋選單鈕與面板,畫面中下不算")
     hud.menu_action("close")
     _check(not hud.menu_panel.visible, "關閉面板")
+    # 統計分三頁、三選一卡片面板
+    _check(hud.stats_tab_count() == 3 and hud.stats_text().count("\n") >= 6, "統計分三頁(經濟 / 幫手與熊 / 王與券),合起來至少 7 行")
+    hud.show_choice("T", "B", [{"title": "A", "desc": "a", "color": Color.RED}, {"title": "B", "desc": "b", "color": Color.BLUE}])
+    await get_tree().process_frame
+    _check(hud.choice_open() and hud.choice_count() == 2 and hud.choice_title(0) == "A" and hud.choice_title(1) == "B", "三選一面板:兩張卡片、標題正確")
+    hud.choice_action(1)
+    _check(not hud.choice_open(), "選了卡片面板就關")
     # 通知排隊:一秒內連來三則不互相蓋掉;同一類(撿毛皮累計)只更新數字
     hud.show_notice("You beat the polar bear!")
     hud.show_notice("Picked up a polar bear pelt (1 total)")

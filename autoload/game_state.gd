@@ -29,6 +29,7 @@ var king_level := 0            # 北極熊王等級(每打死一次 +1,KingLogic
 var king_kills := 0            # 打死王幾次(戰利品牆)
 var king_streak := 0           # 連續完美擊殺數
 var coupons := {}              # 券:insurance / calm / upgrade -> 張數
+var king_capacity_bonus := 0   # 戰利品牆里程碑給的永久背包加成(與 capacity 牌的 capacity_bonus 分開記)
 
 
 func _ready() -> void:
@@ -62,6 +63,7 @@ func reset() -> void:
     king_kills = 0
     king_streak = 0
     coupons = {}
+    king_capacity_bonus = 0
     changed.emit()
 
 
@@ -115,7 +117,7 @@ func king_slain(new_streak: int, logic: KingLogic) -> bool:
     king_streak = maxi(new_streak, 0)
     var milestone := logic.is_milestone(king_kills)
     if milestone:
-        capacity_bonus += 1
+        king_capacity_bonus += 1
     changed.emit()
     return milestone
 
@@ -200,6 +202,11 @@ func upgrade_bonus(key: String) -> int:
     return int(round(per * float(upgrade_level(key))))
 
 
+## 背包容量加成總和(capacity 牌 + 熊王里程碑)
+func total_capacity_bonus() -> int:
+    return capacity_bonus + king_capacity_bonus
+
+
 ## 升級倍率 = 1 + 每級加成(game.json upgrades.<key>.perLevel)× 等級
 func upgrade_mult(key: String) -> float:
     var spec = GameData.section("upgrades").get(key, {})
@@ -242,6 +249,7 @@ func to_dict() -> Dictionary:
         "cash_earned": cash_earned, "fish_caught": fish_caught, "items_sold": items_sold, "items_trashed": items_trashed,
         "offline_earned": offline_earned,
         "king_level": king_level, "king_kills": king_kills, "king_streak": king_streak, "coupons": coupons.duplicate(),
+        "king_capacity_bonus": king_capacity_bonus,
     }
 
 
@@ -276,6 +284,7 @@ func from_dict(d: Dictionary) -> void:
     king_level = maxi(int(d.get("king_level", 0)), 0)
     king_kills = maxi(int(d.get("king_kills", 0)), 0)
     king_streak = maxi(int(d.get("king_streak", 0)), 0)
+    king_capacity_bonus = maxi(int(d.get("king_capacity_bonus", 0)), 0)
     coupons = {}
     var cp = d.get("coupons", {})
     if typeof(cp) == TYPE_DICTIONARY:

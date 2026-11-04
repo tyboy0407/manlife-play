@@ -18,6 +18,9 @@ func _ready() -> void:
 
 
 ## 還在飛的幽靈數
+var _pool: Array[Node3D] = []   # 飛完的幽靈(藏著)
+
+
 func active() -> int:
     return get_child_count()
 
@@ -31,24 +34,47 @@ func _on_items_moved(kind: String, item: String, from: Vector3, to: Vector3, cou
         fly(item, from + jitter, to, DURATION + 0.05 * float(i), ARC + 0.2 * float(i))
 
 
-## 生一個 item 外觀的幽靈從 from 拋到 to
+## 生一個 item 外觀的幽靈從 from 拋到 to(幽靈節點用物件池,飛完藏起來等下次用,不每次 new / queue_free)
 func fly(item: String, from: Vector3, to: Vector3, duration: float = DURATION, arc: float = ARC) -> void:
-    var ghost := Node3D.new()
-    var mi := MeshInstance3D.new()
+    var ghost := _take_ghost()
+    var mi: MeshInstance3D = ghost.get_child(0)
     var mesh := ModelLibrary.item_mesh(item)
     if mesh != null:
         mi.mesh = mesh
         mi.transform = ModelLibrary.item_fit(item)
+        mi.material_override = null
     else:
         mi.mesh = _mesh_for(item)
+        mi.transform = Transform3D.IDENTITY
         mi.material_override = VisualFactory.material(GameData.item_color(item))
-    ghost.add_child(mi)
-    add_child(ghost)
+    ghost.visible = true
+    ghost.scale = Vector3.ONE
     ghost.global_position = from
     spawned_total += 1
     var tw := ghost.create_tween()
     tw.tween_method(_step_ghost.bind(ghost, from, to, arc), 0.0, 1.0, duration)
-    tw.tween_callback(ghost.queue_free)
+    tw.tween_callback(_release_ghost.bind(ghost))
+
+
+func _take_ghost() -> Node3D:
+    if not _pool.is_empty():
+        return _pool.pop_back()
+    var ghost := Node3D.new()
+    ghost.add_child(MeshInstance3D.new())
+    add_child(ghost)
+    return ghost
+
+
+func _release_ghost(ghost: Node3D) -> void:
+    if not is_instance_valid(ghost):
+        return
+    ghost.visible = false
+    _pool.append(ghost)
+
+
+## 池裡閒置的幽靈數(給測試)
+func pooled() -> int:
+    return _pool.size()
 
 
 func _step_ghost(t: float, ghost: Node3D, from: Vector3, to: Vector3, arc: float) -> void:

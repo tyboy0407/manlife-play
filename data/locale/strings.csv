@@ -31,7 +31,6 @@ NOTICE_HIRED_porter,A porter joined you!,搬運工加入了!
 NOTICE_HIRED_cashier,A cashier joined you!,收銀員加入了!
 NOTICE_SAVED,Game saved,已存檔
 NOTICE_NEW_GAME,New game started,已重新開始
-HUD_STATS,Earned $%d | fish %d | sold %d | trashed %d\nfishers %d porters %d cashiers %d | worker speed Lv%d pile cap Lv%d\nweapon Lv%d | eaten by bear %d | time %s\npelts %d | king teeth %d | weapon shop Lv%d\noffline earnings $%d | income $%d/min,累計收入 $%d|抓魚 %d|賣出 %d|丟棄 %d\n漁夫 %d 搬運工 %d 收銀員 %d|工人速度 Lv%d 堆疊上限 Lv%d\n武器 Lv%d|被北極熊吃掉 %d|時間 %s\n毛皮 %d|熊王牙 %d|武器店 Lv%d\n離線收益 $%d|收入 $%d/分
 HUD_HINT,WASD / arrows / left stick to move. Walk into fish to catch; stand on pads to drop / take / stock / serve / trash. Cash on the money pad goes into your wallet; stand on a price pad for a moment to pay. H toggles the hint arrow. Autosave every 10 s; F9 = new game.,WASD / 方向鍵 / 手把左搖桿移動。走進水裡碰到魚就抓;站在格子上自動放貨、拿貨、上架、收銀、丟棄。錢格的錢會收進錢包;在價格牌上站一下就開始付錢。H 開關提示箭頭。每 10 秒自動存檔;F9 重新開始。
 CUSTOMER_THANKS,Thanks!,謝謝!
 HUD_OBJECTIVE,Goal %d/%d: %s,目標 %d/%d:%s
@@ -145,9 +144,6 @@ SIGN_ALTAR,Bear King Altar,熊王祭壇
 HUD_KING_WARNING,The Polar Bear King arrives in %d s! Set traps and bait,北極熊王 %d 秒後來襲!快佈夾子與誘餌
 HUD_COUPONS,Coupons: insurance %d | calm %d | free upgrade %d,券：保險 %d|平靜 %d|免費升級 %d
 CHEST_TITLE,King's Chest,熊王寶箱
-CHEST_BODY_perfect,Perfect! No helper eaten and nothing wrecked. Reward x%.1f (streak %d). +%d king teeth. Pick one:,完美!沒有幫手被吃、沒有建築被拆。獎勵 ×%.1f（連勝 %d）。熊王牙 +%d。選一張：
-CHEST_BODY_good,Good: nothing wrecked. Reward x%.1f (streak %d). +%d king teeth. Pick one:,良好：沒有建築被拆。獎勵 ×%.1f（連勝 %d）。熊王牙 +%d。選一張：
-CHEST_BODY_normal,The King took its toll. Reward x%.1f (streak %d). +%d king teeth. Pick one:,王這次有吃到東西。獎勵 ×%.1f（連勝 %d）。熊王牙 +%d。選一張：
 CARD_cash,$%d cash,現金 $%d
 CARD_pelt,%d pelts,毛皮 %d 張
 CARD_coupon_insurance,Helper insurance coupon,幫手保險券
@@ -164,4 +160,21 @@ NOTICE_COUPON_UPGRADE,Free upgrade coupon used!,用掉免費升級券!
 NOTICE_TOTEM,Totem planted: bear packs will avoid this area,圖騰插好了：熊群會避開這塊地
 NOTICE_ICE_TRAPS,Frost traps unlocked: every trap stuns 6 s and hits harder,冰封捕熊夾解鎖：所有夾子定住 6 秒、傷害更高
 HUD_KING_LV,King Lv%d,王 Lv%d
-HUD_KING_STATS,Bear King Lv%d | slain %d | perfect streak %d,北極熊王 Lv%d|擊殺 %d|完美連勝 %d
+HUD_STATS_ECON,Earned $%d | income $%d/min | offline $%d\nfish %d | sold %d | trashed %d\ntime %s,累計收入 $%d|收入 $%d/分|離線收益 $%d\n抓魚 %d|賣出 %d|丟棄 %d\n時間 %s
+HUD_STATS_HELPERS,fishers %d porters %d cashiers %d\nworker speed Lv%d | pile cap Lv%d | porter cap Lv%d\nweapon Lv%d | weapon shop Lv%d\neaten by bear %d | pelts %d,漁夫 %d 搬運工 %d 收銀員 %d\n工人速度 Lv%d|堆疊上限 Lv%d|搬運容量 Lv%d\n武器 Lv%d|武器店 Lv%d\n被北極熊吃掉 %d|毛皮 %d
+HUD_STATS_KING,Bear King Lv%d | slain %d | perfect streak %d\nking teeth %d | milestone backpack +%d,北極熊王 Lv%d|擊殺 %d|完美連勝 %d\n熊王牙 %d|里程碑背包 +%d
+TAB_economy,Economy,經濟
+TAB_helpers,Helpers & bears,幫手與熊
+TAB_king,King & coupons,王與券
+CHEST_BODY_perfect,Perfect! No helper eaten and nothing wrecked. +%d king teeth. Pick one card:,完美!沒有幫手被吃、沒有建築被拆。熊王牙 +%d。選一張卡：
+CHEST_BODY_good,Good: nothing wrecked. +%d king teeth. Pick one card:,良好：沒有建築被拆。熊王牙 +%d。選一張卡：
+CHEST_BODY_normal,The King took its toll. +%d king teeth. Pick one card:,王這次有吃到東西。熊王牙 +%d。選一張卡：
+CHEST_MULT,Multiplier: %s x%.1f | streak %d (+%d%%) | King Lv%d (+%d%%) = x%.2f,倍率：%s ×%.1f｜連勝 %d 層（+%d%%）｜王 Lv%d（+%d%%）= ×%.2f
+GRADE_perfect,Perfect,完美
+GRADE_good,Good,良好
+GRADE_normal,Normal,普通
+CARD_DESC_cash,Recent income $%d/min x %d s x multiplier (at least $%d),最近收入 $%d/分 × %d 秒 × 倍率（至少 $%d）
+CARD_DESC_pelt,%d pelts x multiplier. Pelts upgrade the weapon shop or become sweaters,%d 張 × 倍率。毛皮可升級武器店或做毛衣
+CARD_DESC_coupon_insurance,Next eaten helper comes back in 10 s and keeps its slot,下一個被吃的幫手 10 秒後自己回來，名額不扣
+CARD_DESC_coupon_calm,No regular bear packs for 2 minutes (takes effect now),一般熊群 2 分鐘不來（立刻生效）
+CARD_DESC_coupon_upgrade,The next upgrade pad you stand on is free,下一張站上的升級牌直接付清不扣錢

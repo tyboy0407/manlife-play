@@ -92,6 +92,11 @@ toggle_hints={
 locale/translations=PackedStringArray("res://data/locale/strings.en.translation", "res://data/locale/strings.zh_TW.translation")
 locale/fallback="zh_TW"
 
+[physics]
+
+common/physics_ticks_per_second.web=30
+common/physics_interpolation=true
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
