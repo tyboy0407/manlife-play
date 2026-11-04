@@ -307,6 +307,9 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1
 bash tools/run_tests.sh          # Linux / 雲端(先 bash tools/setup_cloud.sh)
 ```
 
+GitHub Actions(`.github/workflows/tests.yml`)在推到 main 時(docs/、README、CLAUDE.md 的改動除外)或手動觸發,於 ubuntu-latest 跑同樣兩支腳本,約 7 分鐘;
+2026-11-04 首次執行全過(Godot v4.7.stable.official,四套測試 ALL OK),這也證明 setup_cloud.sh / run_tests.sh 在 Linux 雲端能跑。
+
 先 `godot --headless --path . --import`,再依檔名順序跑 `tests/verify_*.tscn`:`verify_core`(見下)、`verify_nav`(擴建後東牆整面拆掉、幫手直線往返:x 12.6 沒有牆、搬運工送到擴建區櫃台再送回、
 漁夫去擴建區的水再回主村卸貨、route 回空,約 40 秒)、`verify_ui`(HUD 版面:選單鈕與面板貼右上角不出界、搖桿排除區)、`verify_core`(資料 / ItemStack / StationLogic / PurchaseLogic 含可重複牌 / CounterLogic / PorterPlanner 派工 / GuideLogic 教學與提示(含北極熊優先)/ BearLogic 冷卻與難度曲線、血量、成群機率、武器攻擊力、王的參數(不回血、咬建築 10 秒)、掉落物、武器店等級賣到第幾級、盯最近的 / TowerLogic 數值(血 800 = 20 口、強力塔 2000 = 50 口)、幾箭射死、射程內最近的活熊 / TrapLogic 數值、觸發、挑誘餌 / ConveyorLogic 拿貨 / 前進 / 排隊 / 存檔 / PurchaseLogic 買回、擴建名額、捕熊夾牌同價重現、守衛塔牌修復 / 工作站修復價 / 收毛皮的逐次價牌、武器牌 raise_max / roll_want / Settings 讀寫 / StackVisual MultiMesh 與 StaticBatch 合併 / ProgressRing / 音效檔載入與 Sfx 節流 / MoveInput / SaveManager IO / GameState 序列化)、`verify_world`(3D 整合,一路檢查教學箭頭指到哪:建關卡(直式相機、浮動搖桿推 / 放 / 排除區、選單兩次確認)-> 抓魚到滿 -> 卸貨 / 切 / 取 -> 上架 -> 沒人收銀不賣、站收銀格才賣 -> 錢格收進錢包、走過價格牌不付、站著分期(進度環)-> 僱收銀員接手(教學完成轉提示、H 開關) -> 垃圾桶丟魚 -> 僱搬運工送貨 -> 兩種升級牌 + 搬運工容量 Lv1(8 -> 12)-> 傳送帶 $150(切魚台 -> 魚片櫃台,自己送 3 件)-> 再僱漁夫 -> 增建烤魚攤 -> 搬運工送不出去放回來源、空的烤魚攤原料區優先補 -> 手動跑第二條鏈 $5 -> 北極熊(強制出現盯漁夫 -> 嚇呆 -> 咬 4 秒吃掉、僱用數 -1、牌子不退 -> 穿過西牆缺口到村外買武器 Lv1 ->
 追著熊 Lv1 每下 10 打到血條歸零才逃、掉毛皮走過去撿 -> $15 買回漁夫 -> 買到 Lv3 -> 一群三隻各盯不同幫手、每隻兩下打跑、冷卻照當時的間隔、再掉三張毛皮 ->
