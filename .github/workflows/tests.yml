@@ -1,0 +1,20 @@
+# Headless 測試(Linux):跟雲端 session 一樣先 bash tools/setup_cloud.sh 裝 Godot 4.7,再 bash tools/run_tests.sh 跑 tests/verify_*.tscn。
+# 手動觸發(Actions 頁面 Run workflow)或推到 main 時跑;docs/ 的部署 commit 不觸發。
+name: tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+jobs:
+  godot-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7 (tools/setup_cloud.sh)
+        run: bash tools/setup_cloud.sh
+      - name: Run headless tests (tools/run_tests.sh)
+        run: bash tools/run_tests.sh
