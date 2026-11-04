@@ -137,3 +137,4 @@ OFFLINE_CLAIM,Claim,領取
 OFFLINE_TIME_HM,%d h %d min,%d 小時 %d 分
 OFFLINE_TIME_M,%d min,%d 分鐘
 NOTICE_OFFLINE,Claimed $%d of offline earnings,收到離線收益 $%d
+HINT_SAVE_WEAPON,Your weapon is too weak for these bears. Save $%d more for the weapon shop before hiring again,武器打不過現在的熊，先存 $%d 升級武器再僱人

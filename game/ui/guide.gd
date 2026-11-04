@@ -127,6 +127,8 @@ func build_state() -> Dictionary:
         "fish_caught": GameState.fish_caught, "items_sold": GameState.items_sold, "purchases": GameState.unlocked.size(),
         "hired": GameState.hired.duplicate(), "counters": counters, "stations": stations, "pads": pads,
         "bear": level.bears != null and level.bears.has_bear(), "weapon_level": GameState.weapon_level,
+        "helpers_lost": GameState.helpers_lost,
+        "outmatched": level.bears != null and level.bears.logic.outmatched(GameState.weapon_level, GameState.play_time),
         "resources": {"pelt": GameState.pelts, "tooth": GameState.teeth},
     }
 

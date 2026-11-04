@@ -80,6 +80,7 @@
     "busyRadius": 6.0,
     "intervalSec": [35, 55],
     "intervalMin": [30, 40],
+    "outmatchBears": 2,
     "rampStartSec": 180,
     "rampSec": 300,
     "hpBase": 30,

@@ -632,6 +632,23 @@ func _test_guide() -> void:
     _check(GuideLogic.hint(state)["kind"] == "station_output", "錢格沒錢:照塞住規則")
     state["wallet"] = 50
     state["stations"][0]["blocked"] = false
+    # 武器打不過熊、幫手被吃過:先存錢升級武器,不提重僱
+    state = _guide_state()
+    state["wallet"] = 20
+    state["outmatched"] = true
+    _check(GuideLogic.hint(state)["kind"] == "pad" and GuideLogic.hint(state)["target"] == "hire_fisher", "打不過但還沒有幫手被吃:照舊買最便宜的牌")
+    state["helpers_lost"] = 1
+    state["pads"].append({"id": "weapon", "name": "SHOP_weapon", "remaining": 60, "visible": true, "currency": "cash"})
+    state["stations"][0]["output_count"] = 6
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "station_output" and h["text"] == "HINT_SAVE_WEAPON" and h["args"][0] == 40, "打不過且被吃過:工作循環 + 文字「再存 $40 升級武器」,不指 $10 的漁夫牌")
+    state["money_on_pad"] = 5
+    _check(GuideLogic.hint(state)["kind"] == "money", "錢格有錢:先去收")
+    state["wallet"] = 60
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "pad" and h["target"] == "weapon", "存夠了:指武器牌")
+    state["outmatched"] = false
+    _check(GuideLogic.hint(state)["target"] == "hire_fisher", "武器夠強:回到最便宜的牌")
     _check(GuideLogic.hint(state)["kind"] == "pad", "沒塞住:回到買得起的牌")
     # 提示:空手的優先序
     state = _guide_state()
@@ -738,6 +755,9 @@ func _test_bear() -> void:
     _check(b.drop_count(false, 0.0) == 1 and b.drop_count(false, 0.49) == 1 and b.drop_count(false, 0.5) == 2 and b.drop_count(false, 1.0) == 2
             and b.drop_count(true, 0.3) == 3, "掉落數:一般熊 1 ~ 2 張毛皮、王 3 顆牙")
     _check(b.pack_max_eats() == 2 and is_equal_approx(b.busy_radius(), 6.0), "一群最多吃 2 個就撤退;熊在 6 格內暫停抓魚 / 拿貨")
+    _check(b.outmatched(0, 0.0) and not b.outmatched(1, 0.0) and not b.outmatched(1, 300.0) and b.outmatched(1, 600.0)
+            and not b.outmatched(2, 600.0) and b.outmatched(2, 900.0) and not b.outmatched(3, 900.0),
+            "打不打得過:沒武器一律不行;Lv1 10 分鐘(血 130 要 13 下 × 0.5 × 2 隻 = 13 秒 > 8)就不行、Lv2 到 15 分鐘、Lv3 15 分鐘還行")
     _check(b.weapon_max_level() == 6 and is_equal_approx(b.weapon_damage(0), 0.0) and is_equal_approx(b.weapon_damage(1), 10.0)
             and is_equal_approx(b.weapon_damage(2), 20.0) and is_equal_approx(b.weapon_damage(3), 35.0) and is_equal_approx(b.weapon_damage(4), 55.0)
             and is_equal_approx(b.weapon_damage(5), 80.0) and is_equal_approx(b.weapon_damage(6), 120.0) and is_equal_approx(b.weapon_damage(9), 120.0)

@@ -254,6 +254,17 @@ func can_attack(level: int, dist: float) -> bool:
     return weapon_damage(level) > 0.0 and dist <= attack_range(level)
 
 
+## 這級武器打不打得過現在的熊:連殺 outmatchBears(2)隻要花的時間超過熊咬一口(biteSec)就算打不過
+## (一群兩三隻各咬一個幫手,殺第二隻前第一個幫手已經沒了);沒武器一律打不過。給提示用:打不過就先存錢升級別重僱
+func outmatched(level: int, elapsed: float) -> bool:
+    var dmg := weapon_damage(level)
+    if dmg <= 0.0:
+        return true
+    var hits := ceilf(hp(elapsed) / dmg)
+    var bears := maxf(float(cfg.get("outmatchBears", 2)), 1.0)
+    return hits * attack_interval() * bears > bite_sec()
+
+
 ## 熊被打跑後下次冷卻的倍率(武器等級可設 cooldownMult,預設 1)
 func cooldown_mult(level: int) -> float:
     return maxf(float(weapon_level_cfg(level).get("cooldownMult", 1.0)), 0.1)

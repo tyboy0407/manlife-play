@@ -126,6 +126,20 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
     var wallet := int(state.get("wallet", 0))
     if allow_pads and on_pad >= 1 and _cheapest_pad(state, wallet).is_empty() and not _cheapest_pad(state, wallet + on_pad).is_empty():
         return {"kind": "money", "target": "", "text": "HINT_money"}
+    # 幫手被吃過、而且現在的武器打不過熊(BearLogic.outmatched):先存錢升級武器,不提重僱便宜的幫手送死
+    # (試玩紀錄:一直重僱 $18 的漁夫,永遠存不到 $60 的武器 Lv2,20 分鐘幫手全被吃光)
+    if allow_pads and bool(state.get("outmatched", false)) and int(state.get("helpers_lost", 0)) > 0:
+        var wp := _pad_by_id(state, WEAPON_PAD)
+        if not wp.is_empty():
+            var need := int(wp.get("remaining", 0)) - wallet
+            if need <= 0:
+                return {"kind": "pad", "target": WEAPON_PAD, "text": "HINT_buy", "arg": str(wp.get("name", ""))}
+            if on_pad >= 1:
+                return {"kind": "money", "target": "", "text": "HINT_money"}
+            var w := _work_hint(state, false)
+            w["text"] = "HINT_SAVE_WEAPON"
+            w["args"] = [need]
+            return w
     var jam := _station_jammed(state)
     if not jam.is_empty():
         return {"kind": "station_output", "target": str(jam["id"]), "text": "HINT_take_jammed"}

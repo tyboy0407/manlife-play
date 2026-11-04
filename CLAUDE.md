@@ -107,6 +107,10 @@
   體驗(試玩機器人 notes 的紀錄為證):4 工作站塞住時玩家滿手來回搬成品,錢格堆到 $464 提示也不叫他收(錢包一直 $0,熊來了買不起武器)
   -> GuideLogic._work_hint 的「錢格 + 錢包買得起牌、錢包自己不夠 -> 先收錢」挪到塞住 / 買牌之前(空手時);5 撿毛皮一秒三則通知把「打跑熊了」立刻蓋掉
   -> Hud.show_notice 排隊:上一則顯示不到 0.9 秒就排隊,同一類(前 8 字相同)只更新最新的(notice_text / queued_notices 給測試)。
+  6 武器打不過熊還一直重僱便宜幫手送死(機器人 20 分鐘停在武器 Lv1、幫手全被吃)-> BearLogic.outmatched(level, elapsed):殺 outmatchBears(2)隻的時間
+  (ceil(血 / 攻擊力) × 間隔 × 2)超過咬一口 biteSec 就算打不過;GuideLogic 在「幫手被吃過 (helpers_lost > 0) 且打不過」時先存錢升級武器(武器牌買得起就指牌、
+  錢格有錢先收、不然工作循環 + HINT_SAVE_WEAPON 還差 $N),不提其他牌(#8 挑最便宜只在打得過時適用)。同 seed 機器人:武器 Lv1 -> Lv3、打跑 18 -> 44 隻。
+  沒改(使用者 10-28 裁示不改):塔價 $200 / 提示挑最便宜 / 熊群頻率,所以機器人 20 分鐘仍買不到塔、幫手仍會被吃完。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -133,7 +137,7 @@
   aggro_radius / height / dps / shots_to_kill;static pick_target(from, [{id, pos, alive}], range) 射程內最近的活熊;數值 game.json tower)
 - `core/threat/bear_logic.gd`:BearLogic(北極熊規則:first_delay / interval / next_cooldown(等級, roll)/ bite_sec / bite_radius / panic_radius /
   speed / flee_speed / entries(expanded)/ pack_size(roll);難度曲線 ramp(elapsed) / interval(elapsed) / hp(elapsed);
-  武器 weapon_level_cfg / weapon_damage / attack_range / attack_interval / can_attack / weapon_model;王 king_at_sec / king_respawn_sec / king_hp_mult /
+  武器 weapon_level_cfg / weapon_damage / attack_range / attack_interval / can_attack / outmatched(level, elapsed) 打不打得過 / weapon_model;王 king_at_sec / king_respawn_sec / king_hp_mult /
   king_bite_sec / king_fish_bite_sec / king_building_bite_sec / king_scale / king_grow_helper / king_grow_fish / king_max_scale / king_heal_fish /
   king_heal_helper;drop(king) 掉什麼、shop_base_levels / weapon_levels_for_sale(shop_level) 武器店等級賣到第幾級;static pick_target 最近的獵物)
 - `game/common/`:Carrier(CharacterBody3D 浮動模式、背上 ItemStack + StackVisual、旗標 can_fish / takes_output / collects_cash / can_serve / can_use_trash、stack_top 給飛行動畫、腳下 blob_shadow;model_name 有對應 GLB 就掛 CharacterModel 代替膠囊,move_toward_dir 每幀依速度餵 set_moving)、StackVisual(整堆一個 MultiMesh:物品在 items.json 有 model 就用 ModelLibrary.item_mesh / item_fit 的模型網格,否則方塊;換物品種類才重排位置,之後只改 visible_instance_count;uses_model 給測試)、ModelLibrary(靜態快取:character(name) / player_model / role_model / worker_model / customer_models 讀 game.json models;item_mesh / item_fit 把 items.json 的 model 等比例塞進尺寸框;water_fish;scene_aabb / first_mesh / mesh_instances / find_anim / local_xform 工具)、CharacterModel(人物 GLB:縮到身高、腳底貼 0、XZ 置中,idle / walk 循環;set_moving(速度比例)、set_action(動作, loop, speed)、clear_action、current())、StaticBatch(不會動的方塊 / 圓柱依顏色合併成一個 ArrayMesh,每色一個 surface)、VisualFactory(box / capsule / cylinder / cone / label / blob_shadow / 材質快取)、ProgressRing(平放進度環,ArrayMesh 弧,set_progress 量化重建)
@@ -279,7 +283,7 @@
   -> _claim_offline(解除暫停、GameState.claim_offline、offline_claimed 事件、items_moved "cash" 從玩家頭上飛向錢包、通知、save_now)。暫停時 play_time 不走、
   自動存檔不跑(沒領就關掉,下次回來照舊算);_exit_tree 解除暫停免得換場景卡住。測試要離線收益就改存檔 JSON 的 savedAt / world.income_rate 再重建關卡。
 - 顧客數量:want 由 CounterLogic.roll_want 抽,泡泡顯示 ×N,serve(want) 賣 min(want, 庫存) 就走(不等補貨)。
-- 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 錢格 + 錢包買得起牌而錢包自己不夠(先收錢)> 工作站塞住拿成品 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
+- 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 錢格 + 錢包買得起牌而錢包自己不夠(先收錢)> 幫手被吃過且武器打不過(state.outmatched)先存錢升級武器 > 工作站塞住拿成品 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
 
 ## 網頁 / 手機(PWA)
 
