@@ -30,6 +30,7 @@ var _offline_dim: ColorRect
 var _offline_body: Label
 var _offline_cash := 0
 var _notice_timer := 0.0
+var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
 var _objective_text := ""
 var _chips := 0
 var _confirm_new_game := false
@@ -321,10 +322,39 @@ func bind_player(p: Player) -> void:
     player = p
 
 
+## 通知:上一則顯示不到 NOTICE_HOLD 秒就排隊,等它顯示夠久再換;排隊中同一類(前 8 個字相同,例如撿毛皮的累計)只留最新的
+const NOTICE_SEC := 2.6
+const NOTICE_HOLD := 0.9
+
+
 func show_notice(text: String) -> void:
+    if _notice_timer > NOTICE_SEC - NOTICE_HOLD:
+        if not _notice_queue.is_empty() and _same_kind(_notice_queue[_notice_queue.size() - 1], text):
+            _notice_queue[_notice_queue.size() - 1] = text
+        elif _same_kind(_notice.text, text):
+            _notice.text = text   # 同一類直接更新數字(撿第 2、3 張毛皮)
+        else:
+            _notice_queue.append(text)
+        return
+    _show_notice_now(text)
+
+
+func _show_notice_now(text: String) -> void:
     _notice.text = text
     _notice.modulate.a = 1.0
-    _notice_timer = 2.6
+    _notice_timer = NOTICE_SEC
+
+
+static func _same_kind(a: String, b: String) -> bool:
+    return a != "" and b != "" and a.substr(0, 8) == b.substr(0, 8)
+
+
+func notice_text() -> String:
+    return _notice.text
+
+
+func queued_notices() -> int:
+    return _notice_queue.size()
 
 
 ## 目標 / 提示文字(Guide 每 0.1 秒餵;文字變了就閃一下)
@@ -385,6 +415,8 @@ func _process(delta: float) -> void:
     if _notice_timer > 0.0:
         _notice_timer -= delta
         _notice.modulate.a = clampf(_notice_timer / 0.6, 0.0, 1.0)
+    if not _notice_queue.is_empty() and _notice_timer <= NOTICE_SEC - NOTICE_HOLD:
+        _show_notice_now(_notice_queue.pop_front())
     if _fps.visible:
         _fps_timer -= delta
         if _fps_timer <= 0.0:

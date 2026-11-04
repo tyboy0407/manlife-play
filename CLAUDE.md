@@ -104,6 +104,9 @@
   1 擴建區的 fillet_counter_2 / _3 收銀格壓在 tower_9 / tower_15 底下 -> 塔挪到上架格南邊(x 14.4 / 33.0);2 擴建區水區 16 寬把四角塔、捕熊夾、誘餌都泡在水裡
   -> 擴建區水區改 12 寬(Harbor.ANNEX_WATER_W,魚欄裝飾跟著縮);3 擴建區兩座櫃台各排 6 個顧客(每 1.3 格)會排進隔壁櫃台的上架格、穿過東柵欄 ->
   counters.json 的 maxCustomers 4 / queueSpacing 1.2(Counter 讀 def 蓋過 customers.max),櫃台改放 x 16.6 / 25.4、35.2 / 44.0(上架格貼西邊)。
+  體驗(試玩機器人 notes 的紀錄為證):4 工作站塞住時玩家滿手來回搬成品,錢格堆到 $464 提示也不叫他收(錢包一直 $0,熊來了買不起武器)
+  -> GuideLogic._work_hint 的「錢格 + 錢包買得起牌、錢包自己不夠 -> 先收錢」挪到塞住 / 買牌之前(空手時);5 撿毛皮一秒三則通知把「打跑熊了」立刻蓋掉
+  -> Hud.show_notice 排隊:上一則顯示不到 0.9 秒就排隊,同一類(前 8 字相同)只更新最新的(notice_text / queued_notices 給測試)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -155,7 +158,7 @@
   王:king / king_next_sec,play_time 到 king.atSec 自動 spawn_king,打死後 respawnSec 再來;spawn(prefer) / spawn_pack(n) / spawn_king() 強制出現、
   enabled 給測試關掉;snapshot / restore 記冷卻秒數(熊在場時存 8 秒)與 kingNextSec)
 - `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z);直式(高 >= 寬)KEEP_WIDTH、fov 40、偏移 (0, 13.5, 9.5),橫式 KEEP_HEIGHT、fov 42、偏移 (0, 17, 11.5),視窗轉向時重算
-- `game/ui/hud.gd`:Hud(class_name):離線收益面板(show_offline(cash, 離線秒, 算進的秒) 半透明遮罩 + 置中面板 + 領取鈕,offline_action("claim") 發 action "offline_claim";offline_open / offline_cash、income_rate 給統計)、錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
+- `game/ui/hud.gd`:Hud(class_name):通知排隊(show_notice 上一則不到 0.9 秒就排隊、同類只留最新)、離線收益面板(show_offline(cash, 離線秒, 算進的秒) 半透明遮罩 + 置中面板 + 領取鈕,offline_action("claim") 發 action "offline_claim";offline_open / offline_cash、income_rate 給統計)、錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
 - `game/ui/touch_joystick.gd`:TouchJoystick(鋪滿畫面最底層、mouse_filter IGNORE;_unhandled_input 收 ScreenTouch / ScreenDrag,按下點為中心、RADIUS 90、只跟第一根手指、exclusions 範圍不算;handle_event 給測試)
 - `game/ui/guide.gd`:Guide(Node3D,掛在關卡下):每 0.1 秒把關卡狀態餵 GuideLogic,推進教學(GameState.tutorial_step)、解析目標座標、畫玩家頭上箭頭 + 目標彈跳箭頭、餵 HUD 文字;toggle_hints(H)
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):offline(OfflineLogic,聽 sale_made 記收入;snapshot 多 income_rate、_load_save 算 _offline_pending 與 offline_sec,_ready 最後 _show_offline 暫停、_claim_offline 領取;_exit_tree 解除暫停)、星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
@@ -276,7 +279,7 @@
   -> _claim_offline(解除暫停、GameState.claim_offline、offline_claimed 事件、items_moved "cash" 從玩家頭上飛向錢包、通知、save_now)。暫停時 play_time 不走、
   自動存檔不跑(沒領就關掉,下次回來照舊算);_exit_tree 解除暫停免得換場景卡住。測試要離線收益就改存檔 JSON 的 savedAt / world.income_rate 再重建關卡。
 - 顧客數量:want 由 CounterLogic.roll_want 抽,泡泡顯示 ×N,serve(want) 賣 min(want, 庫存) 就走(不等補貨)。
-- 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
+- 引導:GameState.tutorial_step 0 ~ 7,Guide 每 0.1 秒 refresh,`GuideLogic.tutorial_step_done` 允許跳步(舊存檔有購買紀錄視為完成);教學後 `hint()` 優先序:手上有貨先處理 > 錢格 + 錢包買得起牌而錢包自己不夠(先收錢)> 工作站塞住拿成品 > 買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 去抓魚。目標 kind / target 由 Guide._resolve 換成座標;新目標種類要同時加 GuideLogic 與 _resolve。
 
 ## 網頁 / 手機(PWA)
 

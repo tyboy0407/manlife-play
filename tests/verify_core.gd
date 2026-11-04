@@ -621,6 +621,16 @@ func _test_guide() -> void:
     state["wallet"] = 50
     h = GuideLogic.hint(state)
     _check(h["kind"] == "station_output" and h["target"] == "station_1" and h["text"] == "HINT_take_jammed", "切魚台塞住、空手:先去拿成品(比買牌優先)")
+    state["wallet"] = 0
+    state["money_on_pad"] = 464
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "money" and h["text"] == "HINT_money", "塞住但錢包 $0、錢格 $464 買得起牌:先去收錢(不然滿手來回永遠收不到)")
+    state["wallet"] = 50
+    _check(GuideLogic.hint(state)["kind"] == "station_output", "錢包自己就買得起:不用先收錢,照塞住規則拿成品")
+    state["money_on_pad"] = 0
+    state["wallet"] = 0
+    _check(GuideLogic.hint(state)["kind"] == "station_output", "錢格沒錢:照塞住規則")
+    state["wallet"] = 50
     state["stations"][0]["blocked"] = false
     _check(GuideLogic.hint(state)["kind"] == "pad", "沒塞住:回到買得起的牌")
     # 提示:空手的優先序

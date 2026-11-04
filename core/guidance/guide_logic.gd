@@ -120,16 +120,18 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
                 return {"kind": "trash", "target": "", "text": "HINT_station_jammed"}
             return {"kind": "station_input", "target": str(any_st["id"]), "text": "HINT_station_full"}
         return {"kind": "trash", "target": "", "text": "HINT_trash"}
+    # 錢格的錢加上錢包就買得起牌子了、錢包自己還不夠:先去收錢。放在塞住 / 買牌之前,因為工作站塞住時玩家一直滿手來回搬成品,
+    # 錢格堆到幾百塊也沒人叫他去收(試玩紀錄:錢包 $0、錢格 $464),熊來了就買不起武器
+    var on_pad := int(state.get("money_on_pad", 0))
+    var wallet := int(state.get("wallet", 0))
+    if allow_pads and on_pad >= 1 and _cheapest_pad(state, wallet).is_empty() and not _cheapest_pad(state, wallet + on_pad).is_empty():
+        return {"kind": "money", "target": "", "text": "HINT_money"}
     var jam := _station_jammed(state)
     if not jam.is_empty():
         return {"kind": "station_output", "target": str(jam["id"]), "text": "HINT_take_jammed"}
-    var pad := _cheapest_pad(state, int(state.get("wallet", 0))) if allow_pads else {}
+    var pad := _cheapest_pad(state, wallet) if allow_pads else {}
     if not pad.is_empty():
         return {"kind": "pad", "target": str(pad["id"]), "text": "HINT_buy", "arg": str(pad.get("name", ""))}
-    # 錢格的錢加上錢包就買得起牌子了:先去收錢(不然一直幫櫃台收銀,錢格的錢永遠收不到)
-    var on_pad := int(state.get("money_on_pad", 0))
-    if allow_pads and on_pad >= 1 and not _cheapest_pad(state, int(state.get("wallet", 0)) + on_pad).is_empty():
-        return {"kind": "money", "target": "", "text": "HINT_money"}
     for c in state.get("counters", []):
         if int(c.get("stock", 0)) > 0 and not bool(c.get("has_server", false)) and not bool(c.get("has_cashier", false)):
             return {"kind": "service", "target": str(c["id"]), "text": "HINT_serve"}

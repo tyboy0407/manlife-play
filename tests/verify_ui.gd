@@ -41,6 +41,16 @@ func _ready() -> void:
             and not hud.joystick.is_excluded(Vector2(vp.x * 0.5, vp.y * 0.8)), "搖桿排除區涵蓋選單鈕與面板,畫面中下不算")
     hud.menu_action("close")
     _check(not hud.menu_panel.visible, "關閉面板")
+    # 通知排隊:一秒內連來三則不互相蓋掉;同一類(撿毛皮累計)只更新數字
+    hud.show_notice("You beat the polar bear!")
+    hud.show_notice("Picked up a polar bear pelt (1 total)")
+    hud.show_notice("Picked up a polar bear pelt (2 total)")
+    hud.show_notice("Hire a fisher unlocked!")
+    _check(hud.notice_text() == "You beat the polar bear!" and hud.queued_notices() == 2, "第一則還在顯示:後面的排隊(同類毛皮只留一則)")
+    hud._process(1.0)   # headless 的幀率不固定,直接餵時間
+    _check(hud.notice_text() == "Picked up a polar bear pelt (2 total)" and hud.queued_notices() == 1, "1 秒後換下一則(毛皮累計 2)")
+    hud._process(1.0)
+    _check(hud.notice_text() == "Hire a fisher unlocked!" and hud.queued_notices() == 0, "再 1 秒換最後一則")
     hud.free()
     if _fails == 0:
         print("VERIFY UI: ALL OK")
