@@ -40,7 +40,10 @@ func _refresh() -> void:
 func _on_carrier_stay(c: Carrier, delta: float) -> void:
     if not c.collects_cash or cash <= 0:
         return
-    var taken := mini(_budget(c, float(GameData.config().get("cashPickupPerSec", 40.0)), delta), cash)
+    # 收錢速度:每秒至少 cashPickupPerSec,堆得越多收越快(速率 = 堆 × cashPickupFrac,等於指數衰減:1.5 時每秒收掉約 78%),幾萬塊也是幾秒就收完
+    var cfg := GameData.config()
+    var rate := maxf(float(cfg.get("cashPickupPerSec", 40.0)), float(cash) * float(cfg.get("cashPickupFrac", 0.6)))
+    var taken := mini(_budget(c, rate, delta), cash)
     if taken <= 0:
         return
     cash -= taken

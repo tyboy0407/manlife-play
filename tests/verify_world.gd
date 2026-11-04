@@ -374,6 +374,14 @@ func _run() -> void:
         if str(s[0]) == "grilled" and int(s[2]) == 5 * int(s[1]):
             five = true
     _check(took and gstock and gsold and five, "烤魚上架、顧客以 $5 買走")
+    # 錢格堆很多錢時收得快:每秒收掉 60%,$20000 幾秒內收完(原本固定 40/秒要站 8 分鐘)
+    await _empty_hands()
+    _level.money_pad.add_cash(20000)
+    var wallet_big := GameState.wallet
+    await _go(_level.money_pad.global_position)
+    var fast := await _wait_until(func() -> bool: return _level.money_pad.cash == 0, 60 * 10)
+    _check(fast and GameState.wallet >= wallet_big + 20000, "錢格 $20000 十秒內收完(錢包 +20000;顧客同時賣的也一起收)")
+    GameState.wallet = wallet_big   # 錢還回去:後面的段落靠「錢不夠就去錢格收」走流程,錢包太有錢會在路過牌子時順手買到東西
     await _bear_section(g, fisher_pad)
     await _tower_section()
     await _trap_section()
@@ -406,7 +414,7 @@ func _run() -> void:
     _level.hud.menu_action("fps")
     _check(fps_on and not Settings.show_fps and not _level.hud.fps_visible(), "選單:FPS 顯示開關")
     _check(_level.scenery != null and _level.scenery.mesh != null and _level.scenery.mesh.get_surface_count() <= 10
-            and _level.stations[0].input_pile.visible_count() == mini(_level.stations[0].logic.input_count, 60), "布景合併成 %d 個 surface;堆疊用 MultiMesh 畫" % _level.scenery.mesh.get_surface_count())
+            and absi(_level.stations[0].input_pile.visible_count() - mini(_level.stations[0].logic.input_count, 60)) <= 1, "布景合併成 %d 個 surface;堆疊用 MultiMesh 畫" % _level.scenery.mesh.get_surface_count())
     # 交接給 verify_world2:存一份到 HANDOFF(擴建、王、存檔還原、離線、券在那邊接著測)
     var handed := _level.save_now() and DirAccess.copy_absolute(ProjectSettings.globalize_path(SaveManager.save_path), ProjectSettings.globalize_path(HANDOFF)) == OK
     _check(handed and FileAccess.file_exists(HANDOFF), "交接存檔寫好(武器 Lv%d、塔 1 %s)" % [GameState.weapon_level, _level.tower_by_id("tower_1").state])

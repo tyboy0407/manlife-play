@@ -140,6 +140,8 @@
   14 效能:HUD 錢包 / 背包文字只在數字變了才重排(_wallet_shown / _info_key)、Fx 幽靈與 HUD 的 $ 用物件池(飛完藏起來重用,Fx.pooled())、
   物理 30 Hz 只在網頁(project.godot physics_ticks_per_second.web=30,桌機與測試仍 60)+ physics_interpolation 開著讓 30 Hz 不抖;
   15 音效:warn(王來襲預告:倒數開始、每 15 秒、10 秒、3 秒)、chest(開箱)、card(選卡),tools/gen_sfx.py 可指定名字只產生那幾個。
+- 2026-11-04(使用者:錢格堆到兩萬多,站著收太慢):MoneyPad 收錢速度改成 max(cashPickupPerSec 40, 堆 × cashPickupFrac 1.5) 每秒,
+  堆越多收越快(指數衰減,每秒收掉約 78%,$20000 約 5 秒內收完,少量時仍是 40/秒);數值在 game.json。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -179,7 +181,7 @@
   `bear.gd`(Bear:king_level / king_logic 王的等級(血 / 體型 / 咬建築 / Lv 標籤);從 entry 進來,hunting 盯最近的幫手 -> 靠到 panicRadius 幫手嚇呆 -> biteRadius 內 biting 咬 biteSec 秒 -> Harbor.helper_eaten -> 找下一個;
   hp / hp_max = BearLogic.hp(play_time),take_hit 扣血閃紅、頭上血條,歸零 defeat 逃回 entry(fleeing);沒人可吃 leaving;is_king:體型 size_scale、
   連 Fish 也當獵物、_feast 回血變大、沒獵物就在村中間等;白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
-- `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad(原料是資源(GameState.is_resource:pelt / tooth)時 _resource_input:玩家站滿 resourceInputDelaySec 才從 GameState 扣)、Station(`Station.create(def)`;id tailor 畫衣架 + 毛衣,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea(max_fish = maxInWater × 面積 / BASE_WATER_AREA)、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json(maxCustomers / queueSpacing 可蓋過 customers.max 與 1.3 間距);door 顧客門(spawn_point / exit_point);上架格 DepositPad + 收銀格 ServicePad + 排隊位 slot_position;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包;set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
+- `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad(原料是資源(GameState.is_resource:pelt / tooth)時 _resource_input:玩家站滿 resourceInputDelaySec 才從 GameState 扣)、Station(`Station.create(def)`;id tailor 畫衣架 + 毛衣,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea(max_fish = maxInWater × 面積 / BASE_WATER_AREA)、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json(maxCustomers / queueSpacing 可蓋過 customers.max 與 1.3 間距);door 顧客門(spawn_point / exit_point);上架格 DepositPad + 收銀格 ServicePad + 排隊位 slot_position;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包,速度 max(cashPickupPerSec, 堆 × cashPickupFrac);set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
   on_lost 退名額重新開放並標「買回 ×1.5」(守衛塔牌標「修復」)、expand() 擴建多開名額、raise_max(n)、set_open(開關)、is_tower_pad / is_repair_pad、restore_state;
   currency 不是 cash 的牌從 GameState.resource 扣、標籤用 COST_<currency>)、Loot(掉落物 pelt / tooth / chest(熊王寶箱,data 存內容,踩到叫 Harbor.chest_opened):浮動旋轉,玩家走到 lootPickupRadius 內 collect -> GameState.add_resource、
   EventBus.loot_collected、Harbor.loot_collected;snapshot {kind, x, z})、

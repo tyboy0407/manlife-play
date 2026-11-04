@@ -4,6 +4,7 @@
   "carryCapacity": 8,
   "transferPerSec": 8,
   "cashPickupPerSec": 40,
+  "cashPickupFrac": 1.5,
   "payPerSec": 15,
   "payDelaySec": 0.6,
   "resourceInputDelaySec": 0.8,
