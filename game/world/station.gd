@@ -13,8 +13,10 @@ var level: Harbor = null
 var logic: StationLogic
 var input_pad: StationPad
 var output_pad: StationPad
-var input_pile: StackVisual
+var input_pile: StackVisual        # 第一種原料的堆(多原料時 input_piles 每種一堆)
 var output_pile: StackVisual
+var input_pads := {}               # 原料 -> StationPad(多原料的工作站每種一格)
+var input_piles := {}              # 原料 -> StackVisual
 var worker: Node3D
 var worker_model: CharacterModel = null   # 有人物模型時的工人(models.worker)
 var ring: ProgressRing   # 工人頭上的處理進度環
@@ -40,7 +42,8 @@ func _ready() -> void:
     var kind := str(def.get("id", ""))
     var is_grill := kind == "grill"
     var is_tailor := kind == "tailor"
-    var table_color := Color(0.55, 0.3, 0.2) if is_grill else (Color(0.45, 0.38, 0.62) if is_tailor else Color(0.78, 0.55, 0.3))
+    var is_kitchen := kind == "kitchen"
+    var table_color := Color(0.55, 0.3, 0.2) if is_grill else (Color(0.45, 0.38, 0.62) if is_tailor else (Color(0.5, 0.42, 0.36) if is_kitchen else Color(0.78, 0.55, 0.3)))
     _built = Node3D.new()
     _built.name = "Built"
     add_child(_built)
@@ -55,6 +58,11 @@ func _ready() -> void:
         for sx in [-0.8, 0.8]:
             _built.add_child(VisualFactory.box(Vector3(0.08, 0.85, 0.08), rack, Vector3(float(sx), 1.32, 0)))
         _built.add_child(VisualFactory.box(Vector3(0.7, 0.6, 0.16), GameData.item_color("sweater"), Vector3(0, 1.4, 0)))
+    elif is_kitchen:
+        # 廚房:桌上一口大鍋,鍋裡是湯的顏色
+        _built.add_child(VisualFactory.cylinder(0.5, 0.55, Color(0.3, 0.3, 0.33), Vector3(0, 1.17, 0)))
+        _built.add_child(VisualFactory.cylinder(0.42, 0.06, GameData.item_color("soup"), Vector3(0, 1.45, 0)))
+        _built.add_child(VisualFactory.box(Vector3(0.08, 0.5, 0.08), Color(0.35, 0.25, 0.15), Vector3(0.45, 1.6, -0.3)))
     else:
         _built.add_child(VisualFactory.box(Vector3(0.9, 0.5, 0.06), Color(0.6, 0.6, 0.65), Vector3(0, 1.15, 0)))
     add_child(VisualFactory.label(tr(display_name_key()), Vector3(0, 2.4, 0), 44, Color(1.0, 0.95, 0.8)))
@@ -93,14 +101,22 @@ func _ready() -> void:
     _rubble.visible = false
     add_child(_rubble)
     # 格子
-    input_pad = StationPad.new()
-    input_pad.name = "InputPad"
-    input_pad.station = self
-    input_pad.mode = "input"
-    input_pad.color = Color(0.3, 0.26, 0.22)
-    input_pad.label_text = "%s\n%s" % [tr("PAD_INPUT"), GameData.item_name(logic.input_id)]
-    input_pad.position = Vector3(0, 0, -2.2)
-    add_child(input_pad)
+    # 輸入格:每種原料一格,排在桌子北邊(單原料在正中、兩種各偏 1.3)
+    var n_in := logic.inputs.size()
+    for i in n_in:
+        var item: String = logic.inputs[i]
+        var pad := StationPad.new()
+        pad.name = "InputPad" if i == 0 else "InputPad_%s" % item
+        pad.station = self
+        pad.mode = "input"
+        pad.item = item
+        pad.color = Color(0.3, 0.26, 0.22)
+        pad.label_text = "%s\n%s" % [tr("PAD_INPUT"), GameData.item_name(item)]
+        pad.position = Vector3((float(i) - float(n_in - 1) / 2.0) * 2.6, 0, -2.2)
+        add_child(pad)
+        input_pads[item] = pad
+        if i == 0:
+            input_pad = pad
     output_pad = StationPad.new()
     output_pad.name = "OutputPad"
     output_pad.station = self
@@ -109,10 +125,14 @@ func _ready() -> void:
     output_pad.label_text = "%s\n%s" % [tr("PAD_OUTPUT"), GameData.item_name(logic.output_id)]
     output_pad.position = Vector3(0, 0, 2.2)
     add_child(output_pad)
-    input_pile = StackVisual.new()
-    input_pile.columns = 3
-    input_pile.position = Vector3(0, 0.1, -2.2)
-    add_child(input_pile)
+    for item in logic.inputs:
+        var pile := StackVisual.new()
+        pile.columns = 3
+        pile.position = (input_pads[item] as Node3D).position + Vector3(0, 0.1, 0)
+        add_child(pile)
+        input_piles[item] = pile
+        if input_pile == null:
+            input_pile = pile
     output_pile = StackVisual.new()
     output_pile.columns = 3
     output_pile.position = Vector3(0, 0.1, 2.2)
@@ -158,14 +178,26 @@ func _physics_process(delta: float) -> void:
 
 
 func refresh_piles() -> void:
-    input_pile.show_items(logic.input_id, logic.input_count)
+    for item in input_piles:
+        (input_piles[item] as StackVisual).show_items(str(item), logic.input_count_of(str(item)))
     output_pile.show_items(logic.output_id, logic.output_count)
 
 
-## 輸入 / 輸出堆的頂端(世界座標),飛行動畫用
+## 輸入 / 輸出堆的頂端(世界座標),飛行動畫用(輸入 = 第一種原料)
 func pile_top(is_input: bool) -> Vector3:
     var pile := input_pile if is_input else output_pile
     return pile.global_position + Vector3(0.0, pile.top_height(), 0.0)
+
+
+## 某種原料的堆頂
+func pile_top_for(item: String) -> Vector3:
+    var pile: StackVisual = input_piles.get(item, input_pile)
+    return pile.global_position + Vector3(0.0, pile.top_height(), 0.0)
+
+
+## 收 item 的輸入格(沒這種原料就回第一格)
+func input_pad_for(item: String) -> StationPad:
+    return input_pads.get(item, input_pad)
 
 
 ## 搬運工把送不出去的成品放回輸出堆;回傳收下幾個
@@ -217,7 +249,9 @@ func set_broken(b: bool) -> void:
     if b and logic != null:
         logic.processing = false
         logic.progress = 0.0
-    for pad in [input_pad, output_pad]:
+    var pads: Array = input_pads.values()
+    pads.append(output_pad)
+    for pad in pads:
         if pad != null:
             pad.set_deferred("monitoring", not b)
             pad.set_physics_process(not b)

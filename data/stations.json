@@ -30,6 +30,19 @@
       "processSec": 3.0,
       "yield": 1,
       "inputPer": 5
+    },
+    {
+      "id": "kitchen",
+      "name": "STATION_kitchen",
+      "input": [
+        "fillet",
+        "grilled"
+      ],
+      "output": "soup",
+      "inputCap": 12,
+      "outputCap": 16,
+      "processSec": 5.0,
+      "yield": 1
     }
   ]
 }

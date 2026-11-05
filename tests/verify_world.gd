@@ -17,7 +17,7 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 93 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、九十二塊價格牌 + 切魚台的修復牌、沒有存檔")
+            and _level.price_pads.size() == 95 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、九十四塊價格牌 + 切魚台的修復牌、沒有存檔")
     _check(_level.traps.size() == 8 and _level.baits.size() == 4 and _level.conveyors.is_empty() and (_level.price_pads["trap_1"] as PricePad).visible
             and (_level.price_pads["bait_1"] as PricePad).visible and not (_level.price_pads["trap_3"] as PricePad).visible
             and not (_level.price_pads["bait_2"] as PricePad).visible and (_level.price_pads["belt_station_1"] as PricePad).visible
@@ -27,7 +27,7 @@ func _run() -> void:
             "捕熊夾 / 誘餌 / 傳送帶:主村的夾子與誘餌牌出現(擴建區的藏著)、只有切魚台 -> 魚片櫃台的傳送帶牌出現、搬運工容量牌在")
     var t5: Tower = _level.tower_by_id("tower_5")
     var t6: Tower = _level.tower_by_id("tower_6")
-    _check(_level.towers.size() == 24 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
+    _check(_level.towers.size() == 26 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
             and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty()
             and t5 != null and t6 != null and t5.position == Vector3(-3.0, 0, -2.9) and t6.position == Vector3(3.0, 0, -2.9)
             and (_level.price_pads["tower_5"] as PricePad).visible and _level.tower_pad_for("tower_6").position == t6.position
@@ -38,14 +38,14 @@ func _run() -> void:
             and _level.tower_by_id("tower_24").position.x > 60.0
             and Harbor.tower_area("tower_6") == 0 and Harbor.tower_area("tower_7") == 1 and Harbor.tower_area("tower_13") == 2 and Harbor.tower_area("tower_19") == 3,
             "六座守衛塔待建:只有地基牌(中央兩座在 x ±3 水邊);擴建區的十八座塔牌與第二 / 三次擴建牌先藏著")
-    _check(not _level.is_expanded() and _level.east_gate != null and _level.east_walls.size() == 6 and _level.fish_areas.size() == 1,
-            "東牆還在(三段牆 + 三段柵欄,顧客門上下各一段)、只有一個水區(還沒擴建)")
+    _check(not _level.is_expanded() and _level.east_gate != null and _level.east_walls.size() == 8 and _level.fish_areas.size() == 1,
+            "東牆還在(四段牆 + 四段柵欄:顧客門與探險缺口各留空)、只有一個水區(還沒擴建)")
     _check(_level.bears != null and not _level.bears.has_bear() and _level.shopkeeper != null and _level.price_pads.has("weapon")
             and (_level.price_pads["weapon"] as PricePad).global_position.x < -13.0, "北極熊系統待命、村外有武器店老闆與武器牌")
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 99, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 九十二塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 101, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 九十四塊價格牌 / 修復牌(%d)" % pads)
     var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
     var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
     _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"
@@ -385,6 +385,7 @@ func _run() -> void:
     await _bear_section(g, fisher_pad)
     await _tower_section()
     await _trap_section()
+    await _explore_section()
     # 表現層:飛行動畫事件、幽靈物件、音效
     _check(_count("moved") >= 30 and _count("moved_catch") >= 8 and _count("moved_to_station") >= 8 and _count("moved_from_station") >= 8
             and _count("moved_to_counter") >= 8 and _count("moved_sold") >= 3 and _count("moved_cash") >= 6 and _count("moved_pay") >= 20
@@ -725,3 +726,26 @@ func _trap_section() -> void:
     await _go(Vector3(-11.6, 0, 0.8))
 
 
+
+
+## --- 村外探險 ---
+## 從武器店院子西柵欄的缺口走出村 -> 提示指回村、是村外 -> 走到空氣牆撞住 -> 走回村
+func _explore_section() -> void:
+    await _empty_hands()
+    await _go_outside()
+    _check(not _level.player_outside() and _level.is_inside_village(_player.global_position), "武器店院子算村裡")
+    var out := await _go(Vector3(-27.0, 0, 2.0), 420)
+    await _step(8)
+    var g: Guide = _level.guide
+    _check(out and _player.global_position.x < -24.0 and _level.player_outside() and str(g.current.get("kind", "")) == "home"
+            and _level.hud.objective_text().contains(tr("HINT_HOME")) and g.target_pos.x > -27.0 and g.target_pos.x < -23.0,
+            "穿過院子西邊的缺口到村外:算探險中、提示指回村的入口(箭頭 %s;out %s x %.1f outside %s kind %s obj [%s])" % [str(g.target_pos), str(out), _player.global_position.x, str(_level.player_outside()), str(g.current.get("kind", "")), _level.hud.objective_text()])
+    await _go(Vector3(-48.0, 0, 2.0), 300)
+    _check(_player.global_position.x >= -40.0 and _player.global_position.x < -36.0, "往西走到底被空氣牆擋住(x %.1f,牆在 -40)" % _player.global_position.x)
+    await _go(Vector3(-27.0, 0, 2.0), 420)
+    await _go(Vector3(-20.0, 0, 2.0), 300)
+    await _go(Vector3(-14.5, 0, 2.5), 300)
+    await _go(Vector3(-11.0, 0, 2.5), 300)
+    await _step(8)
+    _check(not _level.player_outside() and str(g.current.get("kind", "")) != "home", "走回村裡:提示恢復正常")
+    await _go(Vector3(0, 0, 7))

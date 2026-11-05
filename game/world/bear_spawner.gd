@@ -133,16 +133,8 @@ func spawn_pack(n: int) -> Array[Bear]:
     return out
 
 
-## 一般熊群的入口:避開插了嚇熊圖騰的那塊地(全部都插了就照舊);王不受圖騰影響(for_king)
-func _pick_entry(for_king: bool = false) -> Vector3:
+func _pick_entry(_for_king: bool = false) -> Vector3:
     var es := logic.entries(level.expansion_level())
-    if not for_king:
-        var open: Array[Vector3] = []
-        for e in es:
-            if not level.has_totem(level.entry_area(e)):
-                open.append(e)
-        if not open.is_empty():
-            es = open
     return es[randi() % es.size()] if not es.is_empty() else Vector3(-16, 0, -8)
 
 

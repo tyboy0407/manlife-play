@@ -115,6 +115,8 @@ func build_state() -> Dictionary:
         if s.is_broken():
             continue   # 廢墟不收貨也不出貨,提示只看完好的
         stations.append({"id": s.spot_id, "input": s.logic.input_id, "input_count": s.logic.input_count, "input_cap": s.logic.input_cap, "input_per": s.logic.input_per,
+                "inputs": s.logic.counts.duplicate() if s.logic.is_multi_input() else {s.logic.input_id: s.logic.input_count},
+                "missing": s.logic.missing_input() if s.logic.is_multi_input() else "",
                 "output": s.logic.output_id, "output_count": s.logic.output_count, "blocked": s.logic.is_blocked()})
     var pads := []
     for id in level.price_pads:
@@ -127,6 +129,7 @@ func build_state() -> Dictionary:
         "fish_caught": GameState.fish_caught, "items_sold": GameState.items_sold, "purchases": GameState.unlocked.size(),
         "hired": GameState.hired.duplicate(), "counters": counters, "stations": stations, "pads": pads,
         "bear": level.bears != null and level.bears.has_bear(), "weapon_level": GameState.weapon_level,
+        "outside": level.player_outside(),
         "helpers_lost": GameState.helpers_lost,
         "outmatched": level.bears != null and level.bears.logic.outmatched(GameState.weapon_level, GameState.play_time),
         "resources": {"pelt": GameState.pelts, "tooth": GameState.teeth},
@@ -145,7 +148,10 @@ func _resolve(h: Dictionary) -> bool:
             var s := level.station_at(id)
             if s == null:
                 return false
-            target_pos = s.input_pad.global_position if kind == "station_input" else s.output_pad.global_position
+            target_pos = s.input_pad_for(str(h.get("item", ""))).global_position if kind == "station_input" else s.output_pad.global_position
+            return true
+        "home":
+            target_pos = level.home_point(level.player.global_position)
             return true
         "counter_deposit", "service":
             var c := level.counter_by_id(id)

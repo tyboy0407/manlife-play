@@ -25,6 +25,7 @@ func _run() -> void:
     var cnt := _level.counter_by_id("fillet_counter")
     var fisher_pad: PricePad = _level.price_pads["hire_fisher"]
     await _expand_section()
+    await _south_section()
     await _king_section()
     await _tower_strong_section()
     # 存檔 -> 重建 -> 還原
@@ -70,8 +71,9 @@ func _run() -> void:
     _check(not _level.hud.offline_open() and not get_tree().paused and _level.offline_sec < 60,
             "剛存的檔(離線 %d 秒不滿 1 分鐘):沒有離線收益面板、遊戲沒暫停" % _level.offline_sec)
     var tailor2 := _level.station_at("tailor")
-    _check(_level.stations.size() == 11 and grill2 != null and _level.counters.size() == 7 and _level.helpers.size() == hired_saved
-            and _level.expansion_level() == 3 and _level.fish_areas.size() == 4 and _level.east_gate == null and _level.station_at("grill_2") != null
+    _check(_level.stations.size() == 12 and grill2 != null and _level.counters.size() == 8 and _level.helpers.size() == hired_saved
+            and _level.expansion_level() == 4 and _level.has_south_block() and _level.south_walls.is_empty() and _level.station_at("kitchen") != null
+            and _level.counter_by_id("soup_counter") != null and _level.fish_areas.size() == 4 and _level.east_gate == null and _level.station_at("grill_2") != null
             and _level.station_at("grill_5") != null and _level.station_at("grill_7") != null and tailor2 != null and tailor2.logic.input_per == 5
             and _level.counter_by_id("sweater_counter") != null
             and _level.annex_east_walls[0].is_empty() and _level.annex_east_walls[1].is_empty() and not _level.annex_east_walls[2].is_empty()
@@ -89,7 +91,7 @@ func _run() -> void:
     _check(fp2.logic.buys == 1 and fp2.logic.remaining == fp_rem and fp2.logic.current_cost() == 18 and fp2.visible
             and not ug2.visible and ug2.logic.is_exhausted(), "重建關卡:價格牌進度還原(漁夫牌第二次 $18 剩 $%d、烤魚攤建地牌已用掉)(buys %d rem %d cost %d visible %s lost %d)" % [fp_rem, fp2.logic.buys, fp2.logic.remaining, fp2.logic.current_cost(), str(fp2.visible), fp2.logic.lost])
     var cashier2 := _find_helper("cashier")
-    _check(cashier2 != null and cashier2.assigned_counter == cnt2 and is_equal_approx(st2.logic.speed_mult, 1.5), "重建關卡:收銀員指派、升級套回")
+    _check(cashier2 != null and cashier2.assigned_counter != null and is_equal_approx(st2.logic.speed_mult, 1.5), "重建關卡:收銀員指派(八座櫃台裡的一座)、升級套回")
     _check(GameState.weapon_level == weapon_saved and GameState.helpers_lost == lost_saved and _player.weapon_prop != null
             and _find_helper("fisher") != null and absf(_level.bears.cooldown - bear_cd) < 0.5 and fp2.logic.lost == 0
             and absf(GameState.play_time - play_time_saved) < 0.5 and is_equal_approx(_level.bears.king_next_sec, king_next_saved),
@@ -111,8 +113,8 @@ func _run() -> void:
             str((_level.price_pads["bait_1"] as PricePad).visible), GameState.upgrade_level("porter_cap"), (_level.price_pads["upgrade_porter_cap"] as PricePad).logic.remaining])
     _check(tower_alive_saved and tw2 != null and tw2.is_alive() and is_equal_approx(tw2.hp, tower_hp_saved) and tw2._built.visible
             and not (_level.price_pads["tower_1"] as PricePad).visible and _level.tower_by_id("tower_2").state == "none"
-            and fp2.logic.max_buys == 9 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 14,
-            "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、三次擴建後的僱用名額還原" % tower_hp_saved)
+            and fp2.logic.max_buys == 11 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 18,
+            "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、四次擴建後的僱用名額還原" % tower_hp_saved)
     # 離線收益:把存檔的 savedAt 撥回 3 小時前、收入速率寫成 2 $/s -> 重建關卡時彈面板、遊戲暫停 -> 領取 $10800 進錢包
     _level.save_now()
     _level.set_physics_process(false)   # 關掉自動存檔
@@ -128,20 +130,21 @@ func _run() -> void:
     await _spawn_level()
     var wallet_before := GameState.wallet
     var rate_loaded := _level.offline.rate(GameState.play_time)
-    _check(_level.loaded_from_save and _level.hud.offline_open() and get_tree().paused and _level.hud.offline_cash() == 10800
+    var oc := _level.hud.offline_cash()   # 離線秒數 = 現在 - savedAt,跑測試花掉的幾秒也算進去:10800 ~ 10810
+    _check(_level.loaded_from_save and _level.hud.offline_open() and get_tree().paused and oc >= 10800 and oc <= 10810
             and _level.offline_sec >= 3 * 3600 and _level.offline_sec < 3 * 3600 + 120 and absf(rate_loaded - 2.0) < 0.05,
-            "離線 3 小時、速率 2 $/s:面板彈出($10800 = 2 × 10800 × 0.5)、遊戲暫停、速率讀回 %.2f" % rate_loaded)
+            "離線 3 小時、速率 2 $/s:面板彈出($10800 = 2 × 10800 × 0.5)、遊戲暫停、速率讀回 %.2f(open %s paused %s cash %d sec %d loaded %s)" % [rate_loaded, str(_level.hud.offline_open()), str(get_tree().paused), _level.hud.offline_cash(), _level.offline_sec, str(_level.loaded_from_save)])
     var pt_paused := GameState.play_time
     await _step(5)
     _check(is_equal_approx(GameState.play_time, pt_paused), "暫停時遊戲時間不走")
     _level.hud.offline_action("claim")
     await _step(3)
-    _check(not _level.hud.offline_open() and not get_tree().paused and GameState.wallet == wallet_before + 10800
-            and GameState.offline_earned == 10800 and GameState.play_time > pt_paused
-            and int(SaveManager.read().get("state", {}).get("offline_earned", 0)) == 10800,
-            "領取:面板關、恢復、錢包 +$10800、統計與存檔都記了")
+    _check(not _level.hud.offline_open() and not get_tree().paused and GameState.wallet == wallet_before + oc
+            and GameState.offline_earned == oc and GameState.play_time > pt_paused
+            and int(SaveManager.read().get("state", {}).get("offline_earned", 0)) == oc,
+            "領取:面板關、恢復、錢包 +$%d、統計與存檔都記了" % oc)
     _level.hud.offline_action("claim")
-    _check(GameState.wallet == wallet_before + 10800, "再按一次不會重複領")
+    _check(GameState.wallet == wallet_before + oc, "再按一次不會重複領")
     await _coupon_section()
     # F9 新遊戲
     _level.clear_save_and_state()
@@ -330,6 +333,7 @@ func _king_section() -> void:
     if fisher != null:
         fisher.fish_area = _level.fish_areas[1]
         fisher.global_position = Vector3(22.3, 0, -7.0)   # 從交接存檔重生的漁夫還在出生點,直接傳到擴建區水裡,王才不會順手吃掉牠
+        fisher.set_physics_process(false)   # 這段先定住(牠抓滿魚會走回主村卸貨,正好撞上王);段落結束再放開
         fisher.global_position = Vector3(22.0, 0, -7.0)
         fisher.state = "idle"
     # 先把王丟進水邊、血扣一半,看牠吃魚回血變大(玩家站遠一點不要打牠)
@@ -403,6 +407,8 @@ func _king_section() -> void:
     if t1_alive:
         t1.restore({"state": "alive", "hp": t1.hp_max})
     bs.enabled = false
+    if fisher != null and is_instance_valid(fisher):
+        fisher.set_physics_process(true)
     await _go(Vector3(0, 0, 7))
 
 
@@ -466,18 +472,6 @@ func _coupon_section() -> void:
     _check(free and GameState.coupon("upgrade") == 0 and GameState.wallet == wallet0 and _count("purchased_upgrade_worker_speed") >= 1,
             "免費升級券:工人速度 Lv%d -> Lv%d、錢包沒扣、券用掉" % [lv0, lv0 + 1])
     await _go(Vector3(0, 0, 7))
-    # 圖騰:主村插了之後一般熊的入口不會是主村的(西邊)
-    GameState.apply_purchase("totem_1", {"type": "totem", "target": "totem_1"})
-    await _step(2)
-    var west := 0
-    for i in 40:
-        if _level.entry_area(bs._pick_entry()) == 0:
-            west += 1
-    var king_west := 0
-    for i in 40:
-        if _level.entry_area(bs._pick_entry(true)) == 0:
-            king_west += 1
-    _check(_level.has_totem(0) and _level.totems.size() == 1 and west == 0 and king_west > 0, "主村圖騰:一般熊群 40 次都不從主村入口來(王不受影響,%d 次)" % king_west)
     # 冰封夾
     GameState.apply_purchase("altar_ice", {"type": "unlock", "target": "ice_traps"})
     var trap := _level.trap_by_id("trap_2")
@@ -547,3 +541,52 @@ func _king_wreck_section(king: Bear) -> void:
     await _empty_hands()
     king.set_physics_process(true)
 
+
+
+## --- 第四次擴建(往南):魚湯廚房 ---
+## $20000 的牌在主村南牆邊 -> 拆南牆、南塊沙地與柵欄、廚房(兩個輸入格)、魚湯櫃台、塔 25 / 26 的牌、僱用名額再開、熊多一個南入口 ->
+## 廚房要魚片 + 烤魚各一才做湯(只有一種不做)-> 做出魚湯 -> 玩家送到魚湯櫃台 -> 顧客以 $15 買走
+func _south_section() -> void:
+    var pad: PricePad = _level.price_pads["expand_village_4"]
+    var hf: PricePad = _level.price_pads["hire_fisher"]
+    var hp: PricePad = _level.price_pads["hire_porter"]
+    var max0 := hf.logic.max_buys
+    _check(pad.visible and pad.logic.current_cost() == 20000 and not _level.has_south_block() and _level.south_walls.size() >= 3
+            and _level.tower_by_id("tower_25") != null and not (_level.price_pads["tower_25"] as PricePad).visible,
+            "第三次擴建後主村南牆邊出現 $20000 的牌;南塊還沒有、塔 25 的牌藏著")
+    GameState.add_wallet(20000)
+    await _go(Vector3(-6.5, 0, 9.0))
+    var bought := await _pay_pad(pad)
+    await _step(5)
+    var kitchen := _level.station_at("kitchen")
+    var sc := _level.counter_by_id("soup_counter")
+    _check(bought and _level.has_south_block() and _level.expansion_level() == 4 and _level.south_walls.is_empty() and kitchen != null and sc != null
+            and sc.logic.price == 15 and (_level.price_pads["tower_25"] as PricePad).visible and (_level.price_pads["tower_26"] as PricePad).visible
+            and hf.logic.max_buys == max0 + 2 and hp.logic.max_buys == 18 and _level.bears.logic.entries(4).size() == 3
+            and _level.is_inside_village(Vector3(0, 0, 25)) and not pad.visible,
+            "付清 $20000:南塊蓋好(南牆拆掉)、廚房 + 魚湯櫃台 $15、塔 25 / 26 的牌出現、僱用名額 %d / %d、熊多一個南入口" % [hf.logic.max_buys, hp.logic.max_buys])
+    _check(kitchen.logic.is_multi_input() and kitchen.input_pads.size() == 2 and kitchen.input_pad_for("grilled") != kitchen.input_pad_for("fillet")
+            and (_level.price_pads["belt_kitchen"] as PricePad).visible, "廚房兩個輸入格(魚片 / 烤魚)、傳送帶牌出現")
+    # 只放魚片不做;再放烤魚就做(5 秒一碗)
+    kitchen.logic.add_input_of("fillet", 3)
+    kitchen.refresh_piles()
+    await _step(90)
+    _check(kitchen.logic.output_count == 0 and not kitchen.logic.is_working() and kitchen.logic.missing_input() == "grilled", "廚房只有魚片:不做,缺烤魚")
+    kitchen.logic.add_input_of("grilled", 2)
+    kitchen.refresh_piles()
+    var made := await _wait_until(func() -> bool: return kitchen.logic.output_count >= 1, 60 * 8)
+    _check(made and kitchen.logic.input_count_of("fillet") <= 2 and kitchen.logic.input_count_of("grilled") <= 1 and kitchen.input_pile.visible_count() == kitchen.logic.input_count_of("fillet"),
+            "加了烤魚:做出魚湯 %d 碗,魚片 / 烤魚各扣一個" % kitchen.logic.output_count)
+    # 玩家送湯去櫃台、自己收銀 -> 顧客 $15 買走
+    await _empty_hands()
+    await _go(kitchen.output_pad.global_position)
+    var took := await _wait_until(func() -> bool: return _player.stack.item_id == "soup" and _player.stack.count >= 1, 240)
+    var sales0 := _sales.size()   # 收銀員可能已經被派到魚湯櫃台,一上架就賣掉:先記再上架
+    await _go(sc.deposit_pad.global_position)
+    var stocked := await _wait_until(func() -> bool: return sc.logic.stock >= 1 or _sale_after(sales0, "soup").size() > 0, 240)
+    await _go(sc.service_pad.global_position)
+    var sold := await _wait_until(func() -> bool: return _sale_after(sales0, "soup").size() > 0, 900)
+    var rec := _sale_after(sales0, "soup")
+    _check(took and stocked and sold and not rec.is_empty() and int(rec[2]) == 15 * int(rec[1]), "魚湯上架、顧客以 $15 買走(%s;took %s stocked %s sold %s stock %d customers %d door %s)" % [str(rec), str(took), str(stocked), str(sold), sc.logic.stock, sc.customers.size(), str(sc.spawn_point())])
+    await _empty_hands()
+    await _go(Vector3(0, 0, 7))

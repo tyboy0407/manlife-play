@@ -16,6 +16,7 @@ func _ready() -> void:
     _test_guide()
     _test_trap_and_belt()
     _test_offline()
+    _test_kitchen()
     _test_king()
     _test_bear()
     _test_tower()
@@ -58,7 +59,7 @@ func _test_data() -> void:
             "game.json:玩家速度、背包 8")
     _check(GameData.section("fish").has("maxInWater") and GameData.section("customers").has("max")
             and GameData.section("nope").is_empty(), "子區塊 fish / customers;不存在的回空")
-    _check(GameData.items().size() == 7 and GameData.item("fish").has("size") and GameData.item("cash").has("color") and GameData.item("pelt").has("size")
+    _check(GameData.items().size() == 8 and GameData.item("soup").has("color") and GameData.item("fish").has("size") and GameData.item("cash").has("color") and GameData.item("pelt").has("size")
             and GameData.item("tooth").has("color"), "items.json:魚 / 魚片 / 現金 / 烤魚 / 毛皮 / 熊王牙 / 毛衣")
     _check(GameData.item_size("fish") == Vector3(0.7, 0.23, 0.36) and GameData.item_color("cash") != Color(0.8, 0.8, 0.8)
             and GameData.item_size("nope") == Vector3(0.5, 0.15, 0.4), "物品尺寸 / 顏色;未知物品用預設")
@@ -70,21 +71,21 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 80, 50, 60, 35, 1000, 2000, 8000]
+    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 80, 50, 60, 35, 1000, 2000, 8000, 20000]
     for i in 8:
         costs_expected.append(40)
     for i in 4:
         costs_expected.append(30)
-    for i in 12:
+    for i in 13:
         costs_expected.append(150)
-    for i in 24:
+    for i in 26:
         costs_expected.append(200)
     costs_expected.append(3)
-    for i in 24:
+    for i in 26:
         costs_expected.append(1)
-    costs_expected.append_array([1, 3, 2, 2, 2, 2])   # 熊王祭壇:保險券 1 牙、冰封夾 3 牙、四座圖騰各 2 牙
-    _check(shop.size() == 92 and costs == costs_expected,
-            "shop.json:九十二塊牌(含搬運工容量 $80、三次擴建、八個捕熊夾 $40、四堆誘餌 $30、十二條傳送帶 $150、二十四座守衛塔、熊王祭壇六塊)%s" % str(costs))
+    costs_expected.append_array([1, 3])   # 熊王祭壇:保險券 1 牙、冰封夾 3 牙
+    _check(shop.size() == 94 and costs == costs_expected,
+            "shop.json:九十四塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊)%s" % str(costs))
     var pc := GameData.purchase("upgrade_porter_cap")
     _check(str(pc.get("effect", {}).get("key", "")) == "porter_cap" and int(pc.get("maxBuys", 0)) == 3 and is_equal_approx(float(pc.get("costMult", 0.0)), 2.0)
             and str(GameData.purchase("trap_1").get("effect", {}).get("type", "")) == "trap" and str(GameData.purchase("bait_4").get("effect", {}).get("target", "")) == "bait_4"
@@ -108,7 +109,7 @@ func _test_data() -> void:
             "武器牌:效果 weapon、三級")
     _check(bool(GameData.purchase("expand_table").get("buildSpot", false)) and GameData.purchase("nope").is_empty(),
             "建地牌旗標;未知購買回空")
-    _check(GameData.counters().size() == 7 and int(GameData.counter("grill_counter").get("price", 0)) == 5 and str(GameData.counter("grill_counter_3").get("item", "")) == "grilled"
+    _check(GameData.counters().size() == 8 and int(GameData.counter("soup_counter").get("price", 0)) == 15 and int(GameData.counter("grill_counter").get("price", 0)) == 5 and str(GameData.counter("grill_counter_3").get("item", "")) == "grilled"
             and str(GameData.counter("fillet_counter").get("item", "")) == "fillet" and str(GameData.counter("grill_counter_2").get("item", "")) == "grilled",
             "counters.json:魚片櫃台 $2、烤魚櫃台 $5、兩塊擴建區的第二、三組")
     _check(GameData.section("customers").get("wantWeights", []).size() == 5 and float(GameData.config().get("payScaleCost", 0.0)) > 0.0,
@@ -244,8 +245,8 @@ func _test_purchase() -> void:
     r5.restore(3, 0)
     _check(r5.is_exhausted() and r5.expand_buys == 2 and r5.expand() and not r5.is_exhausted() and r5.max_buys == 5 and r5.buys == 3
             and r5.remaining == r5.current_cost() and r5.current_cost() == 58 and r5.expand() and r5.max_buys == 7 and r5.expand() and r5.max_buys == 9
-            and not r5.expand() and r5.max_buys == 9,
-            "擴建:漁夫牌 3 -> 5 次,買滿的牌重開、第四次 $%d(10 × 1.8³)、三次擴建最多 9 次" % r5.current_cost())
+            and r5.expand() and r5.max_buys == 11 and not r5.expand() and r5.max_buys == 11,
+            "擴建:漁夫牌 3 -> 5 次,買滿的牌重開、第四次 $%d(10 × 1.8³)、四次擴建最多 11 次" % r5.current_cost())
     var r6 := PurchaseLogic.from_def(GameData.purchase("hire_porter"))
     r6.pay(30)
     r6.complete()
@@ -414,6 +415,48 @@ func _test_state() -> void:
             and is_equal_approx(GameState.play_time, 123.5) and GameState.offline_earned == 25,
             "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數、遊戲時間、離線收益統計)")
     GameState.reset()
+
+
+## --- 多原料工作站(魚湯廚房)---
+
+func _test_kitchen() -> void:
+    var k := StationLogic.from_def(GameData.station("kitchen"))
+    _check(k.inputs == ["fillet", "grilled"] and k.is_multi_input() and k.input_id == "fillet" and k.output_id == "soup" and k.input_cap == 12
+            and is_equal_approx(k.process_sec, 5.0) and k.yield_count == 1 and k.accepts("grilled") and not k.accepts("fish"),
+            "stations.json kitchen:魚片 + 烤魚 -> 魚湯,5 秒一碗")
+    _check(k.add_input_of("fillet", 3) == 3 and k.input_count_of("fillet") == 3 and k.input_count == 3 and k.input_count_of("grilled") == 0
+            and k.add_input_of("fish", 2) == 0 and k.input_space_of("grilled") == 12 and k.input_space_of("fish") == 0 and k.total_input() == 3,
+            "每種原料各自一堆:魚片 3、烤魚 0;不收魚")
+    _check(not k.has_enough_input() and k.missing_input() == "grilled" and k.tick(10.0) == 0 and k.output_count == 0, "只有魚片不做:缺烤魚")
+    k.add_input_of("grilled", 1)
+    _check(k.has_enough_input() and k.missing_input() == "" and k.tick(2.0) == 0 and k.is_working() and k.tick(3.0) == 1 and k.output_count == 1
+            and k.input_count_of("fillet") == 2 and k.input_count_of("grilled") == 0, "兩種都有:5 秒做出一碗,各扣一個")
+    k.input_count = 7   # 舊介面對應第一種原料
+    _check(k.input_count_of("fillet") == 7 and k.input_space() == 5, "舊介面 input_count / input_space 對應第一種原料")
+    var single := StationLogic.from_def(GameData.station("cutting_table"))
+    _check(not single.is_multi_input() and single.inputs == ["fish"] and single.add_input(2) == 2 and single.input_count == 2 and single.total_input() == 2,
+            "單原料工作站照舊")
+    # 提示:多原料工作站收料 / 村外回村
+    var state := _guide_state()
+    state["stations"].append({"id": "kitchen", "input": "fillet", "input_count": 0, "input_cap": 12, "input_per": 1, "inputs": {"fillet": 0, "grilled": 12},
+            "missing": "fillet", "output": "soup", "output_count": 0, "blocked": false})
+    state["carry_item"] = "grilled"
+    state["carry_count"] = 3
+    var h := GuideLogic.hint(state)
+    _check(h["kind"] == "counter_deposit" or (h["kind"] == "station_input" and h["target"] == "kitchen"), "背著烤魚:烤魚櫃台優先,沒櫃台就指廚房")
+    state["counters"] = []
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "station_input" and h["target"] == "kitchen" and h["item"] == "grilled" and h["text"] == "HINT_station_full",
+            "廚房的烤魚堆滿了:提示帶著 item 指廚房(等它消耗)")
+    state["stations"][1]["inputs"]["grilled"] = 2
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "station_input" and h["target"] == "kitchen" and h["item"] == "grilled" and h["text"] == "HINT_to_next_station", "烤魚堆有空位:去廚房的烤魚格")
+    state["outside"] = true
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "home" and h["text"] == "HINT_HOME", "村外探險:最優先指回村")
+    state["outside"] = false
+    state["bear"] = true
+    _check(GuideLogic.hint(state)["kind"] != "home", "回村裡就照舊(熊優先)")
 
 
 ## --- 離線收益 ---

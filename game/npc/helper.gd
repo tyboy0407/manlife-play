@@ -185,7 +185,7 @@ func _fisher(delta: float) -> void:
                 var st := _station_for_fish()
                 if st != null:
                     _dest = st
-                    target = st.input_pad.global_position
+                    target = st.input_pad_for("fish").global_position
                     state = "to_station"
                 else:
                     move_toward_dir(Vector3.ZERO, delta)
@@ -212,7 +212,7 @@ func _fisher(delta: float) -> void:
                 var alt := level.find_station_accepting("fish") if level != null else null
                 if alt != null and alt != _dest:
                     _dest = alt
-                    target = alt.input_pad.global_position
+                    target = alt.input_pad_for("fish").global_position
                     state = "to_station"
                 else:
                     _wait_timer = 1.0
@@ -370,7 +370,7 @@ func _dest_pad_pos(dest: Node3D) -> Vector3:
     if dest is Counter:
         return (dest as Counter).deposit_pad.global_position
     if dest is Station:
-        return (dest as Station).input_pad.global_position
+        return (dest as Station).input_pad_for(str(job.get("item", ""))).global_position
     return dest.global_position
 
 

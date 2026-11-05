@@ -43,5 +43,4 @@ signal king_warning(sec_left: int)                      # 北極熊王來襲倒�
 signal chest_opened(reward: Dictionary)                 # 熊王寶箱打開(三選一面板)
 signal chest_claimed(card: Dictionary)                  # 選了哪張卡
 signal king_leveled(level: int)                         # 王升級
-signal totem_planted(area: int)                         # 嚇熊圖騰插好
 signal helper_insured(role: String)                     # 保險券:被吃的幫手會回來

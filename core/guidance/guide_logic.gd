@@ -78,6 +78,8 @@ static func tutorial_hint(step: int, state: Dictionary) -> Dictionary:
 ## 教學之後的提示:當下最該做的事。北極熊在村裡最優先(沒武器指武器店的牌、有武器指熊);
 ## 手上有貨先處理貨;空手依序:買得起的牌 > 櫃台有貨沒人收銀 > 錢格有錢 > 工作站有成品(沒搬運工才提醒)> 毛皮夠做毛衣就去服飾店 > 去抓魚(有工作站收魚)> 沒事
 static func hint(state: Dictionary) -> Dictionary:
+    if bool(state.get("outside", false)):
+        return {"kind": "home", "target": "", "text": "HINT_HOME"}   # 村外探險:什麼都做不了,先指回村的入口
     if bool(state.get("bear", false)):
         if int(state.get("weapon_level", 0)) <= 0:
             var wp := _pad_by_id(state, WEAPON_PAD)
@@ -111,7 +113,7 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
             return {"kind": "counter_deposit", "target": str(ct["id"]), "text": "HINT_to_counter"}
         var st := _station_accepting(state, item)
         if not st.is_empty():
-            return {"kind": "station_input", "target": str(st["id"]), "text": "HINT_to_station" if item == "fish" else "HINT_to_next_station"}
+            return {"kind": "station_input", "target": str(st["id"]), "item": item, "text": "HINT_to_station" if item == "fish" else "HINT_to_next_station"}
         var any_ct := _counter_selling(state, item)
         if not any_ct.is_empty():
             # 櫃台滿了:沒人收銀就自己去收銀格賣,有人收銀才是等顧客
@@ -123,7 +125,7 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
             # 工作站塞住(成品堆滿、停工):背著原料站在輸入格永遠放不進去,先丟掉再去拿成品
             if bool(any_st.get("blocked", false)):
                 return {"kind": "trash", "target": "", "text": "HINT_station_jammed"}
-            return {"kind": "station_input", "target": str(any_st["id"]), "text": "HINT_station_full"}
+            return {"kind": "station_input", "target": str(any_st["id"]), "item": item, "text": "HINT_station_full"}
         return {"kind": "trash", "target": "", "text": "HINT_trash"}
     # 錢格的錢加上錢包就買得起牌子了、錢包自己還不夠:先去收錢。放在塞住 / 買牌之前,因為工作站塞住時玩家一直滿手來回搬成品,
     # 錢格堆到幾百塊也沒人叫他去收(試玩紀錄:錢包 $0、錢格 $464),熊來了就買不起武器
@@ -166,7 +168,7 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
     var tailor := _station_accepting(state, "pelt")
     if not tailor.is_empty() and typeof(state.get("resources", null)) == TYPE_DICTIONARY \
             and int(state["resources"].get("pelt", 0)) >= int(tailor.get("input_per", 5)):
-        return {"kind": "station_input", "target": str(tailor["id"]), "text": "HINT_pelts"}
+        return {"kind": "station_input", "target": str(tailor["id"]), "item": "pelt", "text": "HINT_pelts"}
     if not _station_accepting(state, "fish").is_empty():
         return {"kind": "water", "target": "", "text": "HINT_fish"}
     return {"kind": "none", "target": "", "text": ""}
@@ -195,9 +197,24 @@ static func _any_counter_stocked(state: Dictionary) -> bool:
 ## 第一座收 item 當原料的工作站(不管滿不滿)
 static func _station_with_input(state: Dictionary, item: String) -> Dictionary:
     for s in state.get("stations", []):
-        if str(s.get("input", "")) == item:
+        if _station_takes(s, item):
             return s
     return {}
+
+
+## 這座工作站收不收 item(多原料的 inputs 字典 / 單原料的 input)
+static func _station_takes(s: Dictionary, item: String) -> bool:
+    var ins = s.get("inputs", null)
+    if typeof(ins) == TYPE_DICTIONARY:
+        return ins.has(item)
+    return str(s.get("input", "")) == item
+
+
+static func _station_input_count(s: Dictionary, item: String) -> int:
+    var ins = s.get("inputs", null)
+    if typeof(ins) == TYPE_DICTIONARY and ins.has(item):
+        return int(ins[item])
+    return int(s.get("input_count", 0))
 
 
 ## 成品堆滿而停工(blocked)且堆裡有成品的工作站(空手時最該先去拿)
@@ -213,9 +230,9 @@ static func _station_accepting(state: Dictionary, item: String) -> Dictionary:
     var best := {}
     var best_space := 0
     for s in state.get("stations", []):
-        if str(s.get("input", "")) != item:
+        if not _station_takes(s, item):
             continue
-        var space := int(s.get("input_cap", 0)) - int(s.get("input_count", 0))
+        var space := int(s.get("input_cap", 0)) - _station_input_count(s, item)
         if space > best_space:
             best = s
             best_space = space

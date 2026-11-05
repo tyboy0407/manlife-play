@@ -149,6 +149,15 @@
       }
     },
     {
+      "id": "expand_village_4",
+      "name": "SHOP_expand_village_4",
+      "cost": 20000,
+      "effect": {
+        "type": "unlock",
+        "target": "village_5"
+      }
+    },
+    {
       "id": "trap_1",
       "name": "SHOP_trap",
       "cost": 40,
@@ -374,6 +383,15 @@
       "effect": {
         "type": "conveyor",
         "target": "belt_tailor"
+      }
+    },
+    {
+      "id": "belt_kitchen",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_kitchen"
       }
     },
     {
@@ -614,6 +632,26 @@
       "effect": {
         "type": "tower",
         "target": "tower_24"
+      }
+    },
+    {
+      "id": "tower_25",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_25"
+      }
+    },
+    {
+      "id": "tower_26",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_26"
       }
     },
     {
@@ -874,6 +912,26 @@
       }
     },
     {
+      "id": "tooth_tower_25",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_25"
+      }
+    },
+    {
+      "id": "tooth_tower_26",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_26"
+      }
+    },
+    {
       "id": "altar_insurance",
       "name": "SHOP_altar_insurance",
       "cost": 1,
@@ -894,46 +952,6 @@
       "effect": {
         "type": "unlock",
         "target": "ice_traps"
-      }
-    },
-    {
-      "id": "totem_1",
-      "name": "SHOP_totem",
-      "cost": 2,
-      "currency": "tooth",
-      "effect": {
-        "type": "totem",
-        "target": "totem_1"
-      }
-    },
-    {
-      "id": "totem_2",
-      "name": "SHOP_totem",
-      "cost": 2,
-      "currency": "tooth",
-      "effect": {
-        "type": "totem",
-        "target": "totem_2"
-      }
-    },
-    {
-      "id": "totem_3",
-      "name": "SHOP_totem",
-      "cost": 2,
-      "currency": "tooth",
-      "effect": {
-        "type": "totem",
-        "target": "totem_3"
-      }
-    },
-    {
-      "id": "totem_4",
-      "name": "SHOP_totem",
-      "cost": 2,
-      "currency": "tooth",
-      "effect": {
-        "type": "totem",
-        "target": "totem_4"
       }
     }
   ],

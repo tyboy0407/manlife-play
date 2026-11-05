@@ -27,10 +27,11 @@ extends Node3D
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
     "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0),
     "station_4": Vector3(33.4, 0, 0), "grill_3": Vector3(38.4, 0, 0), "grill_4": Vector3(43.4, 0, 0), "grill_5": Vector3(48.4, 0, 0),   # 第二塊:切魚台 + 三座烤魚攤
-    "grill_6": Vector3(53.5, 0, 0), "grill_7": Vector3(59.5, 0, 0), "tailor": Vector3(64.5, 0, 0)}   # 第三塊:兩座烤魚攤 + 服飾店
+    "grill_6": Vector3(53.5, 0, 0), "grill_7": Vector3(59.5, 0, 0), "tailor": Vector3(64.5, 0, 0),   # 第三塊:兩座烤魚攤 + 服飾店
+    "kitchen": Vector3(0.0, 0, 18.5)}   # 南塊:魚湯廚房(兩個輸入格:魚片 / 烤魚)
 const STATION_DEFS := {"station_1": "cutting_table", "station_2": "cutting_table", "grill": "grill", "station_3": "cutting_table", "grill_2": "grill",
-    "station_4": "cutting_table", "grill_3": "grill", "grill_4": "grill", "grill_5": "grill", "grill_6": "grill", "grill_7": "grill", "tailor": "tailor"}
-const COUNTER_SPOTS := {"fillet_counter": Vector3(-9.0, 0, 8.5), "grill_counter": Vector3(3.0, 0, 8.5),
+    "station_4": "cutting_table", "grill_3": "grill", "grill_4": "grill", "grill_5": "grill", "grill_6": "grill", "grill_7": "grill", "tailor": "tailor", "kitchen": "kitchen"}
+const COUNTER_SPOTS := {"fillet_counter": Vector3(-9.0, 0, 8.5), "grill_counter": Vector3(3.0, 0, 8.5), "soup_counter": Vector3(-3.0, 0, 26.5),
     "fillet_counter_2": Vector3(16.6, 0, 8.5), "grill_counter_2": Vector3(25.4, 0, 8.5),   # 擴建區 18.6 寬放兩座櫃台:上架格貼西邊、排 4 個顧客(counters.json maxCustomers)
     "fillet_counter_3": Vector3(35.2, 0, 8.5), "grill_counter_3": Vector3(44.0, 0, 8.5),   # 排隊位才不會排進隔壁的上架格或穿過東柵欄
     "sweater_counter": Vector3(59.5, 0, 8.5)}
@@ -40,7 +41,7 @@ const PAD_SPOTS := {
     "expand_table": Vector3(0.0, 0, 0), "unlock_grill": Vector3(6.0, 0, 0),
     "weapon": Vector3(-19.5, 0, 4.0), "expand_village": Vector3(10.0, 0, 0.0), "expand_village_2": Vector3(29.5, 0, 0.5),
     "upgrade_porter_cap": Vector3(-10.0, 0, -1.5),   # 西側走道、切魚台旁(價格牌排已經排滿)
-    "expand_village_3": Vector3(36.4, 0, 5.0),   # 第二塊擴建區裡 z 5 的走道,35.4 ~ 37.4 是唯一沒有傳送帶經過的空隙
+    "expand_village_3": Vector3(36.4, 0, 5.0), "expand_village_4": Vector3(-6.5, 0, 11.0),   # 第四次(往南)的牌在主村南牆邊,擴建三次後才出現   # 第二塊擴建區裡 z 5 的走道,35.4 ~ 37.4 是唯一沒有傳送帶經過的空隙
     "tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.0, 0, -9.5), "tower_3": Vector3(-11.0, 0, 11.0), "tower_4": Vector3(11.0, 0, 11.0),
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
@@ -58,7 +59,8 @@ const TOWER_SPOTS := {"tower_1": Vector3(-11.0, 0, -9.5), "tower_2": Vector3(11.
     "tower_13": Vector3(33.6, 0, -9.5), "tower_14": Vector3(47.9, 0, -9.5), "tower_15": Vector3(33.0, 0, 11.0), "tower_16": Vector3(47.9, 0, 11.0),
     "tower_17": Vector3(40.9, 0, -2.9), "tower_18": Vector3(45.9, 0, -2.9),
     "tower_19": Vector3(52.2, 0, -9.5), "tower_20": Vector3(66.5, 0, -9.5), "tower_21": Vector3(52.2, 0, 11.0), "tower_22": Vector3(66.5, 0, 11.0),
-    "tower_23": Vector3(56.5, 0, -2.9), "tower_24": Vector3(62.5, 0, -2.9)}
+    "tower_23": Vector3(56.5, 0, -2.9), "tower_24": Vector3(62.5, 0, -2.9),
+    "tower_25": Vector3(-11.0, 0, 16.5), "tower_26": Vector3(11.0, 0, 16.5)}   # 南塊兩座(西北 / 東北角)
 const TOWERS_PER_AREA := 6   # tower_1 ~ 6 主村、7 ~ 12 第一塊擴建區、13 ~ 18 第二塊、19 ~ 24 第三塊
 # 捕熊夾:每塊地兩個(水區兩側的雪地上、角塔內側,熊從入口進來往村裡走會經過;觸發半徑 trap.radius),trap_1 / 2 主村、3 / 4 第一塊 …
 const TRAP_SPOTS := {"trap_1": Vector3(-11.2, 0, -6.8), "trap_2": Vector3(11.2, 0, -6.8),
@@ -82,6 +84,7 @@ const CONVEYORS := {
     "belt_grill_6": {"from": "grill_6", "to": "grill_counter_3", "pad": Vector3(53.5, 0, 5.0)},
     "belt_grill_7": {"from": "grill_7", "to": "grill_counter_3", "pad": Vector3(59.5, 0, 5.0)},
     "belt_tailor": {"from": "tailor", "to": "sweater_counter", "pad": Vector3(64.5, 0, 5.0)},
+    "belt_kitchen": {"from": "kitchen", "to": "soup_counter", "pad": Vector3(4.0, 0, 22.5)},
 }
 const UNLOCKS := {
     "station_2": {"stations": ["station_2"], "counters": []},
@@ -89,13 +92,23 @@ const UNLOCKS := {
     "village_2": {"stations": ["station_3", "grill_2"], "counters": ["fillet_counter_2", "grill_counter_2"], "annex": 1, "expandShop": true},
     "village_3": {"stations": ["station_4", "grill_3", "grill_4", "grill_5"], "counters": ["fillet_counter_3", "grill_counter_3"], "annex": 2, "expandShop": true},
     "village_4": {"stations": ["grill_6", "grill_7", "tailor"], "counters": ["sweater_counter"], "annex": 3, "expandShop": true},
+    "village_5": {"stations": ["kitchen"], "counters": ["soup_counter"], "annex": 4, "expandShop": true},   # 第四次:往南(SOUTH_RECT)
 }
 const EAST_GATE_Z := Vector2(-4.0, 4.0)     # 東牆中段的門(柵欄缺口的外觀;擴建時整面東牆都拆)
 const ANNEX_RECT := Rect2(13.0, -11.0, 18.6, 23.6)   # 第一塊擴建區(x 13 ~ 31.6)
 const ANNEX_RECTS := [Rect2(13.0, -11.0, 18.6, 23.6), Rect2(31.6, -11.0, 18.6, 23.6), Rect2(50.2, -11.0, 18.6, 23.6)]   # 三塊擴建區(x 13 ~ 31.6 ~ 50.2 ~ 68.8)
 const ANNEX_WATER_W := 11.0   # 擴建區水區寬度(主村 16;擴建區窄,兩側各留 3.8 格沙地給角塔 / 捕熊夾 / 誘餌,東側塔離柵欄 2.3 格)
-# 嚇熊圖騰:每塊地一座(牌子就是位置,收 2 顆熊王牙),插好後一般熊群不從這塊地的入口進來
-const TOTEM_SPOTS := {"totem_1": Vector3(-6.5, 0, 11.0), "totem_2": Vector3(19.3, 0, 11.0), "totem_3": Vector3(37.9, 0, 11.0), "totem_4": Vector3(56.5, 0, 11.0)}
+# 第四次擴建:主村南邊一塊(SOUTH_RECT,x -12.6 ~ 12.6、z 12.6 ~ 30.6):魚湯廚房(魚片 + 烤魚 -> 魚湯)+ 魚湯櫃台 + 兩座塔;拆主村南牆
+const SOUTH_RECT := Rect2(-12.6, 12.6, 25.2, 18.0)
+const SOUTH_DOOR_Z := Vector2(27.5, 29.5)      # 南塊東柵欄上的顧客門
+# 村外雪原(探險):空氣牆圍住 EXPLORE_RECT,村的西(武器店院子)/ 東(最東那面牆)/ 南(南牆)各一個缺口;北邊是海,沒有出口
+const EXPLORE_RECT := Rect2(-40.0, -12.0, 130.0, 62.0)
+const EXIT_WEST_Z := Vector2(0.8, 3.2)         # 武器店院子西柵欄的缺口(z 範圍)
+const EXIT_EAST_Z := Vector2(-1.0, 2.0)        # 最東那面牆的缺口(z 範圍)
+const EXIT_SOUTH_X := Vector2(-1.0, 1.0)       # 南牆的缺口(x 範圍)
+const LANDMARKS := [["rock", Vector3(-30, 0, -8)], ["rock", Vector3(-33, 0, 20)], ["tree", Vector3(-28, 0, 40)], ["rock", Vector3(30, 0, 38)],
+    ["tree", Vector3(60, 0, 42)], ["rock", Vector3(80, 0, 20)], ["tree", Vector3(85, 0, -5)], ["pile", Vector3(20, 0, 45)], ["pile", Vector3(-20, 0, 32)],
+    ["tree", Vector3(75, 0, 35)], ["rock", Vector3(-36, 0, 2)], ["pile", Vector3(45, 0, 40)], ["tree", Vector3(-25, 0, 14)], ["rock", Vector3(5, 0, 40)]]
 const ALTAR_SIGN := Vector3(-18.7, 0, 3.0)
 const CUSTOMER_DOOR_Z := Vector2(9.2, 11.2)   # 每塊地東柵欄上的「顧客門」(只開視覺柵欄,隱形牆留著);顧客從門外走進來、買完走回門外
 const CUSTOMER_DOOR_OUT := 1.5                # 顧客出生 / 離開點在柵欄外幾格
@@ -140,7 +153,9 @@ var autosave_sec := 10.0
 var loaded_from_save := false
 var offline: OfflineLogic               # 離線收益:在線記收入速率、讀檔時算離線收益
 var king_logic: KingLogic               # 北極熊王獎勵循環
-var totems: Array[Node3D] = []          # 插好的圖騰外觀(totem_<area+1>)
+var south_walls: Array[Node3D] = []     # 主村南牆(隱形牆 + 柵欄),往南擴建時拆
+var south_block: StaticBatch = null     # 南塊布景(蓋了才有)
+var exit_east_walls: Array[Node3D] = [] # 目前最東那面牆上「探險缺口」兩側的牆段(換更東的牆時重做)
 var trophies: Node3D = null             # 武器店屋頂的戰利品牆(每殺一次王一顆頭骨)
 var king_eaten := 0                     # 這次王在村裡吃了幾個幫手(表現分)
 var king_wrecked := 0                   # 這次王拆了幾棟建築
@@ -215,7 +230,6 @@ func _ready() -> void:
     king_logic = KingLogic.from_config(GameData.section("bear").get("king", {}))
     bears.king_logic = king_logic
     _load_save()
-    _refresh_totems()
     _refresh_trophies()
     _apply_shop_level()
     _refresh_tower_pads()
@@ -267,7 +281,8 @@ func _apply_quality() -> void:
 
 
 func _build_terrain() -> void:
-    scenery.add_box(Vector3(130, 0.2, 80), Color(0.93, 0.95, 0.98), Vector3(18, -0.12, -3))   # 雪地要蓋到第三塊擴建區(x 68.8)外
+    scenery.add_box(Vector3(160, 0.2, 110), Color(0.93, 0.95, 0.98), Vector3(25, -0.12, 14))   # 雪地蓋滿整個探險範圍(EXPLORE_RECT)
+    _build_exploration()
     scenery.add_box(Vector3(25, 0.06, 16.5), Color(0.88, 0.76, 0.6), Vector3(0, -0.02, 4.0))
     # 西牆留缺口(GATE_Z)通往村外的武器店
     _wall(Vector3(-12.6, 1, (-13.0 + GATE_Z.x) / 2.0), Vector3(0.4, 2, GATE_Z.x + 13.0))
@@ -275,15 +290,12 @@ func _build_terrain() -> void:
     # 整面東牆(擴建村莊時全部拆掉,主村與 annex 連成一片)
     east_walls.append(_wall(Vector3(12.6, 1, (-13.0 + EAST_GATE_Z.x) / 2.0), Vector3(0.4, 2, EAST_GATE_Z.x + 13.0)))
     east_walls.append(_wall(Vector3(12.6, 1, (EAST_GATE_Z.y + 13.0) / 2.0), Vector3(0.4, 2, 13.0 - EAST_GATE_Z.y)))
-    east_gate = _wall(Vector3(12.6, 1, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0), Vector3(0.4, 2, EAST_GATE_Z.y - EAST_GATE_Z.x))
-    east_walls.append(east_gate)
-    _wall(Vector3(0, 1, 12.6), Vector3(26, 2, 0.4))
+    east_gate = null   # 東門那段改由 _set_east_exit 管(留探險缺口),擴建時一起拆
+    for seg in _gap_segments(-13.0, 13.0, EXIT_SOUTH_X):   # 主村南牆留探險缺口,往南擴建時整面拆
+        south_walls.append(_wall(Vector3((seg.x + seg.y) / 2.0, 1, 12.6), Vector3(seg.y - seg.x, 2, 0.4)))
     _wall(Vector3(0, 1, -11.2), Vector3(26, 2, 0.4))
     var fence := Color(0.8, 0.62, 0.42)
-    east_gate_mesh = VisualFactory.box(Vector3(0.25, 0.9, EAST_GATE_Z.y - EAST_GATE_Z.x + 0.25), fence,
-            Vector3(12.4, 0.45, (EAST_GATE_Z.x + EAST_GATE_Z.y) / 2.0))
-    world.add_child(east_gate_mesh)
-    east_walls.append(east_gate_mesh)
+    east_gate_mesh = null
     for seg in _fence_segments(EAST_GATE_Z.y, 12.25):   # 顧客門那段留空
         var east_fence := VisualFactory.box(Vector3(0.25, 0.9, seg.y - seg.x), fence, Vector3(12.4, 0.45, (seg.x + seg.y) / 2.0))
         world.add_child(east_fence)
@@ -291,7 +303,11 @@ func _build_terrain() -> void:
     _add_doormat(scenery, 12.6)
     scenery.add_box(Vector3(0.25, 0.9, GATE_Z.x + 4.25), fence, Vector3(-12.4, 0.45, (GATE_Z.x - 4.25) / 2.0))
     scenery.add_box(Vector3(0.25, 0.9, 12.25 - GATE_Z.y), fence, Vector3(-12.4, 0.45, (GATE_Z.y + 12.25) / 2.0))
-    scenery.add_box(Vector3(25, 0.9, 0.25), fence, Vector3(0, 0.45, 12.4))
+    for seg in _gap_segments(-12.5, 12.5, EXIT_SOUTH_X):
+        var sf := VisualFactory.box(Vector3(seg.y - seg.x, 0.9, 0.25), fence, Vector3((seg.x + seg.y) / 2.0, 0.45, 12.4))
+        world.add_child(sf)
+        south_walls.append(sf)
+    _set_east_exit(12.6)
     for p in [Vector3(-25, 0, 8), Vector3(-15, 0, 9), Vector3(16, 0, -2), Vector3(15.5, 0, 9), Vector3(-17, 0, -6), Vector3(17, 0, -9)]:
         scenery.add_cylinder(0.2, 1.0, Color(0.45, 0.3, 0.2), p + Vector3(0, 0.5, 0))
         scenery.add_box(Vector3(1.6, 1.6, 1.6), Color(0.86, 0.92, 0.96), p + Vector3(0, 1.6, 0))
@@ -304,10 +320,12 @@ func _build_outside() -> void:
     scenery.add_box(Vector3(10.4, 0.05, 9.4), sand, Vector3(-18.0, -0.02, 2.0))
     scenery.add_box(Vector3(1.2, 0.05, GATE_Z.y - GATE_Z.x), sand, Vector3(-12.6, -0.02, (GATE_Z.x + GATE_Z.y) / 2.0))
     var fence := Color(0.8, 0.62, 0.42)
-    scenery.add_box(Vector3(0.25, 0.9, 9.4), fence, Vector3(-23.2, 0.45, 2.0))
+    for seg in _gap_segments(-2.7, 6.7, EXIT_WEST_Z):   # 院子西柵欄留探險缺口
+        scenery.add_box(Vector3(0.25, 0.9, seg.y - seg.x), fence, Vector3(-23.2, 0.45, (seg.x + seg.y) / 2.0))
     scenery.add_box(Vector3(10.6, 0.9, 0.25), fence, Vector3(-18.0, 0.45, -2.7))
     scenery.add_box(Vector3(10.6, 0.9, 0.25), fence, Vector3(-18.0, 0.45, 6.7))
-    _wall(Vector3(-23.4, 1, 2.0), Vector3(0.4, 2, 10.0))
+    for seg in _gap_segments(-3.0, 7.0, EXIT_WEST_Z):
+        _wall(Vector3(-23.4, 1, (seg.x + seg.y) / 2.0), Vector3(0.4, 2, seg.y - seg.x))
     _wall(Vector3(-18.0, 1, -2.9), Vector3(11.2, 2, 0.4))
     _wall(Vector3(-18.0, 1, 6.9), Vector3(11.2, 2, 0.4))
     # 顏色盡量沿用既有布景(StaticBatch 每種顏色一個 surface)
@@ -338,6 +356,9 @@ func _build_outside() -> void:
 ## 擴建區(annex):第 k 塊(1 起)。拆掉它西邊那面牆(k = 1 是主村的整面東牆 east_walls,k >= 2 是前一塊的東牆),
 ## 往東蓋沙地、柵欄、隱形牆、新的水區與深水池;東牆(隱形牆 + 柵欄)另外記著,下一塊擴建時拆。建築由 _spawn_unlock 依 UNLOCKS 生。
 func _build_annex(k: int = 1) -> void:
+    if k == ANNEX_RECTS.size() + 1:
+        _build_south_block()
+        return
     if k < 1 or k > ANNEX_RECTS.size() or annexes.size() >= k:
         return
     if k == 1:
@@ -369,14 +390,19 @@ func _build_annex(k: int = 1) -> void:
     batch.add_box(Vector3(ANNEX_WATER_W, 0.3, 0.3), fence, Vector3(cx, 0.95, -11.5))
     _add_doormat(batch, rect.end.x)
     batch.build()
-    var east_wall := _wall(Vector3(rect.end.x, 1, 0), Vector3(0.4, 2, 26))
     while annex_east_walls.size() < k:
         annex_east_walls.append([])
-    annex_east_walls[k - 1] = [east_wall]
-    for seg in _fence_segments(-4.25, 12.25):   # 顧客門那段留空
+    annex_east_walls[k - 1] = []
+    for seg in _gap_segments(-13.0, 13.0, EXIT_EAST_Z):   # 東牆留探險缺口(下一塊擴建時整面拆)
+        annex_east_walls[k - 1].append(_wall(Vector3(rect.end.x, 1, (seg.x + seg.y) / 2.0), Vector3(0.4, 2, seg.y - seg.x)))
+    for seg in _fence_segments(-4.25, 12.25, true):   # 顧客門與探險缺口那兩段留空
         var east_fence := VisualFactory.box(Vector3(0.25, 0.9, seg.y - seg.x), fence, Vector3(rect.end.x - 0.2, 0.45, (seg.x + seg.y) / 2.0))
         world.add_child(east_fence)
         annex_east_walls[k - 1].append(east_fence)
+    for w in exit_east_walls:
+        if is_instance_valid(w):
+            w.queue_free()
+    exit_east_walls.clear()
     _wall(Vector3(cx, 1, 12.6), Vector3(rect.size.x + 0.4, 2, 0.4))
     _wall(Vector3(cx, 1, -11.2), Vector3(rect.size.x + 0.4, 2, 0.4))
     var fa := FishArea.new()
@@ -404,8 +430,6 @@ func _pad_spot(id: String) -> Vector3:
         return TOWER_SPOTS[id.trim_prefix("tooth_")]
     if TRAP_SPOTS.has(id):
         return TRAP_SPOTS[id]
-    if TOTEM_SPOTS.has(id):
-        return TOTEM_SPOTS[id]
     if BAIT_SPOTS.has(id):
         return BAIT_SPOTS[id]
     if CONVEYORS.has(id):
@@ -481,20 +505,146 @@ func pick_fish_area(h: Helper) -> FishArea:
     return best
 
 
-## 東柵欄分成兩段,中間 CUSTOMER_DOOR_Z 是顧客門
-static func _fence_segments(z0: float, z1: float) -> Array[Vector2]:
+## 東柵欄分段:挖掉 CUSTOMER_DOOR_Z 的顧客門;with_exit 再挖掉 EXIT_EAST_Z 的探險缺口
+static func _fence_segments(z0: float, z1: float, with_exit: bool = false, door: Vector2 = CUSTOMER_DOOR_Z) -> Array[Vector2]:
+    var gaps: Array[Vector2] = [door]
+    if with_exit:
+        gaps.append(EXIT_EAST_Z)
     var out: Array[Vector2] = []
-    if CUSTOMER_DOOR_Z.x > z0:
-        out.append(Vector2(z0, CUSTOMER_DOOR_Z.x))
-    if z1 > CUSTOMER_DOOR_Z.y:
-        out.append(Vector2(CUSTOMER_DOOR_Z.y, z1))
+    for seg in _gap_segments(z0, z1, gaps[0]):
+        if with_exit:
+            out.append_array(_gap_segments(seg.x, seg.y, EXIT_EAST_Z))
+        else:
+            out.append(seg)
     return out
 
 
+## 一段 [a, b] 挖掉 gap 之後剩下的段落
+static func _gap_segments(a: float, b: float, gap: Vector2) -> Array[Vector2]:
+    var out: Array[Vector2] = []
+    if gap.x > a:
+        out.append(Vector2(a, minf(gap.x, b)))
+    if b > gap.y:
+        out.append(Vector2(maxf(gap.y, a), b))
+    return out
+
+
+## 最東那面牆上的探險缺口:x 是那面牆的位置(主村 12.6;擴建後由 _build_annex 自己留缺口)。主村的東門段 EAST_GATE_Z 改成「缺口兩側各一小段牆」
+func _set_east_exit(x: float) -> void:
+    for w in exit_east_walls:
+        if is_instance_valid(w):
+            w.queue_free()
+    exit_east_walls.clear()
+    var fence := Color(0.8, 0.62, 0.42)
+    for seg in _gap_segments(EAST_GATE_Z.x, EAST_GATE_Z.y, EXIT_EAST_Z):
+        var w := _wall(Vector3(x, 1, (seg.x + seg.y) / 2.0), Vector3(0.4, 2, seg.y - seg.x))
+        var m := VisualFactory.box(Vector3(0.25, 0.9, seg.y - seg.x), fence, Vector3(x - 0.2, 0.45, (seg.x + seg.y) / 2.0))
+        world.add_child(m)
+        exit_east_walls.append(w)
+        exit_east_walls.append(m)
+        east_walls.append(w)
+        east_walls.append(m)
+    east_gate = exit_east_walls[0] if not exit_east_walls.is_empty() else null
+
+
+## 第四次擴建:主村南邊的南塊。拆主村南牆(含柵欄),蓋沙地、東 / 西 / 南的隱形牆與柵欄(東柵欄留顧客門、南牆留探險缺口)
+func _build_south_block() -> void:
+    if south_block != null:
+        return
+    for w in south_walls:
+        if w != null and is_instance_valid(w):
+            w.queue_free()
+    south_walls.clear()
+    var rect := SOUTH_RECT
+    var batch := StaticBatch.new()
+    batch.name = "SouthBlock"
+    world.add_child(batch)
+    var fence := Color(0.8, 0.62, 0.42)
+    batch.add_box(Vector3(rect.size.x, 0.06, rect.size.y + 0.8), Color(0.88, 0.76, 0.6), Vector3(rect.get_center().x, -0.02, rect.get_center().y - 0.4))
+    # 西柵欄整面、南柵欄留探險缺口、東柵欄留顧客門
+    batch.add_box(Vector3(0.25, 0.9, rect.size.y), fence, Vector3(rect.position.x + 0.2, 0.45, rect.get_center().y))
+    for seg in _gap_segments(rect.position.x, rect.end.x, EXIT_SOUTH_X):
+        batch.add_box(Vector3(seg.y - seg.x, 0.9, 0.25), fence, Vector3((seg.x + seg.y) / 2.0, 0.45, rect.end.y - 0.2))
+    for seg in _gap_segments(rect.position.y, rect.end.y, SOUTH_DOOR_Z):
+        batch.add_box(Vector3(0.25, 0.9, seg.y - seg.x), fence, Vector3(rect.end.x - 0.2, 0.45, (seg.x + seg.y) / 2.0))
+    _add_doormat(batch, rect.end.x, SOUTH_DOOR_Z)
+    batch.build()
+    _wall(Vector3(rect.position.x, 1, rect.get_center().y), Vector3(0.4, 2, rect.size.y))
+    _wall(Vector3(rect.end.x, 1, rect.get_center().y), Vector3(0.4, 2, rect.size.y))
+    for seg in _gap_segments(rect.position.x - 0.4, rect.end.x + 0.4, EXIT_SOUTH_X):
+        _wall(Vector3((seg.x + seg.y) / 2.0, 1, rect.end.y), Vector3(seg.y - seg.x, 2, 0.4))
+    south_block = batch
+    annexes.append(batch)   # 算第四次擴建(expansion_level 4:tower_25 / 26 的牌、熊的南入口)
+    _apply_quality()
+    _refresh_tower_pads()
+
+
+func has_south_block() -> bool:
+    return south_block != null
+
+
+## 村外雪原:空氣牆圍住 EXPLORE_RECT(北邊貼著海),散幾個地標(岩石 / 枯樹 / 雪堆)當方向參考
+func _build_exploration() -> void:
+    var r := EXPLORE_RECT
+    _wall(Vector3(r.position.x, 1, r.get_center().y), Vector3(0.4, 2, r.size.y + 0.4))
+    _wall(Vector3(r.end.x, 1, r.get_center().y), Vector3(0.4, 2, r.size.y + 0.4))
+    _wall(Vector3(r.get_center().x, 1, r.position.y), Vector3(r.size.x + 0.4, 2, 0.4))
+    _wall(Vector3(r.get_center().x, 1, r.end.y), Vector3(r.size.x + 0.4, 2, 0.4))
+    var stone := Color(0.6, 0.6, 0.65)
+    var wood := Color(0.45, 0.3, 0.2)
+    var snow := Color(0.86, 0.92, 0.96)
+    for lm in LANDMARKS:
+        var kind := str(lm[0])
+        var p: Vector3 = lm[1]
+        match kind:
+            "rock":
+                scenery.add_box(Vector3(2.2, 1.3, 1.8), stone, p + Vector3(0, 0.65, 0))
+                scenery.add_box(Vector3(1.2, 0.8, 1.0), stone, p + Vector3(1.3, 0.4, 0.6))
+            "tree":
+                scenery.add_cylinder(0.25, 3.2, wood, p + Vector3(0, 1.6, 0))
+                scenery.add_box(Vector3(1.6, 0.18, 0.18), wood, p + Vector3(0.6, 2.4, 0))
+                scenery.add_box(Vector3(0.18, 0.18, 1.3), wood, p + Vector3(-0.4, 2.0, 0.4))
+            "pile":
+                scenery.add_box(Vector3(2.4, 1.2, 2.4), snow, p + Vector3(0, 0.6, 0))
+                scenery.add_box(Vector3(1.4, 0.9, 1.4), snow, p + Vector3(0, 1.5, 0))
+
+
+## 玩家在村裡(主村 / 武器店院子 / 擴建區 / 南塊)還是村外的雪原
+func is_inside_village(pos: Vector3) -> bool:
+    var xz := Vector2(pos.x, pos.z)
+    if Rect2(-12.6, -11.2, 25.2, 23.8).has_point(xz) or Rect2(-23.4, -2.9, 10.8, 9.8).has_point(xz):
+        return true
+    for k in mini(expansion_level(), ANNEX_RECTS.size()):
+        if (ANNEX_RECTS[k] as Rect2).has_point(xz):
+            return true
+    if south_block != null and SOUTH_RECT.has_point(xz):
+        return true
+    return false
+
+
+func player_outside() -> bool:
+    return player != null and is_instance_valid(player) and not is_inside_village(player.global_position)
+
+
+## 村外要回村:離玩家最近的那個入口(缺口外側一點)
+func home_point(pos: Vector3) -> Vector3:
+    var east_x := 12.6
+    var n := mini(expansion_level(), ANNEX_RECTS.size())
+    if n > 0:
+        east_x = (ANNEX_RECTS[n - 1] as Rect2).end.x
+    var south_z := SOUTH_RECT.end.y if south_block != null else 12.6
+    var exits := [Vector3(-23.4 - 1.5, 0, (EXIT_WEST_Z.x + EXIT_WEST_Z.y) / 2.0), Vector3(east_x + 1.5, 0, (EXIT_EAST_Z.x + EXIT_EAST_Z.y) / 2.0),
+            Vector3((EXIT_SOUTH_X.x + EXIT_SOUTH_X.y) / 2.0, 0, south_z + 1.5)]
+    var best: Vector3 = exits[0]
+    for e in exits:
+        if (e as Vector3).distance_to(pos) < best.distance_to(pos):
+            best = e
+    return best
+
+
 ## 顧客門外的小塊沙地路口(柵欄拆了之後也留著,顧客照樣從這裡走進來)
-func _add_doormat(batch: StaticBatch, fence_x: float) -> void:
-    batch.add_box(Vector3(2.6, 0.05, CUSTOMER_DOOR_Z.y - CUSTOMER_DOOR_Z.x + 0.4), Color(0.88, 0.76, 0.6),
-            Vector3(fence_x + 1.1, -0.02, (CUSTOMER_DOOR_Z.x + CUSTOMER_DOOR_Z.y) / 2.0))
+func _add_doormat(batch: StaticBatch, fence_x: float, door: Vector2 = CUSTOMER_DOOR_Z) -> void:
+    batch.add_box(Vector3(2.6, 0.05, door.y - door.x + 0.4), Color(0.88, 0.76, 0.6), Vector3(fence_x + 1.1, -0.02, (door.x + door.y) / 2.0))
 
 
 ## 這個 x 屬於哪塊地:0 主村、1 ~ 3 擴建區
@@ -506,48 +656,20 @@ static func area_of_x(x: float) -> int:
     return area
 
 
+## 這個位置的櫃台用哪扇顧客門:南塊(z > 12.6)用南塊東柵欄的門,其他照分區
+static func customer_door_for(pos: Vector3) -> Vector3:
+    if pos.z > 12.6:
+        return Vector3(SOUTH_RECT.end.x + CUSTOMER_DOOR_OUT, 0.0, (SOUTH_DOOR_Z.x + SOUTH_DOOR_Z.y) / 2.0)
+    return customer_door(area_of_x(pos.x))
+
+
 ## 第 area 塊地的顧客門外:顧客出生 / 離開點(世界座標)
 static func customer_door(area: int) -> Vector3:
     var fence_x := 12.6 if area <= 0 else (ANNEX_RECTS[mini(area, ANNEX_RECTS.size()) - 1] as Rect2).end.x
     return Vector3(fence_x + CUSTOMER_DOOR_OUT, 0.0, (CUSTOMER_DOOR_Z.x + CUSTOMER_DOOR_Z.y) / 2.0)
 
 
-## --- 熊王祭壇:圖騰 / 戰利品牆 ---
-
-## totem_n 屬於第 n - 1 塊地
-static func totem_area(totem_id: String) -> int:
-    return maxi(int(totem_id.trim_prefix("totem_")) - 1, 0)
-
-
-func has_totem(area: int) -> bool:
-    return GameState.is_unlocked("totem_%d" % (area + 1))
-
-
-## 熊的入口屬於哪塊地(西邊 x < 13 是主村;東邊的入口在目前最東那塊地的外面)
-func entry_area(entry: Vector3) -> int:
-    return clampi(area_of_x(entry.x), 0, expansion_level())
-
-
-## 依 GameState.unlocked 擺圖騰外觀(讀檔 / 買了都叫)
-func _refresh_totems() -> void:
-    for t in totems:
-        if is_instance_valid(t):
-            t.queue_free()
-    totems.clear()
-    for id in TOTEM_SPOTS:
-        if not GameState.is_unlocked(str(id)):
-            continue
-        var n := Node3D.new()
-        n.name = "Totem_%s" % id
-        n.position = TOTEM_SPOTS[id]
-        var wood := Color(0.45, 0.3, 0.2)
-        n.add_child(VisualFactory.box(Vector3(0.5, 2.2, 0.5), wood, Vector3(0, 1.1, 0)))
-        n.add_child(VisualFactory.box(Vector3(0.7, 0.5, 0.6), Color(0.9, 0.25, 0.2), Vector3(0, 1.45, 0)))
-        n.add_child(VisualFactory.box(Vector3(0.9, 0.22, 0.6), Color(0.95, 0.96, 0.98), Vector3(0, 2.3, 0)))
-        n.add_child(VisualFactory.cone(0.5, 0.5, Color(0.9, 0.25, 0.2), Vector3(0, 2.66, 0)))
-        world.add_child(n)
-        totems.append(n)
-
+## --- 熊王祭壇:戰利品牆 ---
 
 ## 武器店屋頂一排熊頭骨:打死王幾次放幾顆(最多 trophyCap)
 func _refresh_trophies() -> void:
@@ -619,7 +741,7 @@ func _add_counter(id: String) -> Counter:
     var c := Counter.create(GameData.counter(id))
     c.position = COUNTER_SPOTS.get(id, Vector3(0, 0, 8.5))
     c.money_pad = money_pad
-    c.door = customer_door(area_of_x(c.position.x))
+    c.door = customer_door_for(c.position)
     world.add_child(c)
     counters.append(c)
     _assign_cashiers()
@@ -640,6 +762,7 @@ func _spawn_unlock(target: String) -> void:
     if bool(spec.get("expandShop", false)):
         for id in price_pads:
             (price_pads[id] as PricePad).expand()
+    _refresh_tower_pads()   # 建築都生好了才知道哪些傳送帶牌 / 塔牌該開
 
 
 func station_at(spot_id: String) -> Station:
@@ -751,10 +874,9 @@ func _refresh_tower_pads() -> void:
         var bp: PricePad = price_pads.get(b.id, null)
         if bp != null:
             bp.set_open(bait_area(b.id) <= expansion_level())
-    for id in TOTEM_SPOTS:
-        var tp: PricePad = price_pads.get(id, null)
-        if tp != null:
-            tp.set_open(totem_area(str(id)) <= expansion_level())
+    var ev4: PricePad = price_pads.get("expand_village_4", null)
+    if ev4 != null:
+        ev4.set_open(expansion_level() >= ANNEX_RECTS.size() and south_block == null)
     for id in CONVEYORS:
         var cp: PricePad = price_pads.get(id, null)
         if cp != null:
@@ -1090,15 +1212,15 @@ func find_station_accepting(item: String) -> Station:
     var best: Station = null
     var best_space := 0
     for s in stations:
-        if not s.is_broken() and s.logic.input_id == item and s.logic.input_space() > best_space:
+        if not s.is_broken() and s.logic.accepts(item) and s.logic.input_space_of(item) > best_space:
             best = s
-            best_space = s.logic.input_space()
+            best_space = s.logic.input_space_of(item)
     return best
 
 
 func find_station_with_input(item: String) -> Station:
     for s in stations:
-        if not s.is_broken() and s.logic.input_id == item:
+        if not s.is_broken() and s.logic.accepts(item):
             return s
     return null
 
@@ -1115,12 +1237,14 @@ func find_station_with_output(item: String) -> Station:
 func porter_dests() -> Array:
     var out := []
     for c in counters:
-        out.append({"id": c.get_instance_id(), "node": c, "kind": "counter", "item": c.logic.item_id, "stock": c.logic.stock, "cap": c.logic.stock_cap})
+        out.append({"id": c.get_instance_id() * 4, "node": c, "kind": "counter", "item": c.logic.item_id, "stock": c.logic.stock, "cap": c.logic.stock_cap})
     for s in stations:
         if s.is_broken():
             continue
-        out.append({"id": s.get_instance_id(), "node": s, "kind": "station", "item": s.logic.input_id, "stock": s.logic.input_count,
-                "cap": s.logic.input_cap, "out": s.logic.output_id, "blocked": s.logic.is_blocked()})
+        for i in s.logic.inputs.size():   # 多原料的工作站每種原料一個目的地(id 用整數:instance id 乘 4 加序號,PorterPlanner 用 == 比)
+            var item: String = s.logic.inputs[i]
+            out.append({"id": s.get_instance_id() * 4 + i, "node": s, "kind": "station", "item": item, "stock": s.logic.input_count_of(item),
+                    "cap": s.logic.input_cap, "out": s.logic.output_id, "blocked": s.logic.is_blocked()})
     return out
 
 
@@ -1130,7 +1254,7 @@ func porter_sources() -> Array:
     for s in stations:
         if s.is_broken():
             continue
-        out.append({"id": s.get_instance_id(), "node": s, "item": s.logic.output_id, "count": s.logic.output_count})
+        out.append({"id": s.get_instance_id() * 4, "node": s, "item": s.logic.output_id, "count": s.logic.output_count})   # id 與 porter_dests 同一套(×4)
     return out
 
 
@@ -1195,10 +1319,6 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
             var belt := build_conveyor(str(effect.get("target", "")))
             if belt != null:
                 EventBus.notice.emit(tr("NOTICE_CONVEYOR_BUILT"))
-        "totem":
-            _refresh_totems()
-            EventBus.totem_planted.emit(totem_area(str(effect.get("target", ""))))
-            EventBus.notice.emit(tr("NOTICE_TOTEM"))
         "coupon":
             pass   # GameState.apply_purchase 已經加券
     if str(effect.get("type", "")) == "unlock" and str(effect.get("target", "")) == "ice_traps":
@@ -1212,7 +1332,10 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
 func snapshot() -> Dictionary:
     var stations_d := {}
     for s in stations:
-        stations_d[s.spot_id] = {"input": s.logic.input_count, "output": s.logic.output_count, "broken": s.is_broken()}
+        var sd := {"input": s.logic.input_count, "output": s.logic.output_count, "broken": s.is_broken()}
+        if s.logic.is_multi_input():
+            sd["inputs"] = s.logic.counts.duplicate()
+        stations_d[s.spot_id] = sd
     var counters_d := {}
     for c in counters:
         counters_d[c.def_id] = {"stock": c.logic.stock}
@@ -1237,7 +1360,7 @@ func snapshot() -> Dictionary:
     for c in conveyors:
         belts_d[c.id] = c.snapshot()
     return {
-        "player": {"item": player.stack.item_id, "count": player.stack.count},
+        "player": {"item": player.stack.item_id, "count": player.stack.count, "x": player.global_position.x, "z": player.global_position.z},
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d, "towers": towers_d,
         "loot": loot_d, "traps": traps_d, "baits": baits_d, "belts": belts_d, "bear": bears.snapshot() if bears != null else {},
         "income_rate": offline.rate(GameState.play_time) if offline != null else 0.0,
@@ -1247,6 +1370,10 @@ func snapshot() -> Dictionary:
 func restore_world(d: Dictionary) -> void:
     var pl = d.get("player", {})
     if typeof(pl) == TYPE_DICTIONARY:
+        if pl.has("x") and pl.has("z"):   # 存檔時站哪(村外探險也記)
+            var px := Vector3(float(pl["x"]), 0.0, float(pl["z"]))
+            if EXPLORE_RECT.has_point(Vector2(px.x, px.z)):
+                player.global_position = px
         player.stack.clear()
         var item := str(pl.get("item", ""))
         for i in int(pl.get("count", 0)):
@@ -1259,6 +1386,11 @@ func restore_world(d: Dictionary) -> void:
             var s := station_at(str(spot))
             if s != null and typeof(st[spot]) == TYPE_DICTIONARY:
                 s.logic.input_count = clampi(int(st[spot].get("input", 0)), 0, s.logic.input_cap)
+                var ins = st[spot].get("inputs", null)
+                if typeof(ins) == TYPE_DICTIONARY:
+                    for item in ins:
+                        if s.logic.accepts(str(item)):
+                            s.logic.counts[str(item)] = clampi(int(ins[item]), 0, s.logic.input_cap)
                 s.logic.output_count = clampi(int(st[spot].get("output", 0)), 0, s.logic.output_cap)
                 s.refresh_piles()
                 s.set_broken(bool(st[spot].get("broken", false)))

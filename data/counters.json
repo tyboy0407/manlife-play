@@ -59,6 +59,13 @@
       "wantWeights": [
         1
       ]
+    },
+    {
+      "id": "soup_counter",
+      "name": "COUNTER_soup",
+      "item": "soup",
+      "price": 15,
+      "stockCap": 16
     }
   ]
 }

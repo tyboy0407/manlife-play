@@ -133,6 +133,7 @@
     "entriesExpanded": [[-16, -8], [35, -8]],
     "entriesExpanded2": [[-16, -8], [54, -8]],
     "entriesExpanded3": [[-16, -8], [72.6, -8]],
+    "entriesExpanded4": [[-16, -8], [72.6, -8], [0, 34]],
     "length": 2.6,
     "drop": "pelt",
     "dropCount": [1, 2]

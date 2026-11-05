@@ -114,12 +114,17 @@ func _ready() -> void:
     _level.player.input_provider = func() -> MoveInput: return MoveInput.new()
     GameState.tutorial_step = GuideLogic.tutorial_steps()
     for u in [["expand_table", "station_2"], ["unlock_grill", "grill_complex"], ["expand_village", "village_2"],
-            ["expand_village_2", "village_3"], ["expand_village_3", "village_4"]]:
+            ["expand_village_2", "village_3"], ["expand_village_3", "village_4"], ["expand_village_4", "village_5"]]:
         GameState.apply_purchase(str(u[0]), {"type": "unlock", "target": str(u[1])})
         await _step(2)
     await _step(3)
-    _check(_level.expansion_level() == 3 and _level.stations.size() == 12 and _level.counters.size() == 7 and _level.towers.size() == 24,
-            "關卡擴建三次:十二座工作站、七座櫃台、二十四座塔(擴建 %d 次、%d 站、%d 櫃台、%d 塔)" % [_level.expansion_level(), _level.stations.size(), _level.counters.size(), _level.towers.size()])
+    _check(_level.expansion_level() == 4 and _level.stations.size() == 13 and _level.counters.size() == 8 and _level.towers.size() == 26 and _level.has_south_block()
+            and _level.south_walls.is_empty(),
+            "關卡擴建四次(含南塊):十三座工作站、八座櫃台、二十六座塔、主村南牆拆了(擴建 %d 次、%d 站、%d 櫃台、%d 塔)" % [_level.expansion_level(), _level.stations.size(), _level.counters.size(), _level.towers.size()])
+    var kitchen := _level.station_at("kitchen")
+    _check(kitchen != null and kitchen.input_pads.size() == 2 and kitchen.input_pad_for("grilled") != kitchen.input_pad_for("fillet")
+            and kitchen.input_pad_for("fillet").global_position.x < kitchen.input_pad_for("grilled").global_position.x,
+            "廚房有兩個輸入格(魚片在左、烤魚在右)")
     var fps := _footprints()
     _check(fps.size() > 150, "蒐集到 %d 個占地" % fps.size())
     var bad := 0
@@ -167,20 +172,53 @@ func _ready() -> void:
                 crossed += 1
                 print("    belt %s crosses %s" % [id, fid])
     _check(crossed == 0, "傳送帶不穿過守衛塔(%d 條)" % crossed)
-    # 顧客門:每塊地的櫃台都從自己那塊地的東柵欄外進來、走回同一點;門在顧客那排、柵欄外 1.5 格
+    # 顧客門:每塊地的櫃台都從自己那塊地的東柵欄外進來、走回同一點;門在顧客那排、柵欄外 1.5 格(南塊的櫃台用南塊東柵欄的門)
     var door_bad := 0
     for c in _level.counters:
-        var area := Harbor.area_of_x(c.global_position.x)
-        var fence_x := 12.6 if area == 0 else (Harbor.ANNEX_RECTS[area - 1] as Rect2).end.x
         var d := c.spawn_point()
-        if not is_equal_approx(d.x, fence_x + 1.5) or absf(d.z - 10.2) > 0.01 or d != c.exit_point() or d.x <= c.global_position.x:
+        var ok := d == c.exit_point() and d.x > c.global_position.x
+        if c.global_position.z > 12.6:
+            ok = ok and is_equal_approx(d.x, Harbor.SOUTH_RECT.end.x + 1.5) and absf(d.z - 28.5) < 0.01
+        else:
+            var area := Harbor.area_of_x(c.global_position.x)
+            var fence_x := 12.6 if area == 0 else (Harbor.ANNEX_RECTS[area - 1] as Rect2).end.x
+            ok = ok and is_equal_approx(d.x, fence_x + 1.5) and absf(d.z - 10.2) < 0.01
+        if not ok:
             door_bad += 1
-            print("    door: %s -> %s (area %d)" % [c.def_id, str(d), area])
-    _check(door_bad == 0, "七座櫃台的顧客都從自己那塊地的門外 (柵欄 + 1.5, 10.2) 出生與離開")
+            print("    door: %s -> %s" % [c.def_id, str(d)])
+    _check(door_bad == 0, "八座櫃台的顧客都從自己那塊地的門外出生與離開(南塊用南塊東柵欄的門)")
+    # 探險:空氣牆圍住 EXPLORE_RECT 四邊;西 / 東 / 南三個缺口沒有牆;村裡 / 村外判斷
+    var r := Harbor.EXPLORE_RECT
+    var bounds := 0
+    for f in fps:
+        if not str(f["id"]).begins_with("wall:"):
+            continue
+        var wr: Rect2 = f["rect"]
+        if absf(wr.get_center().x - r.position.x) < 0.3 and wr.size.y > r.size.y - 1.0:
+            bounds += 1
+        if absf(wr.get_center().x - r.end.x) < 0.3 and wr.size.y > r.size.y - 1.0:
+            bounds += 1
+        if absf(wr.get_center().y - r.position.y) < 0.3 and wr.size.x > r.size.x - 1.0:
+            bounds += 1
+        if absf(wr.get_center().y - r.end.y) < 0.3 and wr.size.x > r.size.x - 1.0:
+            bounds += 1
+    _check(bounds == 4, "探險範圍四面空氣牆都在(%d)" % bounds)
+    var exits := [Vector2(-23.4, 2.0), Vector2((Harbor.ANNEX_RECTS[2] as Rect2).end.x, 0.5), Vector2(0.0, Harbor.SOUTH_RECT.end.y)]
+    var blocked := 0
+    for e in exits:
+        for f in fps:
+            if str(f["id"]).begins_with("wall:") and (f["rect"] as Rect2).grow(0.35).has_point(e):
+                blocked += 1
+                print("    exit blocked: %s by %s" % [str(e), str(f["rect"])])
+    _check(blocked == 0, "西 / 東 / 南三個探險缺口都沒有牆擋著")
+    _check(_level.is_inside_village(Vector3(0, 0, 0)) and _level.is_inside_village(Vector3(-18, 0, 2)) and _level.is_inside_village(Vector3(60, 0, 5))
+            and _level.is_inside_village(Vector3(0, 0, 25)) and not _level.is_inside_village(Vector3(-30, 0, 2)) and not _level.is_inside_village(Vector3(0, 0, 40))
+            and _level.home_point(Vector3(-30, 0, 2)).x < -23.4 and _level.home_point(Vector3(0, 0, 45)).z > Harbor.SOUTH_RECT.end.y,
+            "村裡 / 村外判斷與最近的回村入口")
     _check(Harbor.customer_door(0) == Vector3(14.1, 0, 10.2) and Harbor.customer_door(3) == Vector3(70.3, 0, 10.2)
             and Harbor.area_of_x(12.0) == 0 and Harbor.area_of_x(13.0) == 1 and Harbor.area_of_x(60.0) == 3, "顧客門座標與分區")
     # 魚群上限按水面面積:主村 16 × 7 = 18 條,擴建區 11 × 7 = 12 條
-    _check(_level.fish_areas[0].max_fish == 18 and _level.fish_areas[1].max_fish == 12 and _level.fish_areas[3].max_fish == 12,
+    _check(_level.fish_areas.size() == 4 and _level.fish_areas[0].max_fish == 18 and _level.fish_areas[1].max_fish == 12 and _level.fish_areas[3].max_fish == 12,
             "魚群上限按面積:主村 %d、擴建區 %d" % [_level.fish_areas[0].max_fish, _level.fish_areas[1].max_fish])
     _level.queue_free()
     await _step(2)

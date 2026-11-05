@@ -139,7 +139,6 @@ NOTICE_OFFLINE,Claimed $%d of offline earnings,收到離線收益 $%d
 HINT_SAVE_WEAPON,Your weapon is too weak for these bears. Save $%d more for the weapon shop before hiring again,武器打不過現在的熊，先存 $%d 升級武器再僱人
 SHOP_altar_insurance,Helper insurance (1 tooth),幫手保險券（1 顆牙）
 SHOP_altar_ice,Frost traps (3 teeth),冰封捕熊夾（3 顆牙）
-SHOP_totem,Bear-scaring totem (2 teeth),嚇熊圖騰（2 顆牙）
 SIGN_ALTAR,Bear King Altar,熊王祭壇
 HUD_KING_WARNING,The Polar Bear King arrives in %d s! Set traps and bait,北極熊王 %d 秒後來襲!快佈夾子與誘餌
 HUD_COUPONS,Coupons: insurance %d | calm %d | free upgrade %d,券：保險 %d|平靜 %d|免費升級 %d
@@ -157,7 +156,6 @@ NOTICE_KING_MILESTONE,%d Kings slain! Backpack +1 for good,打死 %d 次熊王!�
 NOTICE_INSURANCE,Helper insurance: your %s will be back in %d s,保險券生效：%s %d 秒後回來
 NOTICE_CALM,Calm coupon: no bears for %d s,平靜券：%d 秒內熊不來
 NOTICE_COUPON_UPGRADE,Free upgrade coupon used!,用掉免費升級券!
-NOTICE_TOTEM,Totem planted: bear packs will avoid this area,圖騰插好了：熊群會避開這塊地
 NOTICE_ICE_TRAPS,Frost traps unlocked: every trap stuns 6 s and hits harder,冰封捕熊夾解鎖：所有夾子定住 6 秒、傷害更高
 HUD_KING_LV,King Lv%d,王 Lv%d
 HUD_STATS_ECON,Earned $%d | income $%d/min | offline $%d\nfish %d | sold %d | trashed %d\ntime %s,累計收入 $%d|收入 $%d/分|離線收益 $%d\n抓魚 %d|賣出 %d|丟棄 %d\n時間 %s
@@ -178,3 +176,9 @@ CARD_DESC_pelt,%d pelts x multiplier. Pelts upgrade the weapon shop or become sw
 CARD_DESC_coupon_insurance,Next eaten helper comes back in 10 s and keeps its slot,下一個被吃的幫手 10 秒後自己回來，名額不扣
 CARD_DESC_coupon_calm,No regular bear packs for 2 minutes (takes effect now),一般熊群 2 分鐘不來（立刻生效）
 CARD_DESC_coupon_upgrade,The next upgrade pad you stand on is free,下一張站上的升級牌直接付清不扣錢
+ITEM_soup,Fish soup,魚湯
+STATION_kitchen,Soup kitchen,魚湯廚房
+COUNTER_soup,Soup counter,魚湯櫃台
+SHOP_expand_village_4,Expand the village south (soup kitchen),往南擴建村莊（魚湯廚房）
+HINT_HOME,You are exploring outside the village. Follow the arrow to get back,你在村外探險，跟著箭頭回村
+HINT_kitchen_missing,The kitchen still needs %s. Bring some,廚房還缺 %s，拿一些過去
