@@ -1,10 +1,12 @@
 extends Node
 ## 遊戲進行狀態(Autoload:GameState):錢包、購買 / 升級 / 僱用的結果與統計;to_dict / from_dict 給存檔用。
 ## 效果型別:capacity 擴充背包、hire 僱用幫手(角色計數)、unlock 解鎖目標(關卡聽 purchased 生東西)、upgrade 升級等級、
-## weapon 武器等級(北極熊)。幫手被北極熊吃掉:lose_helper 角色計數 -1(牌子的購買次數不退,價格維持)。
+## weapon 武器等級(北極熊)、map_piece 地圖碎片 +1(旅行商人)、resource 資源 +n(商人賣的毛皮補給)。幫手被北極熊吃掉:lose_helper 角色計數 -1(牌子的購買次數不退,價格維持)。
 ## 錢包:錢格收進來、價格牌扣出去,不佔背包;改錢包不發 changed(HUD 每幀自己讀)。
 
 signal changed
+
+const MAP_PIECES := 3          # 地圖碎片幾片拼成大地圖
 
 var wallet := 0                # 錢包(現金不佔背包)
 var tutorial_step := 0         # 教學進度(= GuideLogic.tutorial_steps() 表示做完)
@@ -30,6 +32,10 @@ var king_kills := 0            # 打死王幾次(戰利品牆)
 var king_streak := 0           # 連續完美擊殺數
 var coupons := {}              # 券:insurance / calm / upgrade -> 張數
 var king_capacity_bonus := 0   # 戰利品牆里程碑給的永久背包加成(與 capacity 牌的 capacity_bonus 分開記)
+var rarefish := 0              # 稀有魚(金魚,玩家自己抓的,不佔背包;換地圖碎片 / 交訂單)
+var map_pieces := 0            # 地圖碎片(旅行商人賣的,3 片拼成大地圖)
+var orders_done := 0           # 完成的訂單數
+var orders_cash := 0           # 訂單賺的錢
 
 
 func _ready() -> void:
@@ -64,6 +70,10 @@ func reset() -> void:
     king_streak = 0
     coupons = {}
     king_capacity_bonus = 0
+    rarefish = 0
+    map_pieces = 0
+    orders_done = 0
+    orders_cash = 0
     changed.emit()
 
 
@@ -87,6 +97,10 @@ func apply_purchase(id: String, effect: Dictionary) -> void:
             shop_level += 1
         "coupon":
             add_coupon(str(effect.get("key", "insurance")), 1)
+        "map_piece":
+            map_pieces = mini(map_pieces + 1, MAP_PIECES)
+        "resource":
+            add_resource(str(effect.get("kind", "pelt")), int(effect.get("amount", 1)))
     changed.emit()
     EventBus.purchased.emit(id, effect)
 
@@ -142,9 +156,25 @@ func resource(kind: String) -> int:
             return pelts
         "tooth":
             return teeth
+        "rarefish":
+            return rarefish
         "cash":
             return wallet
     return 0
+
+
+## 地圖拼齊了(三片)
+func has_full_map() -> bool:
+    return map_pieces >= MAP_PIECES
+
+
+## 完成一張訂單:統計 + 錢進錢包
+func complete_order(cash: int) -> void:
+    orders_done += 1
+    if cash > 0:
+        orders_cash += cash
+        wallet += cash
+    changed.emit()
 
 
 ## 資源 +n,回傳現有數量
@@ -154,6 +184,8 @@ func add_resource(kind: String, n: int) -> int:
             pelts = maxi(pelts + n, 0)
         "tooth":
             teeth = maxi(teeth + n, 0)
+        "rarefish":
+            rarefish = maxi(rarefish + n, 0)
         "cash":
             add_wallet(n)
     changed.emit()
@@ -169,6 +201,8 @@ func spend_resource(kind: String, n: int) -> int:
             pelts -= used
         "tooth":
             teeth -= used
+        "rarefish":
+            rarefish -= used
         "cash":
             spend(used)
             return used
@@ -250,6 +284,7 @@ func to_dict() -> Dictionary:
         "offline_earned": offline_earned,
         "king_level": king_level, "king_kills": king_kills, "king_streak": king_streak, "coupons": coupons.duplicate(),
         "king_capacity_bonus": king_capacity_bonus,
+        "rarefish": rarefish, "map_pieces": map_pieces, "orders_done": orders_done, "orders_cash": orders_cash,
     }
 
 
@@ -296,4 +331,8 @@ func from_dict(d: Dictionary) -> void:
     pelts = maxi(int(d.get("pelts", 0)), 0)
     teeth = maxi(int(d.get("teeth", 0)), 0)
     shop_level = maxi(int(d.get("shop_level", 0)), 0)
+    rarefish = maxi(int(d.get("rarefish", 0)), 0)
+    map_pieces = clampi(int(d.get("map_pieces", 0)), 0, MAP_PIECES)
+    orders_done = maxi(int(d.get("orders_done", 0)), 0)
+    orders_cash = maxi(int(d.get("orders_cash", 0)), 0)
     changed.emit()

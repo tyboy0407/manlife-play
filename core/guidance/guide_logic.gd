@@ -5,8 +5,8 @@ extends RefCounted
 ## {"carry_item", "carry_count", "wallet", "money_on_pad", "fish_caught", "items_sold", "purchases", "hired": {role: n},
 ##  "counters": [{"id", "item", "stock", "cap", "has_server", "has_cashier"}],
 ##  "stations": [{"id", "input", "input_count", "input_cap", "input_per"(一批吃幾個), "output", "output_count", "blocked"(成品堆滿停工)}],
-##  "pads": [{"id", "name", "remaining", "visible"}], "bear": 北極熊在不在, "weapon_level": 武器等級}
-## 回傳的提示:{"kind": water / station_input / station_output / counter_deposit / service / money / pad / trash / bear / none,
+##  "pads": [{"id", "name", "remaining", "visible"}], "bear": 北極熊在不在, "weapon_level": 武器等級, "order_items": 碼頭訂單還要的貨}
+## 回傳的提示:{"kind": water / station_input / station_output / counter_deposit / service / money / pad / trash / bear / dock / home / none,
 ##  "target": 目標 id(工作站 spot_id / 櫃台 def_id / 價格牌 id), "text": 翻譯鍵, "arg": 翻譯鍵 %s 要帶的翻譯鍵(可省)}
 
 const TUTORIAL := [
@@ -103,6 +103,10 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
     var item := str(state.get("carry_item", ""))
     var count := int(state.get("carry_count", 0))
     if count > 0 and item != "":
+        # 背的貨正是碼頭訂單要的:先送去交貨格(賺兩倍)
+        var wanted = state.get("order_items", [])
+        if typeof(wanted) == TYPE_ARRAY and wanted.has(item):
+            return {"kind": "dock", "target": "", "text": "HINT_order"}
         var ct := _counter_with_space(state, item)
         if not ct.is_empty():
             # 櫃台放不下整疊、又沒人收銀:先站收銀格賣到放得下再上架。不然每賣一件提示就在上架格 / 收銀格之間翻一次,

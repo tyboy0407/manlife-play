@@ -4,8 +4,10 @@ extends CanvasLayer
 ## 右上角選單鈕(提示箭頭 / 音效 / 重新開始)取代 H 與 F9;浮動觸控搖桿(TouchJoystick)鋪滿畫面最底層。
 ## 現金飛向錢包:聽 items_moved kind "cash",把 3D 位置投影到螢幕,生一個 "$" 飛到錢包數字再彈一下。
 ## 只讀狀態,不改遊戲;音效開關自己處理,其他選單動作用 action 訊號交給關卡。
+## 訂單一行(set_order,關卡餵)在資源行下方;選單多三個面板:地圖(show_map,資料由關卡的 map_source 給,拼齊三片有「回村」鈕 action map_home)、
+## 玩法說明(show_help,分頁 HELP_*)、新版內容(show_changelog,data/changelog.json)。
 
-signal action(id: String)   # "hints" / "new_game" / "offline_claim"
+signal action(id: String)   # "hints" / "new_game" / "offline_claim" / "map_home"
 
 var player: Player = null
 var joystick: TouchJoystick
@@ -14,6 +16,10 @@ var menu_panel: PanelContainer
 var offline_panel: PanelContainer   # 離線收益面板(回來時彈出,領取前遊戲暫停)
 var choice_panel: PanelContainer    # 三選一面板(熊王寶箱),選之前遊戲暫停
 var income_rate := 0.0              # 每秒收入速率(關卡每幀餵,統計面板顯示)
+var map_source: Callable = Callable()   # 關卡給的地圖資料(Harbor.map_data)
+var map_panel: PanelContainer = null
+var help_panel: PanelContainer = null
+var changelog_panel: PanelContainer = null
 
 var _wallet: Label
 var _info: Label
@@ -35,6 +41,15 @@ var _choice_body: Label
 var _choice_box: VBoxContainer
 var _choice_buttons: Array[Button] = []
 var _warning: Label                 # 北極熊王來襲倒數(目標文字下方,紅字)
+var _order: Label                   # 碼頭訂單(資源行下方)
+var _map_title: Label
+var _map_canvas: Control
+var _map_home_btn: Button
+var _map_hint: Label
+var _help_tabs: TabContainer
+var _changelog_title: Label
+var _changelog_body: Label
+var _map_cache := {}                # 上次 show_map 拿到的地圖資料
 var _notice_timer := 0.0
 var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
 var _objective_text := ""
@@ -60,8 +75,14 @@ func _ready() -> void:
     _info = _make_label(16, Color(0.95, 0.97, 1.0))
     _info.position = Vector2(14, 48)
     add_child(_info)
+    _order = _make_label(15, Color(0.75, 0.9, 1.0))
+    _order.position = Vector2(14, 92)
+    _order.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _order.custom_minimum_size = Vector2(300, 0)
+    _order.visible = false
+    add_child(_order)
     _fps = _make_label(15, Color(0.6, 1.0, 0.6))
-    _fps.position = Vector2(14, 104)
+    _fps.position = Vector2(14, 132)
     _fps.visible = Settings.show_fps
     add_child(_fps)
     _objective = _make_label(20, Color(1.0, 0.9, 0.55))
@@ -97,7 +118,10 @@ func _ready() -> void:
     _build_menu()
     _build_offline_panel()
     _build_choice_panel()
-    joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel]
+    _build_map_panel()
+    _build_help_panel()
+    _build_changelog_panel()
+    joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel, map_panel, help_panel, changelog_panel]
     EventBus.notice.connect(show_notice)
     EventBus.items_moved.connect(_on_items_moved)
 
@@ -194,6 +218,9 @@ func _build_menu() -> void:
     box.add_child(_quality_btn)
     _fps_btn = _make_button("", "fps")
     box.add_child(_fps_btn)
+    box.add_child(_make_button(tr("MENU_MAP"), "map"))
+    box.add_child(_make_button(tr("MENU_HELP"), "help"))
+    box.add_child(_make_button(tr("MENU_CHANGELOG"), "changelog"))
     _new_game_btn = _make_button("", "new_game")
     box.add_child(_new_game_btn)
     box.add_child(_make_button(tr("MENU_CLOSE"), "close"))
@@ -257,6 +284,224 @@ func _build_offline_panel() -> void:
     claim.add_theme_font_size_override("font_size", 24)
     claim.pressed.connect(offline_action.bind("claim"))
     box.add_child(claim)
+
+
+## 置中的大面板(地圖 / 玩法說明 / 新版內容共用的外框):標題 + 內容 + 關閉鈕
+func _centered_panel(name: String, width: float, title_key: String) -> Dictionary:
+    var panel := PanelContainer.new()
+    panel.name = name
+    panel.custom_minimum_size = Vector2(width, 0)
+    panel.anchor_left = 0.5
+    panel.anchor_right = 0.5
+    panel.anchor_top = 0.5
+    panel.anchor_bottom = 0.5
+    panel.offset_left = -width / 2.0
+    panel.offset_right = width / 2.0
+    panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+    panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+    panel.visible = false
+    add_child(panel)
+    var box := VBoxContainer.new()
+    box.add_theme_constant_override("separation", 10)
+    panel.add_child(box)
+    var title := Label.new()
+    title.text = tr(title_key)
+    title.add_theme_font_size_override("font_size", 26)
+    title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45))
+    title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    box.add_child(title)
+    return {"panel": panel, "box": box, "title": title}
+
+
+func _close_button(id: String) -> Button:
+    var b := Button.new()
+    b.name = "CloseButton"
+    b.text = tr("MENU_CLOSE")
+    b.custom_minimum_size = Vector2(0, 52)
+    b.add_theme_font_size_override("font_size", 20)
+    b.pressed.connect(panel_action.bind(id))
+    return b
+
+
+## 地圖頁:畫布(_draw 畫世界)+ 回村鈕(拼齊三片才有)
+func _build_map_panel() -> void:
+    var parts := _centered_panel("MapPanel", 420, "MAP_TITLE")
+    map_panel = parts["panel"]
+    _map_title = parts["title"]
+    var box: VBoxContainer = parts["box"]
+    _map_canvas = Control.new()
+    _map_canvas.name = "MapCanvas"
+    _map_canvas.custom_minimum_size = Vector2(396, 200)
+    _map_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _map_canvas.draw.connect(_draw_map)
+    box.add_child(_map_canvas)
+    _map_hint = Label.new()
+    _map_hint.add_theme_font_size_override("font_size", 15)
+    _map_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _map_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    box.add_child(_map_hint)
+    _map_home_btn = Button.new()
+    _map_home_btn.name = "MapHome"
+    _map_home_btn.text = tr("MAP_HOME")
+    _map_home_btn.custom_minimum_size = Vector2(0, 52)
+    _map_home_btn.add_theme_font_size_override("font_size", 20)
+    _map_home_btn.pressed.connect(panel_action.bind("map_home"))
+    box.add_child(_map_home_btn)
+    box.add_child(_close_button("map_close"))
+
+
+## 顯示地圖(資料從關卡的 map_source 拿);碎片 0 片只顯示說明
+func show_map() -> void:
+    _map_cache = map_source.call() if map_source.is_valid() else {}
+    var pieces := int(_map_cache.get("pieces", 0))
+    var total := int(_map_cache.get("total", 3))
+    _map_title.text = tr("MAP_TITLE") % [pieces, total]
+    _map_hint.text = tr("MAP_LOCKED") if pieces <= 0 else ""
+    _map_hint.visible = pieces <= 0
+    _map_home_btn.visible = pieces >= total
+    menu_panel.visible = false
+    map_panel.visible = true
+    _map_canvas.queue_redraw()
+
+
+func map_open() -> bool:
+    return map_panel.visible
+
+
+func map_home_visible() -> bool:
+    return _map_home_btn.visible
+
+
+## 畫世界:1 片 = 村莊(含擴建區、水區、武器店),2 片 = 加上雪原的地標(碼頭 / 商人)與探險範圍,3 片 = 加上未知區域「???」
+func _draw_map() -> void:
+    var c := _map_canvas
+    var size := c.size
+    c.draw_rect(Rect2(Vector2.ZERO, size), Color(0.12, 0.14, 0.2))
+    var pieces := int(_map_cache.get("pieces", 0))
+    if pieces <= 0 or not _map_cache.has("world"):
+        return
+    var world: Rect2 = _map_cache["world"]
+    var margin := 8.0
+    var k := minf((size.x - margin * 2.0) / world.size.x, (size.y - margin * 2.0) / world.size.y)
+    var origin := Vector2(margin, margin) + (size - Vector2(margin * 2.0, margin * 2.0) - world.size * k) / 2.0
+    var to_px := func(p: Vector2) -> Vector2: return origin + (p - world.position) * k
+    var rect_px := func(r: Rect2) -> Rect2: return Rect2(to_px.call(r.position), r.size * k)
+    if pieces >= 2:
+        c.draw_rect(rect_px.call(world), Color(0.93, 0.95, 0.98))   # 雪原
+    for r in _map_cache.get("rects", []):
+        c.draw_rect(rect_px.call(r["rect"]), r["color"])
+        if str(r.get("label", "")) != "":
+            c.draw_string(c.get_theme_default_font(), to_px.call((r["rect"] as Rect2).position) + Vector2(2, 12), tr(str(r["label"])), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.1, 0.1, 0.12))
+    if pieces >= 2:
+        for pt in _map_cache.get("points", []):
+            var px: Vector2 = to_px.call(pt["pos"])
+            c.draw_circle(px, 4.0, pt["color"])
+            c.draw_string(c.get_theme_default_font(), px + Vector2(6, 4), tr(str(pt.get("label", ""))), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.9, 0.9, 0.95))
+    if pieces >= 3:
+        for u in _map_cache.get("unknown", []):
+            var ur: Rect2 = u
+            var clipped := Rect2(to_px.call(ur.position), ur.size * k).intersection(Rect2(Vector2.ZERO, size))
+            if clipped.size.x > 0.0 and clipped.size.y > 0.0:
+                c.draw_rect(clipped, Color(0.35, 0.35, 0.4, 0.8))
+                c.draw_string(c.get_theme_default_font(), clipped.position + Vector2(4, clipped.size.y / 2.0), tr("MAP_UNKNOWN"), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.9, 0.9, 0.95))
+    var pp: Vector2 = to_px.call(_map_cache.get("player", Vector2.ZERO))
+    c.draw_circle(pp, 5.0, Color(0.35, 0.55, 0.95))
+    c.draw_circle(pp, 5.0, Color(1, 1, 1), false, 1.5)
+    c.draw_string(c.get_theme_default_font(), pp + Vector2(7, 4), tr("MAP_YOU"), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1))
+
+
+## 玩法說明:分頁(基本操作 / 生產鏈 / 幫手 / 熊與武器 / 擴建 / 王與其他)
+func _build_help_panel() -> void:
+    var parts := _centered_panel("HelpPanel", 420, "HELP_TITLE")
+    help_panel = parts["panel"]
+    var box: VBoxContainer = parts["box"]
+    _help_tabs = TabContainer.new()
+    _help_tabs.name = "HelpTabs"
+    _help_tabs.custom_minimum_size = Vector2(396, 0)
+    box.add_child(_help_tabs)
+    for key in ["basics", "chain", "helpers", "bears", "expand", "king"]:
+        var l := Label.new()
+        l.name = tr("HELP_TAB_%s" % key)
+        l.text = tr("HELP_%s" % key)
+        l.add_theme_font_size_override("font_size", 15)
+        l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        l.custom_minimum_size = Vector2(380, 0)
+        _help_tabs.add_child(l)
+    box.add_child(_close_button("help_close"))
+
+
+func show_help() -> void:
+    menu_panel.visible = false
+    help_panel.visible = true
+
+
+func help_open() -> bool:
+    return help_panel.visible
+
+
+func help_tab_count() -> int:
+    return _help_tabs.get_tab_count()
+
+
+## 新版內容:data/changelog.json 最新一版的條目
+func _build_changelog_panel() -> void:
+    var parts := _centered_panel("ChangelogPanel", 420, "CHANGELOG_TITLE")
+    changelog_panel = parts["panel"]
+    _changelog_title = parts["title"]
+    var box: VBoxContainer = parts["box"]
+    _changelog_body = Label.new()
+    _changelog_body.add_theme_font_size_override("font_size", 15)
+    _changelog_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _changelog_body.custom_minimum_size = Vector2(380, 0)
+    box.add_child(_changelog_body)
+    box.add_child(_close_button("changelog_close"))
+
+
+func show_changelog() -> void:
+    var cl := GameData.changelog()
+    if cl.is_empty():
+        return
+    var v: Dictionary = cl[0]
+    _changelog_title.text = tr("CHANGELOG_TITLE") % str(v.get("version", ""))
+    var lines: Array[String] = []
+    for n in v.get("notes", []):
+        lines.append("• " + str(n))
+    _changelog_body.text = "\n".join(lines)
+    menu_panel.visible = false
+    changelog_panel.visible = true
+
+
+func changelog_open() -> bool:
+    return changelog_panel.visible
+
+
+func changelog_text() -> String:
+    return _changelog_body.text
+
+
+## 大面板上的按鈕(與測試)都走這裡
+func panel_action(id: String) -> void:
+    match id:
+        "map_close":
+            map_panel.visible = false
+        "help_close":
+            help_panel.visible = false
+        "changelog_close":
+            changelog_panel.visible = false
+        "map_home":
+            if map_panel.visible and _map_home_btn.visible:
+                map_panel.visible = false
+                action.emit("map_home")
+
+
+## 碼頭訂單那一行("" = 隱藏)
+func set_order(text: String) -> void:
+    _order.text = text
+    _order.visible = text != ""
+
+
+func order_text() -> String:
+    return _order.text if _order.visible else ""
 
 
 ## 三選一面板(熊王寶箱):標題 + 說明 + N 個按鈕,按了發 action "choice:<i>"
@@ -421,11 +666,12 @@ func stats_pages() -> Array[String]:
     return [
         tr("HUD_STATS_ECON") % [GameState.cash_earned, int(round(income_rate * 60.0)), GameState.offline_earned, GameState.fish_caught,
                 GameState.items_sold, GameState.items_trashed, t],
-        tr("HUD_STATS_HELPERS") % [GameState.hired_count("fisher"), GameState.hired_count("porter"), GameState.hired_count("cashier"),
+        tr("HUD_STATS_HELPERS") % [GameState.hired_count("fisher"), GameState.hired_count("porter"), GameState.hired_count("cashier"), GameState.hired_count("repairman"),
                 GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"), GameState.upgrade_level("porter_cap"),
                 GameState.weapon_level, GameState.shop_level, GameState.helpers_lost, GameState.pelts],
         tr("HUD_STATS_KING") % [GameState.king_level, GameState.king_kills, GameState.king_streak, GameState.teeth, GameState.king_capacity_bonus]
-                + "\n" + tr("HUD_COUPONS") % [GameState.coupon("insurance"), GameState.coupon("calm"), GameState.coupon("upgrade")],
+                + "\n" + tr("HUD_COUPONS") % [GameState.coupon("insurance"), GameState.coupon("calm"), GameState.coupon("upgrade")]
+                + "\n" + tr("HUD_STATS_MORE") % [GameState.orders_done, GameState.orders_cash, GameState.rarefish, GameState.map_pieces, GameState.MAP_PIECES],
     ]
 
 
@@ -472,6 +718,12 @@ func menu_action(id: String) -> void:
             _fps.visible = Settings.show_fps
         "hints":
             action.emit("hints")
+        "map":
+            show_map()
+        "help":
+            show_help()
+        "changelog":
+            show_changelog()
         "new_game":
             if not _confirm_new_game:
                 _confirm_new_game = true
@@ -597,7 +849,7 @@ func _process(delta: float) -> void:
         _wallet.text = tr("HUD_WALLET") % GameState.wallet
     if player == null or not is_instance_valid(player):
         return
-    var key := "%s/%d/%d/%d/%d/%d" % [player.stack.item_id, player.stack.count, player.stack.capacity, GameState.pelts, GameState.teeth, GameState.weapon_level]
+    var key := "%s/%d/%d/%d/%d/%d/%d" % [player.stack.item_id, player.stack.count, player.stack.capacity, GameState.pelts, GameState.teeth, GameState.rarefish, GameState.weapon_level]
     if key != _info_key:
         _info_key = key
         var carry := tr("HUD_EMPTY")
@@ -605,7 +857,7 @@ func _process(delta: float) -> void:
             carry = tr("HUD_CARRY") % [GameData.item_name(player.stack.item_id), player.stack.count, player.stack.capacity]
         else:
             carry = "%s(%d)" % [carry, player.stack.capacity]
-        _info.text = "%s\n%s" % [carry, tr("HUD_RES") % [GameState.pelts, GameState.teeth, GameState.weapon_level]]
+        _info.text = "%s\n%s" % [carry, tr("HUD_RES") % [GameState.pelts, GameState.teeth, GameState.rarefish, GameState.weapon_level]]
     if menu_panel.visible:
         _stats_timer -= delta
         if _stats_timer <= 0.0:

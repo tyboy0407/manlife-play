@@ -17,7 +17,7 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 95 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、九十四塊價格牌 + 切魚台的修復牌、沒有存檔")
+            and _level.price_pads.size() == 99 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、九十八塊價格牌 + 切魚台的修復牌、沒有存檔")
     _check(_level.traps.size() == 8 and _level.baits.size() == 4 and _level.conveyors.is_empty() and (_level.price_pads["trap_1"] as PricePad).visible
             and (_level.price_pads["bait_1"] as PricePad).visible and not (_level.price_pads["trap_3"] as PricePad).visible
             and not (_level.price_pads["bait_2"] as PricePad).visible and (_level.price_pads["belt_station_1"] as PricePad).visible
@@ -45,7 +45,7 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 101, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 九十四塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 106, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 碼頭交貨格 / 九十八塊價格牌 / 修復牌(%d)" % pads)
     var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
     var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
     _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"
@@ -385,7 +385,10 @@ func _run() -> void:
     await _bear_section(g, fisher_pad)
     await _tower_section()
     await _trap_section()
+    await _rare_fish_section()
     await _explore_section()
+    await _order_section()
+    await _merchant_section()
     # 表現層:飛行動畫事件、幽靈物件、音效
     _check(_count("moved") >= 30 and _count("moved_catch") >= 8 and _count("moved_to_station") >= 8 and _count("moved_from_station") >= 8
             and _count("moved_to_counter") >= 8 and _count("moved_sold") >= 3 and _count("moved_cash") >= 6 and _count("moved_pay") >= 20
@@ -426,8 +429,19 @@ func _run() -> void:
 ## --- 北極熊 ---
 ## 強制出現、指定盯上漁夫 -> 漁夫嚇呆 -> 咬 biteSec 秒吃掉(幫手少一個、僱用數 -1、牌子次數不退)-> 熊留著找下一個 ->
 ## 玩家穿過西邊缺口到村外武器店買 Lv1 -> 衝向熊把牠趕跑(冷卻 60 ~ 90 秒)-> 買到 Lv3 -> 熊再來時看到玩家就逃
+func _roles_and_hires() -> Array:
+    var out := []
+    for h in _level.helpers:
+        out.append(h.role + ("(eaten)" if h.eaten else ""))
+    for k in _events:
+        if str(k).begins_with("hired_") or str(k).begins_with("purchased_"):
+            out.append("%s=%d" % [k, _events[k]])
+    return out
+
+
 func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     var bs: BearSpawner = _level.bears
+    (_level.price_pads["hire_repairman"] as PricePad).set_open(false)   # 在院子裡追熊會踩到修理工牌($300 僱到人會讓幫手數對不上),這段先關
     var fisher := _find_helper("fisher")
     var helpers_before := _level.helpers.size()
     var hired_fisher := GameState.hired_count("fisher")
@@ -496,7 +510,7 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
             "Lv1 每下 10:打了 %d 下血條歸零才逃、玩家揮武器" % (bear.hits_taken if is_instance_valid(bear) else -1))
     var gone := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
     _check(gone and _count("bear_left_fled") == 1 and bs.cooldown >= 33.0 and bs.cooldown <= 55.0 and _level.helpers.size() == helpers_before - 1,
-            "熊逃到地圖邊緣消失,下一群 %.0f 秒後再來,沒有再損失幫手(gone %s、fled %d、幫手 %d / %d)" % [bs.cooldown, str(gone), _count("bear_left_fled"), _level.helpers.size(), helpers_before - 1])
+            "熊逃到地圖邊緣消失,下一群 %.0f 秒後再來,沒有再損失幫手(gone %s、fled %d、幫手 %d / %d、events %s)" % [bs.cooldown, str(gone), _count("bear_left_fled"), _level.helpers.size(), helpers_before - 1, str(_roles_and_hires())])
     # 打跑的熊掉一張毛皮(掉在被打倒的地方,玩家就在旁邊,可能當場就撿到)
     var dropped := _count("loot_dropped")
     _check(dropped >= 1 and dropped <= 2 and GameState.pelts + _level.loot.size() == dropped, "打跑的熊掉下 1 ~ 2 張毛皮(%d)" % dropped)
@@ -596,6 +610,7 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
 ## 買 tower_1($200,牌就是地基)-> 塔蓋起來 -> 熊從西北入口進來:塔射箭、熊被射中改來拆塔、血條歸零逃走 ->
 ## 另一隻厚血的熊把只剩 10 血的塔咬塌 -> 牌子重現「修復」$200 -> 修好血回滿
 func _tower_section() -> void:
+    (_level.price_pads["hire_repairman"] as PricePad).set_open(true)
     var bs: BearSpawner = _level.bears
     var pad: PricePad = _level.price_pads["tower_1"]
     var tower: Tower = _level.tower_by_id("tower_1")
@@ -730,6 +745,166 @@ func _trap_section() -> void:
 
 ## --- 村外探險 ---
 ## 從武器店院子西柵欄的缺口走出村 -> 提示指回村、是村外 -> 走到空氣牆撞住 -> 走回村
+## --- 稀有魚 ---
+## 強制在主村水裡生一條金魚:漁夫 / 提示不理它 -> 玩家走到旁邊站 2 秒(進度環)抓到 -> 稀有魚資源 +1、HUD 顯示;走開進度歸零
+func _rare_fish_section() -> void:
+    # 捕熊夾段落留下的熊會在村裡晃著找幫手吃;後面幾段要一分多鐘,先把牠們清掉(交接存檔要有漁夫)
+    for b in _level.bears.bears:
+        if is_instance_valid(b):
+            b.queue_free()
+    _level.bears.bears.clear()
+    await _step(2)
+    await _empty_hands()
+    var fa: FishArea = _level.fish_areas[0]
+    var rare0 := GameState.rarefish
+    var f := fa.spawn_rare()
+    await _step(2)
+    _check(f != null and f.rare and fa.has_rare() and not fa.fish.has(f) and fa._nearest_fish(f.global_position) != f
+            and f.swim_speed > fa.swim_speed * 1.5 and _level.hud.notice_text().contains(tr("NOTICE_RARE_FISH").substr(0, 4)),
+            "金魚出現:不在一般魚的名單裡(漁夫 / 提示不理)、游得快、通知")
+    f.swim_speed = 0.0   # 測試時定住,玩家才站得到旁邊
+    f.global_position = Vector3(0, 0, -6.5)
+    await _go(Vector3(0.6, 0, -6.0), 400)
+    await _step(45)
+    var half := fa.rare_progress()
+    await _go(Vector3(5.0, 0, -6.0), 300)
+    await _step(3)
+    var reset_ok := fa.has_rare() and fa.rare_progress() == 0.0
+    _check(half > 0.4 and half < 2.0 and reset_ok, "站在金魚旁邊進度 %.2f 秒、走開歸零(%s)" % [half, str(reset_ok)])
+    f.global_position = Vector3(0, 0, -6.5)
+    await _go(Vector3(0.6, 0, -6.0), 400)
+    var caught := await _wait_until(func() -> bool: return GameState.rarefish == rare0 + 1, 240)
+    await _step(2)
+    _check(caught and not fa.has_rare() and fa.rare_caught_total == 1 and _count("moved_loot") >= 1 and _level.hud._info.text.contains("1"),
+            "站滿 2 秒抓到:稀有魚 +1(不佔背包)、金魚消失、通知 [%s]" % _level.hud.notice_text())
+    await _empty_hands()
+    await _go(Vector3(0, 0, 7))
+
+
+## --- 訂單:碼頭的貨船 ---
+## 貼一張只要魚片的訂單 -> 提示指碼頭 -> 玩家背著魚片繞西門 / 院子缺口到碼頭交貨 -> 送齊:現金 ×2 進錢包、附贈、訂單消失;逾時的訂單會消失
+func _order_section() -> void:
+    await _empty_hands()
+    var o := _level.orders
+    _check(o != null and o.first_delay() == 30.0 and not o.has_order() and _level.hud.order_text() == "", "教學後碼頭還沒貼訂單(30 秒後才貼)")
+    o.next_in = 0.1
+    await _step(12)
+    var posted := o.has_order()
+    _check(posted and _level.hud.order_text().contains("$") and _level.dock_sign.text.count("\n") >= 1,
+            "倒數到了貼訂單:HUD 顯示訂單一行 [%s]、船上的牌寫訂單內容" % _level.hud.order_text())
+    # 換成一張固定的訂單(只要魚片 6 件)好測;搬運工先定住,不然他們也會搶著送碼頭(verify_nav 測那個)
+    for h in _level.helpers:
+        if h.role == "porter":
+            h.set_physics_process(false)
+    o.order = {}
+    o.rng.seed = 3
+    var od := o.generate({"fillet": 2}, 0, 1.0)
+    _level._refresh_order_text()
+    _check(od["lines"].has("fillet") and o.need_of("fillet") == 6 and int(od["reward"]) == 24, "貼一張只要 6 片魚片的訂單(獎勵 $24)")
+    await _go(Vector3(0, 0, 7))   # 先離開垃圾桶
+    _player.stack.clear()   # 直接給 6 片(從輸出格拿會被傳送帶 / 工人的產出干擾數量)
+    for i in 6:
+        _player.stack.push("fillet")
+    var g: Guide = _level.guide
+    var dock_hint := await _wait_until(func() -> bool: return str(g.current.get("kind", "")) == "dock", 60)   # Guide 每 0.1 秒才重算
+    _check(_player.stack.count >= 6 and dock_hint and g.target_pos.distance_to(_level.dock.global_position) < 0.1
+            and _level.hud.objective_text().contains(tr("HINT_order").substr(0, 4)), "背著訂單要的魚片:提示指碼頭(kind %s、背 %s ×%d、訂單要 %s、提示 [%s])"
+            % [str(g.current.get("kind", "")), _player.stack.item_id, _player.stack.count, str(o.wanted_items()), _level.hud.objective_text()])
+    var wallet0 := GameState.wallet
+    var pelts0 := GameState.pelts
+    var coupons0 := GameState.coupon("insurance") + GameState.coupon("calm") + GameState.coupon("upgrade")
+    await _go_outside()
+    var carried := _player.stack.count   # 離開輸出格後才記(站著時還會再拿)
+    await _go(Vector3(-20.0, 0, 2.0), 300)
+    await _go(Vector3(-25.0, 0, 2.0), 300)
+    await _go(_level.dock.global_position, 400)
+    var done := await _wait_until(func() -> bool: return not o.has_order(), 240)
+    await _step(3)
+    var bonus_ok := GameState.pelts == pelts0 + 3 or GameState.coupon("insurance") + GameState.coupon("calm") + GameState.coupon("upgrade") == coupons0 + 1 or _level.bears.calm_left() > 0.0
+    _check(done and o.completed_total == 1 and GameState.orders_done == 1 and GameState.wallet == wallet0 + 24 and GameState.orders_cash == 24
+            and _count("moved_to_dock") >= 6 and _player.stack.count == carried - 6 and bonus_ok and _level.hud.order_text() == "" and _level.dock.delivered_here == 6,
+            "站上交貨格送齊 6 片:訂單完成、錢包 +$24、附贈(毛皮 %d -> %d / 券 %d -> %d)、HUD 訂單行消失(done %s completed %d / %d wallet %d / %d to_dock %d stack %d here %d order [%s])"
+            % [pelts0, GameState.pelts, coupons0, GameState.coupon("insurance") + GameState.coupon("calm") + GameState.coupon("upgrade"), str(done), o.completed_total,
+            GameState.orders_done, GameState.wallet, wallet0 + 24, _count("moved_to_dock"), _player.stack.count, _level.dock.delivered_here, _level.hud.order_text()])
+    _level.bears.calm_until = -1.0
+    GameState.coupons = {}   # 附贈的券清掉,免得 verify_world2 的保險券 / 王的段落被它影響
+    # 逾時
+    o.generate({"fillet": 2}, 0, 1.0)
+    o.order["time_left"] = 0.2
+    await _step(20)
+    var expired := not o.has_order() and o.expired_total == 1
+    var noticed := await _notice_soon("NOTICE_ORDER_EXPIRED")
+    _check(expired and noticed, "訂單逾時消失、通知")
+    o.next_in = 9999.0
+    for h in _level.helpers:
+        if h.role == "porter":
+            h.set_physics_process(true)
+    await _go(Vector3(-25.0, 0, 2.0), 400)
+    await _go(Vector3(-20.0, 0, 2.0), 300)
+    await _go(Vector3(-14.5, 0, 2.5), 300)
+    await _go(Vector3(-11.0, 0, 2.5), 300)
+    await _go(Vector3(0, 0, 7))
+
+
+## --- 旅行商人 / 地圖 ---
+## 傳到村外東邊的營地:用現金買第一片(兩塊牌同步跳到第二片)、用稀有魚買第二片、現金買第三片(拼齊:兩塊牌都消失)->
+## 選單地圖頁有回村鈕 -> 一鍵回村;毛皮補給 $300 +5 張
+func _merchant_section() -> void:
+    var mc: PricePad = _level.price_pads["map_cash"]
+    var mf: PricePad = _level.price_pads["map_fish"]
+    var mp: PricePad = _level.price_pads["merchant_pelts"]
+    _check(mc.visible and mf.visible and mc.logic.remaining == 500 and mf.logic.remaining == 3 and mf.logic.currency == "rarefish" and mf.label.text.contains("3")
+            and _level.merchant != null and not _level.is_inside_village(mc.global_position), "營地:地圖碎片 $500 / 稀有魚 3 條、牌在村外")
+    _player.global_position = Harbor.MERCHANT_CAMP + Vector3(0, 0, 5.0)
+    _player.velocity = Vector3.ZERO
+    await _step(3)
+    _check(_level.player_outside(), "玩家傳到營地(村外)")
+    GameState.add_wallet(500)
+    var bought1 := await _pay_pad(mc)
+    await _step(3)
+    _check(bought1 and GameState.map_pieces == 1 and mc.logic.buys == 1 and mf.logic.buys == 1 and mc.logic.remaining == 1500 and mf.logic.remaining == 5
+            and mc.visible and mf.visible and _count("purchased_map_cash") == 1, "現金買第一片:兩塊牌都跳到第二片($1500 / 5 條)")
+    var rf0 := GameState.rarefish
+    GameState.add_resource("rarefish", 5)
+    var bought2 := await _pay_pad(mf)
+    await _step(3)
+    _check(bought2 and GameState.map_pieces == 2 and GameState.rarefish == rf0 and mc.logic.remaining == 5000 and mf.logic.remaining == 8 and mc.logic.buys == 2,
+            "稀有魚買第二片:扣 5 條、兩塊牌跳到第三片($5000 / 8 條)")
+    _level.hud.show_map()
+    await _step(2)
+    _check(_level.hud.map_open() and not _level.hud.map_home_visible() and _level.hud._map_title.text.contains("2"), "地圖頁:2 片、還沒有回村鈕")
+    _level.hud.panel_action("map_close")
+    GameState.add_wallet(5000)
+    var bought3 := await _pay_pad(mc)
+    await _step(3)
+    var full_notice := await _notice_soon("NOTICE_MAP_FULL")
+    _check(bought3 and GameState.has_full_map() and GameState.map_pieces == 3 and not mc.visible and not mf.visible and mc.logic.is_exhausted() and mf.logic.is_exhausted()
+            and full_notice, "第三片拼齊:兩塊牌都消失、通知")
+    GameState.add_wallet(300)
+    var pelts0 := GameState.pelts
+    var bought4 := await _pay_pad(mp)
+    await _step(3)
+    _check(bought4 and GameState.pelts == pelts0 + 5 and mp.visible and mp.logic.remaining == 300, "毛皮補給 $300:+5 張、牌同價留著")
+    _level.hud.show_map()
+    await _step(2)
+    var far := _player.global_position.x > 60.0
+    _check(_level.hud.map_open() and _level.hud.map_home_visible() and far, "地圖頁:3 片、有回村鈕")
+    _level.hud.panel_action("map_home")
+    await _step(3)
+    _check(not _level.hud.map_open() and _player.global_position.distance_to(Harbor.PLAYER_SPAWN) < 0.5 and not _level.player_outside(), "一鍵回村:玩家回到主村出生點")
+    _level.hud.menu_action("toggle")
+    _level.hud.menu_action("help")
+    var help_ok := _level.hud.help_open() and _level.hud.help_tab_count() == 6
+    _level.hud.panel_action("help_close")
+    _level.hud.menu_action("toggle")
+    _level.hud.menu_action("changelog")
+    var cl_ok := _level.hud.changelog_open() and _level.hud.changelog_text().length() > 20
+    _level.hud.panel_action("changelog_close")
+    _check(help_ok and cl_ok and not _level.hud.help_open() and not _level.hud.changelog_open() and Settings.seen_version == GameData.latest_version(),
+            "選單:玩法說明六頁、新版內容可開;新存檔開局就記成看過(%s)" % Settings.seen_version)
+    await _go(Vector3(0, 0, 7))
+
+
 func _explore_section() -> void:
     await _empty_hands()
     await _go_outside()

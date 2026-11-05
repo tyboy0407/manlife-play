@@ -38,3 +38,22 @@ static func roll_want(weights: Array, roll: float) -> int:
         if roll < acc:
             return i + 1
     return weights.size()
+
+
+## 擴建後顧客要得更多:權重往多件偏 shift 件(前面補 shift 個 0 = 1 ~ shift 件不會出現),最多要 max_items 件;
+## 全被切掉就只留最後一格(都要 max_items 件)
+static func shift_weights(weights: Array, shift: int, max_items: int = 9) -> Array:
+    var out: Array = []
+    for i in maxi(shift, 0):
+        out.append(0)
+    for w in weights:
+        out.append(w)
+    if max_items >= 1 and out.size() > max_items:
+        var kept: Array = out.slice(0, max_items)
+        var total := 0.0
+        for w in kept:
+            total += maxf(float(w), 0.0)
+        if total <= 0.0:
+            kept[max_items - 1] = 1
+        out = kept
+    return out

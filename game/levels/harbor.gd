@@ -23,6 +23,12 @@ extends Node3D
 ## 用掉後 trap_used / bait_eaten 讓牌子同價重新出現;傳送帶(Conveyor,CONVEYORS:工作站輸出格 -> 同種貨櫃台上架格)的牌在工作站旁,
 ## 兩端都蓋好才出現(_refresh_tower_pads 一起管),買了 build_conveyor;搬運工容量升級牌 upgrade_porter_cap 在西側走道。
 ## 熊王牙牌(tooth_tower_n,收 1 顆)就在塔下,塔完好且還沒強化才出現(_refresh_tower_pads),付清 tower.upgrade() 變強力守衛塔。
+## 訂單(OrderLogic):村外西北的碼頭(DOCK_SPOT 交貨格 OrderDock + 貨船布景)定時貼限時訂單,玩家 / 搬運工把貨送到交貨格,
+## 送齊 order_completed 給現金(進錢包)+ 附贈;搬運工送訂單走 porter_dests(碼頭當作一個「櫃台」目的地)+ route 的西門中途點。
+## 修理工(Helper role repairman,牌 hire_repairman 在武器店院子):平常站 REPAIRMAN_POST,有建築被拆(nearest_wrecked)就走過去站 15 秒 repair_free
+## (走修復牌的 complete_free,不扣錢)。顧客成長:每擴建一次所有櫃台 apply_expansion(擴建次數)。
+## 旅行商人(MERCHANT_CAMP,村外東邊雪原):帳篷 + 營火 + 商人,牌 map_cash / map_fish(地圖碎片,現金或稀有魚擇一,買了另一塊跟著跳下一片)、
+## merchant_pelts(毛皮補給);地圖碎片記 GameState.map_pieces,選單的地圖頁(Hud.show_map,map_data())拼齊三片可一鍵回村(action map_home)。
 
 const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0.0, 0, 0), "grill": Vector3(6.0, 0, 0),
     "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0),
@@ -46,6 +52,8 @@ const PAD_SPOTS := {
     "tower_5": Vector3(-3.0, 0, -2.9), "tower_6": Vector3(3.0, 0, -2.9),
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
     "altar_insurance": Vector3(-21.9, 0, 4.6), "altar_ice": Vector3(-15.5, 0, 1.5),   # 熊王祭壇(收熊王牙):武器店院子裡
+    "hire_repairman": Vector3(-15.5, 0, -1.5),   # 修理工的僱用牌:武器店院子東北角
+    "map_cash": Vector3(77.5, 0, -1.0), "map_fish": Vector3(80.5, 0, -1.0), "merchant_pelts": Vector3(83.5, 0, -1.0),   # 旅行商人營地(村外東邊雪原)
     "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
     "tooth_tower_5": Vector3(-3.0, 0, -2.9), "tooth_tower_6": Vector3(3.0, 0, -2.9),
 }
@@ -106,10 +114,19 @@ const EXPLORE_RECT := Rect2(-40.0, -12.0, 130.0, 62.0)
 const EXIT_WEST_Z := Vector2(0.8, 3.2)         # 武器店院子西柵欄的缺口(z 範圍)
 const EXIT_EAST_Z := Vector2(-1.0, 2.0)        # 最東那面牆的缺口(z 範圍)
 const EXIT_SOUTH_X := Vector2(-1.0, 1.0)       # 南牆的缺口(x 範圍)
-const LANDMARKS := [["rock", Vector3(-30, 0, -8)], ["rock", Vector3(-33, 0, 20)], ["tree", Vector3(-28, 0, 40)], ["rock", Vector3(30, 0, 38)],
-    ["tree", Vector3(60, 0, 42)], ["rock", Vector3(80, 0, 20)], ["tree", Vector3(85, 0, -5)], ["pile", Vector3(20, 0, 45)], ["pile", Vector3(-20, 0, 32)],
+const LANDMARKS := [["rock", Vector3(-34, 0, -3)], ["rock", Vector3(-33, 0, 20)], ["tree", Vector3(-28, 0, 40)], ["rock", Vector3(30, 0, 38)],
+    ["tree", Vector3(60, 0, 42)], ["rock", Vector3(80, 0, 20)], ["tree", Vector3(86, 0, 10)], ["pile", Vector3(20, 0, 45)], ["pile", Vector3(-20, 0, 32)],
     ["tree", Vector3(75, 0, 35)], ["rock", Vector3(-36, 0, 2)], ["pile", Vector3(45, 0, 40)], ["tree", Vector3(-25, 0, 14)], ["rock", Vector3(5, 0, 40)]]
 const ALTAR_SIGN := Vector3(-18.7, 0, 3.0)
+# 碼頭(訂單):村外西北,貨船停在探險範圍北緣的海邊;交貨格 DOCK_SPOT 在棧橋上
+const DOCK_SPOT := Vector3(-30.0, 0, -7.4)
+const BOAT_SPOT := Vector3(-30.0, 0, -11.2)
+# 搬運工送訂單要穿過西門與武器店院子的西缺口:村裡 -> 碼頭的中途點(反向就倒過來走)
+const WEST_ROUTE := [Vector3(-9.0, 0, 3.6), Vector3(-11.4, 0, 2.5), Vector3(-14.2, 0, 2.5), Vector3(-22.2, 0, 2.0), Vector3(-25.0, 0, 2.0)]
+# 旅行商人營地:村外東邊雪原(最東那塊擴建區 x 68.8 之外、空氣牆 90 之內)
+const MERCHANT_CAMP := Vector3(80.0, 0, -6.0)
+const MERCHANT_SPOT := Vector3(80.0, 0, -3.8)
+const REPAIRMAN_POST := Vector3(-10.5, 0, 2.4)   # 修理工沒事時站的崗位(西門內側走道)
 const CUSTOMER_DOOR_Z := Vector2(9.2, 11.2)   # 每塊地東柵欄上的「顧客門」(只開視覺柵欄,隱形牆留著);顧客從門外走進來、買完走回門外
 const CUSTOMER_DOOR_OUT := 1.5                # 顧客出生 / 離開點在柵欄外幾格
 const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
@@ -161,6 +178,11 @@ var king_eaten := 0                     # 這次王在村裡吃了幾個幫手(�
 var king_wrecked := 0                   # 這次王拆了幾棟建築
 var pending_chest := {}                 # 打開的寶箱內容(三選一面板開著)
 var _insured: Array = []                # 保險券:[{role, at}] 到時間重新生幫手
+var orders: OrderLogic                  # 訂單(碼頭的貨船)
+var dock: OrderDock = null              # 碼頭的交貨格
+var dock_sign: Label3D = null           # 貨船上的訂單牌
+var merchant: Node3D = null             # 旅行商人(人物)
+var _order_text_shown := ""
 var offline_sec := 0                    # 這次讀檔算出的離線秒數
 var _offline_pending := 0               # 還沒領的離線收益(面板開著)
 
@@ -178,6 +200,8 @@ func _ready() -> void:
     world.add_child(scenery)
     _build_terrain()
     _build_outside()
+    _build_dock()
+    _build_merchant_camp()
     fish_area = FishArea.new()
     fish_area.name = "FishArea"
     fish_area.rect = Rect2(-8.0, -11.0, 16.0, 7.0)
@@ -196,6 +220,13 @@ func _ready() -> void:
     trash_pad.name = "TrashPad"
     trash_pad.position = TRASH_SPOT
     world.add_child(trash_pad)
+    orders = OrderLogic.from_config(GameData.section("orders"))
+    dock = OrderDock.new()
+    dock.name = "OrderDock"
+    dock.level = self
+    dock.logic = orders
+    dock.position = DOCK_SPOT
+    world.add_child(dock)
     _add_counter("fillet_counter")
     for def in GameData.shop():
         var id := str(def["id"])
@@ -223,6 +254,7 @@ func _ready() -> void:
     hud.name = "Hud"
     hud.bind_player(player)
     hud.action.connect(_on_hud_action)
+    hud.map_source = map_data
     add_child(hud)
     autosave_sec = maxf(float(GameData.config().get("autosaveSec", 10.0)), 1.0)
     _autosave_timer = autosave_sec
@@ -242,6 +274,8 @@ func _ready() -> void:
     EventBus.sale_made.connect(func(_item: String, _count: int, cash: int) -> void: offline.record(GameState.play_time, cash))
     if _offline_pending > 0:
         _show_offline()
+    else:
+        _maybe_show_changelog()
     guide = Guide.new()
     guide.name = "Guide"
     guide.level = self
@@ -353,6 +387,51 @@ func _build_outside() -> void:
     shopkeeper.add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
 
 
+## 碼頭:棧橋 + 貨船(船身 / 船頭 / 桅杆 / 帆 / 旗)停在海邊(探險範圍北緣外的一片海),訂單牌掛在船上
+func _build_dock() -> void:
+    var wood := Color(0.45, 0.3, 0.2)
+    var plank := Color(0.82, 0.62, 0.4)
+    var sail := Color(0.86, 0.92, 0.96)
+    scenery.add_box(Vector3(16.0, 0.12, 6.0), Color(0.2, 0.45, 0.85), Vector3(BOAT_SPOT.x, -0.04, -14.6))   # 海
+    scenery.add_box(Vector3(6.0, 0.12, 3.2), plank, Vector3(DOCK_SPOT.x, 0.0, DOCK_SPOT.z - 1.2))        # 棧橋
+    for x in [DOCK_SPOT.x - 2.6, DOCK_SPOT.x + 2.6]:
+        scenery.add_cylinder(0.14, 1.0, wood, Vector3(x, 0.5, DOCK_SPOT.z - 2.6))
+    scenery.add_box(Vector3(5.2, 1.0, 2.4), wood, BOAT_SPOT + Vector3(0, 0.5, 0))                         # 船身
+    scenery.add_box(Vector3(5.6, 0.2, 2.8), plank, BOAT_SPOT + Vector3(0, 1.05, 0))                        # 甲板
+    scenery.add_box(Vector3(1.0, 1.2, 1.4), wood, BOAT_SPOT + Vector3(-3.0, 0.6, 0))                      # 船頭
+    scenery.add_cylinder(0.12, 3.6, wood, BOAT_SPOT + Vector3(0.4, 2.9, 0))                               # 桅杆
+    scenery.add_box(Vector3(2.0, 1.8, 0.1), sail, BOAT_SPOT + Vector3(0.4, 2.8, 0.2))                     # 帆
+    scenery.add_box(Vector3(0.6, 0.3, 0.06), Color(0.55, 0.18, 0.15), BOAT_SPOT + Vector3(0.7, 4.5, 0))   # 旗
+    dock_sign = VisualFactory.label(tr("SIGN_DOCK"), BOAT_SPOT + Vector3(0, 5.2, 0), 44, Color(1.0, 0.95, 0.8))
+    world.add_child(dock_sign)
+
+
+## 旅行商人營地:帳篷 + 營火 + 商人(人物模型)+ 招牌;牌子(map_cash / map_fish / merchant_pelts)在帳篷前
+func _build_merchant_camp() -> void:
+    var wood := Color(0.45, 0.3, 0.2)
+    var cloth := Color(0.55, 0.18, 0.15)
+    var stone := Color(0.6, 0.6, 0.65)
+    var c := MERCHANT_CAMP
+    scenery.add_box(Vector3(3.4, 2.0, 3.0), cloth, c + Vector3(0, 1.0, 0))          # 帳篷
+    scenery.add_box(Vector3(3.8, 0.3, 3.4), wood, c + Vector3(0, 2.15, 0))          # 帳篷頂
+    scenery.add_cylinder(0.14, 2.9, wood, c + Vector3(0, 1.45, 1.6))                # 門柱
+    scenery.add_cylinder(0.8, 0.2, stone, c + Vector3(3.5, 0.1, 1.5))               # 營火石圈
+    scenery.add_box(Vector3(0.5, 0.5, 0.5), Color(0.9, 0.6, 0.3), c + Vector3(3.5, 0.45, 1.5))   # 火
+    scenery.add_box(Vector3(0.9, 0.2, 0.2), wood, c + Vector3(3.5, 0.25, 1.5))
+    scenery.add_box(Vector3(1.4, 0.8, 0.8), wood, c + Vector3(-3.0, 0.4, 1.2))     # 貨箱
+    world.add_child(VisualFactory.label(tr("SIGN_MERCHANT"), c + Vector3(0, 3.2, 0), 44, Color(1.0, 0.95, 0.8)))
+    merchant = Node3D.new()
+    merchant.name = "Merchant"
+    merchant.position = MERCHANT_SPOT
+    world.add_child(merchant)
+    var scene := ModelLibrary.character(ModelLibrary.shopkeeper_model())
+    if scene != null:
+        merchant.add_child(CharacterModel.create(scene, ModelLibrary.character_height()))
+    else:
+        merchant.add_child(VisualFactory.capsule(0.4, 1.6, Color(0.5, 0.25, 0.2), Vector3(0, 0.9, 0)))
+    merchant.add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
+
+
 ## 擴建區(annex):第 k 塊(1 起)。拆掉它西邊那面牆(k = 1 是主村的整面東牆 east_walls,k >= 2 是前一塊的東牆),
 ## 往東蓋沙地、柵欄、隱形牆、新的水區與深水池;東牆(隱形牆 + 柵欄)另外記著,下一塊擴建時拆。建築由 _spawn_unlock 依 UNLOCKS 生。
 func _build_annex(k: int = 1) -> void:
@@ -415,6 +494,7 @@ func _build_annex(k: int = 1) -> void:
         annex = batch
     _apply_quality()
     _refresh_tower_pads()
+    _apply_customer_growth()
 
 
 ## 擴建了幾次(0 = 只有主村)
@@ -456,11 +536,32 @@ func is_expanded() -> bool:
     return annex != null
 
 
-## 幫手從 from 走到 to 要經過的中途點(不含終點)。擴建後東牆整段拆掉,主村與 annex 之間沒有牆,所以目前永遠是空陣列;
-## 留著給 Helper.go_to 用,以後若加了要繞的牆在這裡補規則。
-func route(_from: Vector3, _to: Vector3) -> Array[Vector3]:
+## 幫手從 from 走到 to 要經過的中途點(不含終點)。村裡(含擴建區)之間沒有牆,直線走;
+## 要去村外西邊的碼頭(x < -23.4,搬運工送訂單)就先繞西門、穿過武器店院子的西缺口(WEST_ROUTE),回來倒著走。
+func route(from: Vector3, to: Vector3) -> Array[Vector3]:
     var out: Array[Vector3] = []
+    var from_zone := _west_zone(from)
+    var to_zone := _west_zone(to)
+    if from_zone == to_zone:
+        return out
+    var lo := mini(from_zone, to_zone)
+    var hi := maxi(from_zone, to_zone)
+    var order := range(WEST_ROUTE.size()) if to_zone > from_zone else range(WEST_ROUTE.size() - 1, -1, -1)
+    for i in order:
+        var p: Vector3 = WEST_ROUTE[i]
+        var z := _west_zone(p)
+        if z >= lo and z <= hi:
+            out.append(p)
     return out
+
+
+## 西邊三段:0 村裡(x >= -12.6)、1 武器店院子(-23.4 ~ -12.6)、2 村外雪原(x < -23.4)
+static func _west_zone(p: Vector3) -> int:
+    if p.x < -23.4:
+        return 2
+    if p.x < -12.6:
+        return 1
+    return 0
 
 
 ## 卡住時往哪邊滑(沒有門了,就回原點,Helper 改往目的地的 z 方向滑)
@@ -577,6 +678,13 @@ func _build_south_block() -> void:
     annexes.append(batch)   # 算第四次擴建(expansion_level 4:tower_25 / 26 的牌、熊的南入口)
     _apply_quality()
     _refresh_tower_pads()
+    _apply_customer_growth()
+
+
+## 顧客成長:每座櫃台套上目前的擴建次數(顧客更多、來得更快、每人要得更多)
+func _apply_customer_growth() -> void:
+    for c in counters:
+        c.apply_expansion(expansion_level())
 
 
 func has_south_block() -> bool:
@@ -669,6 +777,192 @@ static func customer_door(area: int) -> Vector3:
     return Vector3(fence_x + CUSTOMER_DOOR_OUT, 0.0, (CUSTOMER_DOOR_Z.x + CUSTOMER_DOOR_Z.y) / 2.0)
 
 
+## --- 訂單(碼頭的貨船)---
+
+## 可以要哪些貨:有櫃台在賣的 {item: 售價}
+func order_menu() -> Dictionary:
+    var menu := {}
+    for c in counters:
+        menu[c.logic.item_id] = c.logic.price
+    return menu
+
+
+## 貼一張新訂單(沒櫃台就不貼);回傳訂單
+func post_order() -> Dictionary:
+    var o := orders.generate(order_menu(), expansion_level(), randf())
+    if o.is_empty():
+        return {}
+    EventBus.order_posted.emit(o)
+    EventBus.notice.emit(tr("NOTICE_ORDER_NEW") % [order_text(), int(o["time_left"])])
+    _refresh_order_text()
+    return o
+
+
+## 訂單內容文字:「魚片 2/6、烤魚 0/6」
+func order_text() -> String:
+    if not orders.has_order():
+        return ""
+    var parts: Array[String] = []
+    for item in orders.order["lines"]:
+        var l: Dictionary = orders.order["lines"][item]
+        parts.append(tr("HUD_ORDER_LINE") % [GameData.item_name(str(item)), int(l["done"]), int(l["need"])])
+    return "、".join(parts)
+
+
+## 送齊了(OrderDock 叫):現金進錢包 + 附贈(毛皮 / 券)、通知、存檔
+func order_completed() -> void:
+    var r := orders.complete()
+    if r.is_empty():
+        return
+    var reward := int(r["reward"])
+    GameState.complete_order(reward)
+    var bonus: Dictionary = r.get("bonus", {})
+    var bonus_text := ""
+    match str(bonus.get("kind", "")):
+        "pelt":
+            GameState.add_resource("pelt", int(bonus.get("amount", 0)))
+            bonus_text = tr("BONUS_pelt") % int(bonus.get("amount", 0))
+        "coupon":
+            var key := str(bonus.get("coupon", "insurance"))
+            if key == "calm":
+                bears.calm(king_logic.calm_sec())
+            else:
+                GameState.add_coupon(key, 1)
+            bonus_text = tr("BONUS_coupon")
+    EventBus.items_moved.emit("cash", "cash", dock.global_position + Vector3(0, 1.6, 0), player.global_position, 1)
+    EventBus.order_completed.emit(r)
+    EventBus.notice.emit(tr("NOTICE_ORDER_DONE") % [reward, bonus_text])
+    _refresh_order_text()
+    save_now()
+
+
+## 每幀:教學做完後才開始倒數;到時間貼新訂單 / 逾時消失
+func _tick_orders(delta: float) -> void:
+    if orders == null or GameState.tutorial_step < GuideLogic.tutorial_steps():
+        return
+    match orders.tick(delta, expansion_level()):
+        "new":
+            post_order()
+        "expired":
+            EventBus.order_expired.emit()
+            EventBus.notice.emit(tr("NOTICE_ORDER_EXPIRED"))
+            _refresh_order_text()
+    if orders.has_order():
+        var t := tr("HUD_ORDER") % [order_text(), int(ceil(float(orders.order["time_left"]))), int(orders.order["reward"])]
+        if t != _order_text_shown:
+            _order_text_shown = t
+            hud.set_order(t)
+    elif _order_text_shown != "":
+        _order_text_shown = ""
+        hud.set_order("")
+
+
+func _refresh_order_text() -> void:
+    if dock_sign != null:
+        dock_sign.text = tr("SIGN_DOCK") + ("\n" + order_text() if orders.has_order() else "")
+
+
+## --- 修理工 ---
+
+## 這個建築(工作站 / 守衛塔)現在是不是廢墟
+func is_wrecked(n: Node3D) -> bool:
+    if n == null or not is_instance_valid(n):
+        return false
+    if n is Station:
+        return (n as Station).is_broken()
+    if n is Tower:
+        return (n as Tower).is_broken()
+    return false
+
+
+## 離 pos 最近的廢墟(工作站或塔);沒有回 null
+func nearest_wrecked(pos: Vector3) -> Node3D:
+    var best: Node3D = null
+    var best_d := INF
+    for s in stations:
+        if s.is_broken() and s.global_position.distance_to(pos) < best_d:
+            best_d = s.global_position.distance_to(pos)
+            best = s
+    for t in towers:
+        if t.is_broken() and t.global_position.distance_to(pos) < best_d:
+            best_d = t.global_position.distance_to(pos)
+            best = t
+    return best
+
+
+## 修理工站哪裡修:建築南側一格
+func repair_spot(n: Node3D) -> Vector3:
+    return n.global_position + Vector3(0, 0, 1.6)
+
+
+## 修理工修好了:走修復牌的免費付清(同一套 purchased 流程蓋回去);回傳有沒有修成
+func repair_free(n: Node3D, by: Node3D) -> bool:
+    if not is_wrecked(n):
+        return false
+    var pad: PricePad = null
+    var name_key := ""
+    if n is Station:
+        pad = repair_pad_for((n as Station).spot_id)
+        name_key = (n as Station).display_name_key()
+    elif n is Tower:
+        pad = tower_pad_for((n as Tower).id)
+        name_key = "STATION_tower"
+    if pad == null or not pad.complete_free():
+        return false
+    EventBus.building_repaired.emit(n, by)
+    EventBus.notice.emit(tr("NOTICE_REPAIRED_BY") % tr(name_key))
+    return true
+
+
+## --- 旅行商人 / 地圖 ---
+
+## 地圖碎片的兩塊牌(現金 / 稀有魚)同步成已買的片數
+func _sync_map_pads() -> void:
+    for id in ["map_cash", "map_fish"]:
+        var p: PricePad = price_pads.get(id, null)
+        if p != null:
+            p.sync_buys(GameState.map_pieces)
+
+
+## 地圖頁的資料(Hud.show_map 用):世界矩形 / 地點 / 玩家位置 / 碎片數
+func map_data() -> Dictionary:
+    var rects := []
+    rects.append({"rect": Rect2(-12.6, -11.2, 25.2, 23.8), "color": Color(0.88, 0.76, 0.6), "label": "MAP_VILLAGE"})
+    rects.append({"rect": Rect2(-23.4, -2.9, 10.8, 9.8), "color": Color(0.8, 0.62, 0.42), "label": "MAP_SHOP"})
+    for k in mini(expansion_level(), ANNEX_RECTS.size()):
+        rects.append({"rect": ANNEX_RECTS[k], "color": Color(0.88, 0.76, 0.6), "label": ""})
+    if south_block != null:
+        rects.append({"rect": SOUTH_RECT, "color": Color(0.88, 0.76, 0.6), "label": ""})
+    for fa in fish_areas:
+        rects.append({"rect": fa.rect, "color": Color(0.35, 0.65, 0.95), "label": ""})
+    var points := []
+    points.append({"pos": Vector2(DOCK_SPOT.x, DOCK_SPOT.z), "color": Color(0.45, 0.3, 0.2), "label": "MAP_DOCK"})
+    points.append({"pos": Vector2(MERCHANT_CAMP.x, MERCHANT_CAMP.z), "color": Color(0.55, 0.18, 0.15), "label": "MAP_MERCHANT"})
+    var pp := player.global_position if player != null and is_instance_valid(player) else PLAYER_SPAWN
+    return {"world": EXPLORE_RECT, "rects": rects, "points": points, "player": Vector2(pp.x, pp.z), "pieces": GameState.map_pieces,
+            "total": GameState.MAP_PIECES, "unknown": [Rect2(90.0, -12.0, 30.0, 62.0), Rect2(-40.0, 50.0, 160.0, 14.0)]}
+
+
+## 地圖頁的「回村」:拼齊三片才有;把玩家傳回主村出生點
+func map_home() -> bool:
+    if not GameState.has_full_map() or player == null:
+        return false
+    player.global_position = PLAYER_SPAWN
+    player.velocity = Vector3.ZERO
+    EventBus.notice.emit(tr("NOTICE_MAP_HOME"))
+    return true
+
+
+## 新版內容:更新後第一次開(有存檔的老玩家)彈面板;新玩家直接記成看過
+func _maybe_show_changelog() -> void:
+    var latest := GameData.latest_version()
+    if latest == "":
+        return
+    if loaded_from_save and Settings.seen_version != latest:
+        hud.show_changelog()
+    Settings.mark_version_seen(latest)
+
+
 ## --- 熊王祭壇:戰利品牆 ---
 
 ## 武器店屋頂一排熊頭骨:打死王幾次放幾顆(最多 trophyCap)
@@ -742,6 +1036,7 @@ func _add_counter(id: String) -> Counter:
     c.position = COUNTER_SPOTS.get(id, Vector3(0, 0, 8.5))
     c.money_pad = money_pad
     c.door = customer_door_for(c.position)
+    c.expansion = expansion_level()   # 擴建後才蓋的櫃台一出生就套顧客成長
     world.add_child(c)
     counters.append(c)
     _assign_cashiers()
@@ -1233,11 +1528,20 @@ func find_station_with_output(item: String) -> Station:
     return null
 
 
-## 給 PorterPlanner 的目的地清單:櫃台(賣什麼)+ 工作站原料(吃什麼、產什麼、成品堆滿停工沒),帶 node 方便對回去;被拆的工作站不算
+## 給 PorterPlanner 的目的地清單:櫃台(賣什麼)+ 工作站原料(吃什麼、產什麼、成品堆滿停工沒)+ 碼頭的訂單(每種貨一筆,當作櫃台),
+## 帶 node 方便對回去;被拆的工作站不算
 func porter_dests() -> Array:
     var out := []
     for c in counters:
         out.append({"id": c.get_instance_id() * 4, "node": c, "kind": "counter", "item": c.logic.item_id, "stock": c.logic.stock, "cap": c.logic.stock_cap})
+    if dock != null and orders != null and orders.has_order():
+        var i := 0
+        for item in orders.wanted_items():
+            if str(item) == OrderLogic.RARE_ITEM:
+                continue   # 稀有魚是玩家的資源,搬運工搬不了
+            var l: Dictionary = orders.order["lines"][item]
+            out.append({"id": dock.get_instance_id() * 4 + i, "node": dock, "kind": "counter", "item": str(item), "stock": int(l["done"]), "cap": int(l["need"])})
+            i += 1
     for s in stations:
         if s.is_broken():
             continue
@@ -1321,6 +1625,13 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
                 EventBus.notice.emit(tr("NOTICE_CONVEYOR_BUILT"))
         "coupon":
             pass   # GameState.apply_purchase 已經加券
+        "map_piece":
+            _sync_map_pads()
+            EventBus.map_piece_bought.emit(GameState.map_pieces)
+            EventBus.notice.emit(tr("NOTICE_MAP_FULL") if GameState.has_full_map() else tr("NOTICE_MAP_PIECE") % [GameState.map_pieces, GameState.MAP_PIECES])
+        "resource":
+            EventBus.items_moved.emit("loot", str(effect.get("kind", "pelt")), merchant.global_position + Vector3(0, 1.4, 0) if merchant != null else player.global_position,
+                    player.stack_top(), int(effect.get("amount", 1)))
     if str(effect.get("type", "")) == "unlock" and str(effect.get("target", "")) == "ice_traps":
         EventBus.notice.emit(tr("NOTICE_ICE_TRAPS"))
 
@@ -1364,6 +1675,7 @@ func snapshot() -> Dictionary:
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d, "towers": towers_d,
         "loot": loot_d, "traps": traps_d, "baits": baits_d, "belts": belts_d, "bear": bears.snapshot() if bears != null else {},
         "income_rate": offline.rate(GameState.play_time) if offline != null else 0.0,
+        "orders": orders.snapshot() if orders != null else {},
     }
 
 
@@ -1448,6 +1760,11 @@ func restore_world(d: Dictionary) -> void:
             if typeof(belts_d.get(c.id, null)) == TYPE_ARRAY:
                 c.restore(belts_d[c.id])
     _refresh_tower_pads()
+    _sync_map_pads()
+    var od = d.get("orders", {})
+    if orders != null and typeof(od) == TYPE_DICTIONARY:
+        orders.restore(od)
+        _refresh_order_text()
     var bear_d = d.get("bear", {})
     if bears != null and typeof(bear_d) == TYPE_DICTIONARY:
         bears.restore(bear_d)
@@ -1515,6 +1832,7 @@ func _claim_offline() -> void:
 func _physics_process(delta: float) -> void:
     GameState.play_time += delta
     hud.income_rate = offline.rate(GameState.play_time)
+    _tick_orders(delta)
     if not _insured.is_empty() and GameState.play_time >= float(_insured[0].get("at", 0.0)):
         var e: Dictionary = _insured.pop_front()
         spawn_helper(str(e.get("role", "fisher")))
@@ -1539,6 +1857,8 @@ func _on_hud_action(id: String) -> void:
             new_game()
         "offline_claim":
             _claim_offline()
+        "map_home":
+            map_home()
         _:
             if id.begins_with("choice:"):
                 _claim_chest(int(id.trim_prefix("choice:")))

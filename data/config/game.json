@@ -20,7 +20,19 @@
     "spawnIntervalSec": 2.0,
     "serveIntervalSec": 0.35,
     "speed": 3.5,
-    "wantWeights": [45, 25, 15, 10, 5]
+    "wantWeights": [
+      45,
+      25,
+      15,
+      10,
+      5
+    ],
+    "perExpansion": {
+      "max": 1,
+      "intervalMult": 0.85,
+      "wantShift": 1,
+      "wantMax": 9
+    }
   },
   "autosaveSec": 10,
   "offline": {
@@ -43,6 +55,11 @@
     "cashier": {
       "speed": 5.0,
       "capacity": 1
+    },
+    "repairman": {
+      "speed": 4.8,
+      "capacity": 1,
+      "repairSec": 15.0
     }
   },
   "models": {
@@ -56,7 +73,8 @@
     "roles": {
       "fisher": "character-male-b",
       "porter": "character-male-f",
-      "cashier": "character-male-c"
+      "cashier": "character-male-c",
+      "repairman": "character-male-d"
     },
     "customers": [
       "character-female-a",
@@ -68,7 +86,11 @@
     ],
     "waterFish": {
       "dir": "res://assets/models/game/fish/",
-      "files": ["Fish1.fbx", "Fish2.fbx", "Fish3.fbx"],
+      "files": [
+        "Fish1.fbx",
+        "Fish2.fbx",
+        "Fish3.fbx"
+      ],
       "length": 0.9,
       "yawDeg": 0
     }
@@ -79,14 +101,37 @@
     "firstDelaySec": 5,
     "packMaxEats": 2,
     "busyRadius": 6.0,
-    "intervalSec": [35, 55],
-    "intervalMin": [30, 40],
+    "intervalSec": [
+      35,
+      55
+    ],
+    "intervalMin": [
+      30,
+      40
+    ],
     "outmatchBears": 2,
     "rampStartSec": 180,
     "rampSec": 300,
     "hpBase": 30,
     "hpPerMin": 10,
-    "packChances": [[4, 0.10], [3, 0.30], [2, 0.50], [1, 0.10]],
+    "packChances": [
+      [
+        4,
+        0.1
+      ],
+      [
+        3,
+        0.3
+      ],
+      [
+        2,
+        0.5
+      ],
+      [
+        1,
+        0.1
+      ]
+    ],
     "king": {
       "atSec": 480,
       "respawnSec": 300,
@@ -117,10 +162,17 @@
         "cashSec": 90,
         "cashMin": 100,
         "pelts": 5,
-        "couponWeights": [2, 2, 1],
+        "couponWeights": [
+          2,
+          2,
+          1
+        ],
         "calmSec": 120,
         "insuranceReturnSec": 10,
-        "milestones": [5, 10],
+        "milestones": [
+          5,
+          10
+        ],
         "trophyCap": 10
       }
     },
@@ -129,14 +181,66 @@
     "biteSec": 8.0,
     "biteRadius": 1.4,
     "panicRadius": 2.6,
-    "entries": [[-16, -8], [16, -8]],
-    "entriesExpanded": [[-16, -8], [35, -8]],
-    "entriesExpanded2": [[-16, -8], [54, -8]],
-    "entriesExpanded3": [[-16, -8], [72.6, -8]],
-    "entriesExpanded4": [[-16, -8], [72.6, -8], [0, 34]],
+    "entries": [
+      [
+        -16,
+        -8
+      ],
+      [
+        16,
+        -8
+      ]
+    ],
+    "entriesExpanded": [
+      [
+        -16,
+        -8
+      ],
+      [
+        35,
+        -8
+      ]
+    ],
+    "entriesExpanded2": [
+      [
+        -16,
+        -8
+      ],
+      [
+        54,
+        -8
+      ]
+    ],
+    "entriesExpanded3": [
+      [
+        -16,
+        -8
+      ],
+      [
+        72.6,
+        -8
+      ]
+    ],
+    "entriesExpanded4": [
+      [
+        -16,
+        -8
+      ],
+      [
+        72.6,
+        -8
+      ],
+      [
+        0,
+        34
+      ]
+    ],
     "length": 2.6,
     "drop": "pelt",
-    "dropCount": [1, 2]
+    "dropCount": [
+      1,
+      2
+    ]
   },
   "tower": {
     "hp": 800,
@@ -148,18 +252,63 @@
     "biteSec": 2.5,
     "aggroRadius": 7.0,
     "height": 3.0,
-    "strong": {"hp": 2000, "damage": 25}
+    "strong": {
+      "hp": 2000,
+      "damage": 25
+    }
   },
   "weapon": {
     "attackIntervalSec": 0.5,
     "shopBaseLevels": 3,
     "levels": [
-      {"damage": 10, "range": 1.8, "model": {"file": "res://assets/models/game/props/tool-hammer.glb", "length": 0.7}},
-      {"damage": 20, "range": 1.8, "model": {"file": "res://assets/models/game/props/tool-axe.glb", "length": 0.9}},
-      {"damage": 35, "range": 2.0, "model": {"file": "res://assets/models/game/props/tool-axe-upgraded.glb", "length": 1.0}},
-      {"damage": 55, "range": 2.1, "model": {"file": "res://assets/models/game/props/tool-pickaxe.glb", "length": 1.0}},
-      {"damage": 80, "range": 2.2, "model": {"file": "res://assets/models/game/props/tool-pickaxe-upgraded.glb", "length": 1.05}},
-      {"damage": 120, "range": 2.4, "model": {"file": "res://assets/models/game/props/tool-pickaxe-upgraded.glb", "length": 1.25}}
+      {
+        "damage": 10,
+        "range": 1.8,
+        "model": {
+          "file": "res://assets/models/game/props/tool-hammer.glb",
+          "length": 0.7
+        }
+      },
+      {
+        "damage": 20,
+        "range": 1.8,
+        "model": {
+          "file": "res://assets/models/game/props/tool-axe.glb",
+          "length": 0.9
+        }
+      },
+      {
+        "damage": 35,
+        "range": 2.0,
+        "model": {
+          "file": "res://assets/models/game/props/tool-axe-upgraded.glb",
+          "length": 1.0
+        }
+      },
+      {
+        "damage": 55,
+        "range": 2.1,
+        "model": {
+          "file": "res://assets/models/game/props/tool-pickaxe.glb",
+          "length": 1.0
+        }
+      },
+      {
+        "damage": 80,
+        "range": 2.2,
+        "model": {
+          "file": "res://assets/models/game/props/tool-pickaxe-upgraded.glb",
+          "length": 1.05
+        }
+      },
+      {
+        "damage": 120,
+        "range": 2.4,
+        "model": {
+          "file": "res://assets/models/game/props/tool-pickaxe-upgraded.glb",
+          "length": 1.25
+        }
+      }
     ]
   },
   "upgrades": {
@@ -194,5 +343,39 @@
     "speed": 3.0,
     "spacing": 0.8,
     "height": 2.2
+  },
+  "orders": {
+    "firstDelaySec": 30,
+    "intervalSec": 150,
+    "intervalMult": 0.85,
+    "minIntervalSec": 60,
+    "timeLimitSec": 240,
+    "kinds": [
+      2,
+      3
+    ],
+    "perKindBase": 6,
+    "perKindPerExpansion": 3,
+    "rewardMult": 2.0,
+    "rareChance": 0.25,
+    "rarePrice": 60,
+    "bonusPeltChance": 0.5,
+    "bonusPelts": 3,
+    "exclude": [
+      "sweater"
+    ]
+  },
+  "rareFish": {
+    "intervalSec": [
+      60,
+      90
+    ],
+    "lifetimeSec": 150,
+    "catchRadius": 2.0,
+    "catchSec": 2.0,
+    "speedMult": 1.8
+  },
+  "merchant": {
+    "mapPieces": 3
   }
 }

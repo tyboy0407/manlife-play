@@ -121,7 +121,29 @@ func _complete(payer: Carrier) -> void:
         _disable()
     else:
         _update_label()
-        _blocked[payer.get_instance_id()] = true
+        if payer != null:
+            _blocked[payer.get_instance_id()] = true
+
+
+## 不扣錢直接付清這一次(修理工修好建築:走同一套 purchased 流程讓關卡蓋回去);買滿 / 藏著的牌回 false
+func complete_free() -> bool:
+    if logic.is_exhausted():
+        return false
+    logic.pay(logic.remaining)
+    EventBus.purchase_progress.emit(logic.id, logic.remaining)
+    _complete(null)
+    return true
+
+
+## 把買過幾次同步成 n(旅行商人的地圖碎片兩塊牌擇一付:買了一塊另一塊跟著跳到下一片)
+func sync_buys(n: int) -> void:
+    logic.set_buys(n)
+    _blocked.clear()
+    if logic.is_exhausted():
+        _disable()
+    else:
+        _enable()
+        _update_label()
 
 
 func _disable() -> void:

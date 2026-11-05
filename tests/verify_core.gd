@@ -17,6 +17,9 @@ func _ready() -> void:
     _test_trap_and_belt()
     _test_offline()
     _test_kitchen()
+    _test_orders()
+    _test_rare_fish()
+    _test_customer_growth()
     _test_king()
     _test_bear()
     _test_tower()
@@ -84,8 +87,21 @@ func _test_data() -> void:
     for i in 26:
         costs_expected.append(1)
     costs_expected.append_array([1, 3])   # 熊王祭壇:保險券 1 牙、冰封夾 3 牙
-    _check(shop.size() == 94 and costs == costs_expected,
-            "shop.json:九十四塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊)%s" % str(costs))
+    costs_expected.append_array([300, 500, 3, 300])   # 修理工 $300、地圖碎片(現金 $500 / 稀有魚 3 條)、毛皮補給 $300
+    _check(shop.size() == 98 and costs == costs_expected,
+            "shop.json:九十八塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊)%s" % str(costs))
+    var mc := GameData.purchase("map_cash")
+    var mf := GameData.purchase("map_fish")
+    var mcl := PurchaseLogic.from_def(mc)
+    var mfl := PurchaseLogic.from_def(mf)
+    _check(str(mc.get("effect", {}).get("type", "")) == "map_piece" and mcl.costs == [500, 1500, 5000] and str(mf.get("currency", "")) == "rarefish"
+            and mfl.costs == [3, 5, 8] and str(GameData.purchase("merchant_pelts").get("effect", {}).get("kind", "")) == "pelt"
+            and str(GameData.purchase("hire_repairman").get("effect", {}).get("role", "")) == "repairman" and int(GameData.purchase("hire_repairman").get("expandBuys", 0)) == 1
+            and GameData.helper("repairman").has("repairSec") and ModelLibrary.role_model("repairman") != "",
+            "旅行商人:地圖碎片兩塊牌(現金 500 / 1500 / 5000、稀有魚 3 / 5 / 8)、毛皮補給;修理工牌 $300(擴建 +1)、設定與人物")
+    _check(GameData.section("orders").has("intervalSec") and GameData.section("rareFish").has("catchSec") and GameData.section("customers").get("perExpansion", {}).has("wantShift")
+            and GameData.changelog().size() >= 2 and GameData.latest_version() != "" and GameData.changelog()[0].get("notes", []).size() >= 3,
+            "orders / rareFish / customers.perExpansion 設定;changelog.json 至少兩版、最新版 %s" % GameData.latest_version())
     var pc := GameData.purchase("upgrade_porter_cap")
     _check(str(pc.get("effect", {}).get("key", "")) == "porter_cap" and int(pc.get("maxBuys", 0)) == 3 and is_equal_approx(float(pc.get("costMult", 0.0)), 2.0)
             and str(GameData.purchase("trap_1").get("effect", {}).get("type", "")) == "trap" and str(GameData.purchase("bait_4").get("effect", {}).get("target", "")) == "bait_4"
@@ -121,6 +137,97 @@ func _test_data() -> void:
     _check(GameData.section("upgrades").has("worker_speed") and GameData.section("upgrades").has("pile_cap"), "upgrades 設定")
     _check(GameData.section("bear").has("biteSec") and GameData.section("weapon").get("levels", []).size() == 6
             and ModelLibrary.shopkeeper_model() != "", "bear / weapon 設定:咬的秒數、六級武器、武器店老闆的人物")
+
+
+## --- 訂單 ---
+
+func _test_orders() -> void:
+    var o := OrderLogic.from_config({"firstDelaySec": 30, "intervalSec": 150, "intervalMult": 0.85, "minIntervalSec": 60, "timeLimitSec": 240,
+            "kinds": [2, 3], "perKindBase": 6, "perKindPerExpansion": 3, "rewardMult": 2.0, "rareChance": 0.25, "rarePrice": 60, "bonusPeltChance": 0.5, "bonusPelts": 3,
+            "exclude": ["sweater"]})
+    o.rng.seed = 7
+    _near(o.interval(0), 150.0, "訂單間隔:沒擴建 150 秒", 0.01)
+    _near(o.interval(2), 150.0 * 0.85 * 0.85, "擴建兩次 × 0.85²", 0.01)
+    _near(o.interval(10), 60.0, "最低 60 秒", 0.01)
+    _check(o.per_kind(0) == 6 and o.per_kind(3) == 15 and o.kinds_range() == Vector2i(2, 3), "每種 6 件、每擴建一次 +3;2 ~ 3 種")
+    var menu := {"fillet": 2, "grilled": 5, "soup": 15, "sweater": 200}
+    _check(o.pool(menu) == ["fillet", "grilled", "soup"], "可要的貨:櫃台賣的,毛衣除外")
+    _check(o.generate({}, 0).is_empty() and not o.has_order(), "沒櫃台不貼訂單")
+    var od := o.generate(menu, 1, 1.0)
+    var kinds: int = od["lines"].size()
+    var total := 0
+    var ok_lines := true
+    for item in od["lines"]:
+        var l: Dictionary = od["lines"][item]
+        if int(l["need"]) != 9 or int(l["done"]) != 0 or int(l["price"]) != int(menu[item]) or str(item) == "sweater":
+            ok_lines = false
+        total += int(l["need"]) * int(l["price"])
+    _check(o.has_order() and kinds >= 2 and kinds <= 3 and ok_lines and int(od["total"]) == total and int(od["reward"]) == total * 2
+            and is_equal_approx(float(od["time_left"]), 240.0) and od["bonus"].has("kind"),
+            "貼訂單:%d 種各 9 件(擴建一次)、總價 $%d、獎勵 ×2 = $%d、限時 240 秒、附贈 %s" % [kinds, total, int(od["reward"]), str(od["bonus"])])
+    var first: String = o.wanted_items()[0]
+    _check(o.need_of(first) == 9 and o.need_of("nope") == 0 and o.deliver(first, 4) == 4 and o.need_of(first) == 5 and o.deliver(first, 20) == 5
+            and o.need_of(first) == 0 and not o.wanted_items().has(first) and o.delivered_total == 9 and not o.is_complete() and o.complete().is_empty(),
+            "送貨:只收還缺的量,送齊一種就不在 wanted 裡;還有別種沒齊不算完成")
+    for item in o.wanted_items().duplicate():
+        o.deliver(str(item), 99)
+    _check(o.is_complete() and o.progress() >= 0.999, "全部送齊")
+    var r := o.complete()
+    _check(int(r["reward"]) == total * 2 and not o.has_order() and o.completed_total == 1, "結清:獎勵 $%d、訂單消失" % int(r["reward"]))
+    # 倒數:沒訂單時 next_in 到了回 new;有訂單時限到了回 expired
+    o.next_in = 1.0
+    _check(o.tick(0.5, 0) == "" and o.tick(0.6, 0) == "new" and is_equal_approx(o.next_in, 150.0), "沒訂單:倒數到了回 new、重設下一輪")
+    var od2 := o.generate(menu, 0, 0.0)
+    _check(od2["lines"].has("rarefish") and int(od2["lines"]["rarefish"]["need"]) == 1 and int(od2["lines"]["rarefish"]["price"]) == 60
+            and o.wanted_items().has("rarefish"), "roll 0 < rareChance:多要一條稀有魚($60)")
+    o.order["time_left"] = 0.2
+    _check(o.tick(0.1, 0) == "" and o.tick(0.2, 0) == "expired" and not o.has_order() and o.expired_total == 1 and is_equal_approx(o.next_in, 150.0),
+            "有訂單:時限到了 expired、訂單消失、重新倒數")
+    o.generate(menu, 0, 1.0)
+    o.deliver(o.wanted_items()[0], 2)
+    var snap := o.snapshot()
+    var o2 := OrderLogic.from_config(o.cfg)
+    o2.restore(snap)
+    _check(o2.has_order() and o2.order["lines"].size() == o.order["lines"].size() and o2.delivered_total == o.delivered_total
+            and o2.completed_total == 1 and o2.expired_total == 1 and o2.progress() > 0.0 and is_equal_approx(o2.progress(), o.progress()),
+            "快照 / 還原:訂單內容、進度、統計")
+    var o3 := OrderLogic.from_config(o.cfg)
+    o3.restore({})
+    _check(not o3.has_order() and is_equal_approx(o3.next_in, 30.0), "空快照:沒訂單、從頭倒數 firstDelaySec")
+
+
+## --- 稀有魚 ---
+
+func _test_rare_fish() -> void:
+    var r := RareFishLogic.from_config({"intervalSec": [60, 90], "lifetimeSec": 150, "catchRadius": 2.0, "catchSec": 2.0, "speedMult": 1.8})
+    _near(r.next_interval(0.0), 60.0, "下一條:roll 0 -> 60 秒", 0.01)
+    _near(r.next_interval(1.0), 90.0, "roll 1 -> 90 秒", 0.01)
+    _check(is_equal_approx(r.lifetime(), 150.0) and is_equal_approx(r.catch_radius(), 2.0) and is_equal_approx(r.speed_mult(), 1.8), "游走時間 / 抓的距離 / 速度倍率")
+    var p := 0.0
+    p = r.tick_catch(p, 0.5, true)
+    p = r.tick_catch(p, 0.5, true)
+    _check(is_equal_approx(p, 1.0) and not r.is_caught(p), "站 1 秒:進度 1 / 2,還沒抓到")
+    p = r.tick_catch(p, 0.3, false)
+    _check(is_equal_approx(p, 0.0), "走開:進度歸零")
+    p = r.tick_catch(2.1, 0.0, true)
+    _check(r.is_caught(p), "站滿 2 秒抓到")
+    _check(RareFishLogic.ITEM == "rarefish" and GameState.resource("rarefish") == 0, "資源名 rarefish")
+    var d := RareFishLogic.from_config({})
+    _check(is_equal_approx(d.catch_sec(), 2.0) and is_equal_approx(d.next_interval(0.5), 75.0), "沒設定用預設")
+
+
+## --- 顧客成長 ---
+
+func _test_customer_growth() -> void:
+    var w := [45, 25, 15, 10, 5]
+    _check(CounterLogic.shift_weights(w, 0) == w, "偏 0:不變")
+    _check(CounterLogic.shift_weights(w, 1) == [0, 45, 25, 15, 10, 5] and CounterLogic.roll_want(CounterLogic.shift_weights(w, 1), 0.0) == 2,
+            "偏 1:最少要 2 件")
+    _check(CounterLogic.shift_weights(w, 4, 9) == [0, 0, 0, 0, 45, 25, 15, 10, 5] and CounterLogic.roll_want(CounterLogic.shift_weights(w, 4, 9), 1.0) == 9,
+            "偏 4(擴建四次):5 ~ 9 件")
+    _check(CounterLogic.shift_weights(w, 6, 9) == [0, 0, 0, 0, 0, 0, 45, 25, 15] and CounterLogic.shift_weights([1], 10, 3) == [0, 0, 1],
+            "超過上限 9 件就切掉;全切光留最後一格")
+    _check(CounterLogic.shift_weights([1], 2, 9) == [0, 0, 1] and CounterLogic.roll_want([0, 0, 1], 0.5) == 3, "一次一件的櫃台偏 2 -> 3 件")
 
 
 ## --- 背上的一疊 ---
@@ -278,6 +385,13 @@ func _test_purchase() -> void:
     su.pay(15)
     su.complete()
     _check(su.is_exhausted() and su.current_cost() == 15, "三次買滿;超過 costs 長度用最後一個")
+    var mp := PurchaseLogic.from_def({"id": "map_cash", "cost": 500, "costs": [500, 1500, 5000], "repeatable": true, "maxBuys": 3, "costMult": 1.0, "effect": {"type": "map_piece"}})
+    mp.set_buys(2)
+    _check(mp.buys == 2 and mp.remaining == 5000 and mp.current_cost() == 5000 and not mp.is_exhausted(), "set_buys(2):地圖碎片第三片 $5000")
+    mp.set_buys(3)
+    _check(mp.is_exhausted() and mp.remaining == 0, "set_buys(3):買滿")
+    mp.set_buys(0)
+    _check(mp.buys == 0 and mp.remaining == 500, "set_buys(0):回到第一片 $500")
     var wl := PurchaseLogic.from_def(GameData.purchase("weapon"))
     for i in 3:
         wl.pay(wl.remaining)
@@ -401,6 +515,17 @@ func _test_state() -> void:
     GameState.claim_offline(25)
     GameState.claim_offline(0)
     _check(GameState.wallet == 32 and GameState.offline_earned == 25, "離線收益領取:進錢包、統計累計;0 不算")
+    GameState.apply_purchase("map_cash", {"type": "map_piece"})
+    GameState.apply_purchase("map_fish", {"type": "map_piece"})
+    GameState.apply_purchase("merchant_pelts", {"type": "resource", "kind": "pelt", "amount": 5})
+    GameState.add_resource("rarefish", 4)
+    GameState.spend_resource("rarefish", 1)
+    GameState.complete_order(40)
+    _check(GameState.map_pieces == 2 and not GameState.has_full_map() and GameState.pelts == 5 and GameState.rarefish == 3 and GameState.resource("rarefish") == 3
+            and GameState.orders_done == 1 and GameState.orders_cash == 40 and GameState.wallet == 72, "地圖碎片 2 片、毛皮補給 +5、稀有魚 4 - 1、訂單 $40 進錢包")
+    GameState.apply_purchase("map_cash", {"type": "map_piece"})
+    GameState.apply_purchase("map_cash", {"type": "map_piece"})
+    _check(GameState.map_pieces == 3 and GameState.has_full_map(), "第三片拼齊(不超過 3)")
     GameState.wallet = 7
     GameState.sound_on = false
     GameState.play_time = 123.5
@@ -412,8 +537,9 @@ func _test_state() -> void:
     _check(GameState.capacity_bonus == 4 and GameState.hired_count("fisher") == 1 and GameState.is_unlocked("grill_complex")
             and GameState.upgrade_level("worker_speed") == 2 and GameState.items_trashed == 3 and GameState.is_unlocked("hire_fisher")
             and GameState.wallet == 7 and not GameState.sound_on and GameState.weapon_level == 2 and GameState.helpers_lost == 2
-            and is_equal_approx(GameState.play_time, 123.5) and GameState.offline_earned == 25,
-            "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數、遊戲時間、離線收益統計)")
+            and is_equal_approx(GameState.play_time, 123.5) and GameState.offline_earned == 25
+            and GameState.map_pieces == 3 and GameState.rarefish == 3 and GameState.orders_done == 1 and GameState.orders_cash == 40,
+            "to_dict -> JSON -> from_dict 往返(含錢包、音效開關、武器等級、被吃數、遊戲時間、離線收益統計、地圖 / 稀有魚 / 訂單)")
     GameState.reset()
 
 

@@ -40,6 +40,8 @@ func _ready() -> void:
     add_child(_level)
     await _step(3)
     _level.bears.enabled = false
+    _level.orders.next_in = 1.0e9
+    FishArea.rare_auto = false
     _level.player.input_provider = func() -> MoveInput: return MoveInput.new()
     GameState.tutorial_step = GuideLogic.tutorial_steps()
     GameState.apply_purchase("expand_village", {"type": "unlock", "target": "village_2"})
@@ -98,7 +100,31 @@ func _ready() -> void:
     _check(deposited and fisher.global_position.x < 12.0, "漁夫背著魚直線回主村的切魚台卸貨(x %.1f, state %s, dest %s, 卸 %d, st1 %d)" % [
             fisher.global_position.x, fisher.state, str(fisher._dest), fisher.deposited_total, st1.logic.input_count])
     _check(_level.route(Vector3(-5, 0, 8), Vector3(20, 0, 8)).is_empty() and _level.route(Vector3(20, 0, 8), Vector3(-5, 0, 8)).is_empty(),
-            "route:沒有牆要繞,一律空陣列")
+            "route:村裡之間沒有牆要繞,空陣列")
+    # 搬運工送訂單:碼頭在村外西北,要繞西門與武器店院子的西缺口(route 給中途點);送到後回村
+    var o := _level.orders.generate({"fillet": 2}, 0, 1.0)
+    _level._refresh_order_text()
+    _check(o.has("lines") and _level.orders.need_of("fillet") == 6 and _level.porter_dests().size() >= 3, "貼一張只要魚片的訂單:碼頭進了搬運工的目的地清單")
+    porter.stack.clear()
+    for i in 4:
+        porter.stack.push("fillet")
+    porter.global_position = Vector3(-4.0, 0, 7.0)
+    porter.job = {"from": st3, "to": _level.dock, "item": "fillet", "amount": 4}
+    porter._start_dropoff(_level.dock)
+    var routed := _level.route(porter.global_position, _level.dock.global_position).size()
+    var out_gate := await _wait_until(func() -> bool: return porter.global_position.x < -13.0, 600)
+    var out_yard := await _wait_until(func() -> bool: return porter.global_position.x < -24.0, 600)
+    var dock_ok := await _wait_until(func() -> bool: return _level.orders.need_of("fillet") <= 2, 900)
+    _check(routed == 5 and out_gate and out_yard and dock_ok and porter.stack.is_empty() and _level.orders.need_of("fillet") == 2,
+            "搬運工帶 4 片魚片繞西門 / 院子缺口走到碼頭交貨(中途點 %d、x %.1f、訂單還缺 %d)" % [routed, porter.global_position.x, _level.orders.need_of("fillet")])
+    # 回村:idle 後去拿擴建區切魚台的成品(路線倒著走)
+    st3.logic.output_count = 6
+    st3.refresh_piles()
+    c1.logic.stock = 0
+    c1.refresh_pile()
+    var home := await _wait_until(func() -> bool: return porter.global_position.x > -12.0, 1200)
+    _check(home and porter.global_position.z > -3.0 and porter.global_position.z < 12.0, "搬運工從碼頭倒著走回村裡(x %.1f z %.1f state %s)" % [porter.global_position.x, porter.global_position.z, porter.state])
+    _level.orders.order = {}
     _level.queue_free()
     await _step(2)
     SaveManager.delete()

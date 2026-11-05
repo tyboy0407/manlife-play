@@ -8,6 +8,7 @@ const ITEMS_PATH := "res://data/items.json"
 const STATIONS_PATH := "res://data/stations.json"
 const COUNTERS_PATH := "res://data/counters.json"
 const SHOP_PATH := "res://data/shop.json"
+const CHANGELOG_PATH := "res://data/changelog.json"
 
 static var _config := {}
 static var _items := {}
@@ -15,6 +16,7 @@ static var _stations := {}
 static var _counters := {}
 static var _shop: Array = []
 static var _repair := {}   # shop.json repairStation:被拆的建築修復價
+static var _changelog: Array = []   # changelog.json versions:新版內容(最新的在前)
 static var _loaded := false
 
 
@@ -36,6 +38,12 @@ static func reload() -> void:
                 _shop.append(p)
     var rp = shop_raw.get("repairStation", {})
     _repair = rp if typeof(rp) == TYPE_DICTIONARY else {}
+    _changelog = []
+    var cl = _load(CHANGELOG_PATH).get("versions", [])
+    if typeof(cl) == TYPE_ARRAY:
+        for v in cl:
+            if typeof(v) == TYPE_DICTIONARY and v.has("version"):
+                _changelog.append(v)
     _loaded = true
 
 
@@ -144,3 +152,14 @@ static func purchase(id: String) -> Dictionary:
         if str(p.get("id", "")) == id:
             return p
     return {}
+
+
+## 新版內容(data/changelog.json):[{version, notes: [...]}],最新的在前
+static func changelog() -> Array:
+    _ensure()
+    return _changelog
+
+
+static func latest_version() -> String:
+    var cl := changelog()
+    return str(cl[0].get("version", "")) if not cl.is_empty() else ""

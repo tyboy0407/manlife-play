@@ -7,12 +7,14 @@ extends Node3D
 const BODY_Y := 0.12   # 身體中心高度(水面在 0 附近,半泡在水裡)
 
 static var _overlay: StandardMaterial3D = null
+static var _gold: StandardMaterial3D = null
 
 var rect := Rect2(-5, -5, 10, 10)
 var swim_speed := 1.6
 var target := Vector3.ZERO
 var highlighted := false
 var variant := -1   # 用 models.waterFish.files 的第幾個(-1 隨機)
+var rare := false   # 稀有魚(金魚):一直發金光、游得快,只有玩家抓得到(FishArea 管)
 
 var _retarget := 0.0
 var _bob := 0.0
@@ -52,6 +54,28 @@ func _ready() -> void:
         add_child(VisualFactory.box(Vector3(0.12, 0.25, 0.22), GameData.item_color("fish").darkened(0.2), Vector3(0, BODY_Y, -0.42)))
     _bob = randf() * TAU
     _pick_target()
+    if rare:
+        _apply_gold()
+
+
+## 金魚外觀:模型蓋一層金色 overlay(永久),方塊換金色發光材質
+func _apply_gold() -> void:
+    if _model != null:
+        for mi in _meshes:
+            mi.material_overlay = _gold_material()
+    elif _body != null:
+        _body.material_override = VisualFactory.material(Color(1.0, 0.85, 0.2), Color(1.0, 0.7, 0.1))
+
+
+static func _gold_material() -> StandardMaterial3D:
+    if _gold == null:
+        _gold = StandardMaterial3D.new()
+        _gold.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        _gold.albedo_color = Color(1.0, 0.8, 0.15, 0.7)
+        _gold.emission_enabled = true
+        _gold.emission = Color(1.0, 0.75, 0.1)
+        _gold.emission_energy_multiplier = 1.8
+    return _gold
 
 
 func has_model() -> bool:
@@ -78,6 +102,8 @@ func _pick_target() -> void:
 
 ## 亮起 0.25 秒(每幀被 FishArea 重新點亮就持續),沒人靠近自動熄
 func set_highlight(on: bool) -> void:
+    if rare:
+        return   # 金魚一直是金色的
     if on:
         _hl_timer = 0.25
     if on == highlighted:

@@ -13,6 +13,7 @@ const SCALE_SMOOTH := 0.75
 var path := DEFAULT_PATH
 var quality := FINE
 var show_fps := false
+var seen_version := ""   # 看過哪一版的「新版內容」(data/changelog.json 的 version);更新後第一次開才彈面板
 
 
 func _ready() -> void:
@@ -37,6 +38,7 @@ func scaling_3d() -> float:
 func load_settings() -> void:
     quality = SMOOTH if is_touch_device() else FINE
     show_fps = false
+    seen_version = ""
     if not FileAccess.file_exists(path):
         return
     var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -46,13 +48,14 @@ func load_settings() -> void:
     if q == SMOOTH or q == FINE:
         quality = q
     show_fps = bool(parsed.get("show_fps", false))
+    seen_version = str(parsed.get("seen_version", ""))
 
 
 func save_settings() -> bool:
     var file := FileAccess.open(path, FileAccess.WRITE)
     if file == null:
         return false
-    file.store_string(JSON.stringify({"quality": quality, "show_fps": show_fps}, "\t"))
+    file.store_string(JSON.stringify({"quality": quality, "show_fps": show_fps, "seen_version": seen_version}, "\t"))
     file.close()
     return true
 
@@ -73,6 +76,14 @@ func set_show_fps(on: bool) -> void:
     show_fps = on
     save_settings()
     changed.emit()
+
+
+## 記住看過這一版的新版內容
+func mark_version_seen(v: String) -> void:
+    if v == seen_version:
+        return
+    seen_version = v
+    save_settings()
 
 
 func delete_file() -> void:

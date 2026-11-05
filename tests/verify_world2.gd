@@ -27,8 +27,16 @@ func _run() -> void:
     await _expand_section()
     await _south_section()
     await _king_section()
+    await _repairman_section()
     await _tower_strong_section()
-    # 存檔 -> 重建 -> 還原
+    # 存檔 -> 重建 -> 還原(先貼一張送了一點的訂單、地圖 2 片,看存檔有沒有記)
+    _level.orders.generate({"fillet": 2, "grilled": 5}, 1, 1.0)
+    _level.orders.deliver(_level.orders.wanted_items()[0], 2)
+    var order_lines_saved: int = _level.orders.order["lines"].size()
+    var order_prog_saved := _level.orders.progress()
+    GameState.map_pieces = 2
+    _level._sync_map_pads()
+    var repairman_saved := GameState.hired_count("repairman")
     var saved := _level.save_now()
     var snap := _level.snapshot()
     var cash_saved := _level.money_pad.cash
@@ -111,6 +119,18 @@ func _run() -> void:
             % [_level.conveyors.size(), str((_level.price_pads["belt_station_1"] as PricePad).visible), str((_level.price_pads["belt_grill"] as PricePad).visible),
             str(_level.trap_by_id("trap_1").is_armed()), str((_level.price_pads["trap_1"] as PricePad).visible), str(_level.bait_by_id("bait_1").is_set()),
             str((_level.price_pads["bait_1"] as PricePad).visible), GameState.upgrade_level("porter_cap"), (_level.price_pads["upgrade_porter_cap"] as PricePad).logic.remaining])
+    var mc2: PricePad = _level.price_pads["map_cash"]
+    var mf2: PricePad = _level.price_pads["map_fish"]
+    _check(_level.orders.has_order() and _level.orders.order["lines"].size() == order_lines_saved and is_equal_approx(_level.orders.progress(), order_prog_saved)
+            and _level.hud.order_text() != "" and GameState.map_pieces == 2 and mc2.logic.buys == 2 and mf2.logic.buys == 2 and mc2.logic.remaining == 5000
+            and repairman_saved == 1 and _find_helper("repairman") != null and _level.counter_by_id("fillet_counter").max_customers == 10
+            and _level.counter_by_id("fillet_counter").expansion == 4,
+            "重建關卡:訂單(%d 種、進度 %.2f)、地圖 2 片(兩塊牌都在第三片)、修理工回來、顧客成長(主村櫃台 %d 位)(order %s / %d / %.2f hud [%s] map %d buys %d / %d rem %d repairman %d / %s exp %d)"
+            % [order_lines_saved, order_prog_saved, _level.counter_by_id("fillet_counter").max_customers, str(_level.orders.has_order()), _level.orders.order.get("lines", {}).size(),
+            _level.orders.progress(), _level.hud.order_text(), GameState.map_pieces, mc2.logic.buys, mf2.logic.buys, mc2.logic.remaining, repairman_saved, str(_find_helper("repairman") != null),
+            _level.counter_by_id("fillet_counter").expansion])
+    _level.orders.order = {}
+    _level.orders.next_in = 9999.0
     _check(tower_alive_saved and tw2 != null and tw2.is_alive() and is_equal_approx(tw2.hp, tower_hp_saved) and tw2._built.visible
             and not (_level.price_pads["tower_1"] as PricePad).visible and _level.tower_by_id("tower_2").state == "none"
             and fp2.logic.max_buys == 11 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 18,
@@ -446,12 +466,13 @@ func _coupon_section() -> void:
     var helpers0 := _level.helpers.size()
     var fp: PricePad = _level.price_pads["hire_fisher"]
     var fp_rem := fp.logic.remaining
+    var ins0 := GameState.coupon("insurance")   # 訂單附贈可能已經給過一張
     GameState.add_coupon("insurance", 1)
     var b := bs.spawn(fisher)
     b.set_physics_process(false)
     _level.helper_eaten(fisher, b)
     await _step(3)
-    _check(GameState.coupon("insurance") == 0 and GameState.hired_count("fisher") == hired0 and _level.helpers.size() == helpers0 - 1
+    _check(GameState.coupon("insurance") == ins0 and GameState.hired_count("fisher") == hired0 and _level.helpers.size() == helpers0 - 1
             and fp.logic.remaining == fp_rem and _count("helper_insured") == 1, "保險券:漁夫被吃但名額不扣、牌不漲、券用掉")
     var came_back := await _wait_until(func() -> bool: return _level.helpers.size() == helpers0, 60 * 12)
     _check(came_back and _find_helper("fisher") != null, "10 秒後漁夫自己回來")
@@ -543,6 +564,67 @@ func _king_wreck_section(king: Bear) -> void:
 
 
 
+## --- 修理工 ---
+## 到武器店院子付 $300 僱修理工 -> 他站到崗位 -> 把 station_2 與 tower_1 設成廢墟(修復牌出現)-> 修理工走過去站 15 秒免費修好(錢包不動)->
+## 再去修塔 -> 兩塊牌都消失
+func _repairman_section() -> void:
+    _level.bears.enabled = false   # 王的段落開過熊,這段要一分多鐘,別讓熊群來吃幫手;已經在場的也清掉
+    for b in _level.bears.bears:
+        if is_instance_valid(b):
+            b.queue_free()
+    _level.bears.bears.clear()
+    await _step(2)
+    # 王可能還拆了別的建築:先用牌子免費修好,修理工一來才不會先去修那些
+    for st in _level.stations:
+        if st.is_broken():
+            _level.repair_pad_for(st.spot_id).complete_free()
+    for tw0 in _level.towers:
+        if tw0.is_broken():
+            _level.tower_pad_for(tw0.id).complete_free()
+    await _step(2)
+    var pad: PricePad = _level.price_pads["hire_repairman"]
+    _check(pad.visible and pad.logic.remaining == 300 and pad.logic.max_buys == 1 + 4 and _find_helper("repairman") == null, "修理工牌 $300 在院子裡(擴建四次後名額 %d)" % pad.logic.max_buys)
+    await _empty_hands()
+    GameState.add_wallet(300)
+    await _go_outside()
+    await _go(Vector3(-13.5, 0, -1.5), 300)   # 從東側接近,別擦到冰封夾牌(收熊王牙)
+    var hired := await _pay_pad(pad)
+    await _step(3)
+    var rm := _find_helper("repairman")
+    _check(hired and rm != null and GameState.hired_count("repairman") == 1 and rm.role == "repairman" and rm.repair_sec == 15.0 and not rm.can_fish and not rm.takes_output,
+            "付 $300:修理工加入(不抓魚不搬貨)")
+    await _go(Vector3(-13.5, 0, -1.5), 300)
+    await _go(Vector3(-13.5, 0, 2.5), 300)
+    await _go(Vector3(-11.0, 0, 2.5), 300)
+    await _go(Vector3(0, 0, 9))
+    var at_post := await _wait_until(func() -> bool: return rm.planar_distance_to(Harbor.REPAIRMAN_POST) < 0.8, 600)
+    _check(at_post and rm.state == "idle", "沒事做:站到西門內側的崗位(state %s)" % rm.state)
+    var st2 := _level.station_at("station_3")   # 測試沒買 station_2,用擴建區的切魚台
+    var tw := _level.tower_by_id("tower_1")
+    var rp: PricePad = _level.price_pads["repair_station_3"]
+    var tp: PricePad = _level.price_pads["tower_1"]
+    var wallet0 := GameState.wallet
+    st2.wreck(_player)
+    await _step(3)
+    _check(st2.is_broken() and rp.visible and _level.nearest_wrecked(rm.global_position) == st2 and _level.is_wrecked(st2), "切魚台 3 變廢墟、修復牌出現、修理工知道")
+    var going := await _wait_until(func() -> bool: return rm.state == "repairing", 900)
+    var prog := await _wait_until(func() -> bool: return rm.repair_progress > 3.0, 300)
+    _check(going and prog and rm._repair_ring != null and rm._repair_ring.visible and rm.planar_distance_to(_level.repair_spot(st2)) < 0.8, "修理工走到廢墟旁開始修(進度環)")
+    var fixed := await _wait_until(func() -> bool: return not st2.is_broken(), 60 * 16)
+    await _step(3)
+    var by_notice := await _notice_soon("NOTICE_REPAIRED_BY")
+    _check(fixed and rm.repaired_total == 1 and not rp.visible and rp.logic.is_exhausted() and GameState.wallet == wallet0 and st2._built.visible and st2.input_pad.monitoring
+            and _count("station_repaired") >= 1 and by_notice,
+            "15 秒後免費修好:桌子回來、牌消失、錢包沒動($%d)" % GameState.wallet)
+    tw.wreck(_player)
+    await _step(3)
+    var tower_fixed := await _wait_until(func() -> bool: return tw.is_alive(), 60 * 30)
+    await _step(3)
+    _check(tower_fixed and rm.repaired_total == 2 and not tp.visible and tp.logic.is_exhausted() and GameState.wallet == wallet0 and is_equal_approx(tw.hp, tw.hp_max),
+            "守衛塔被拆也會去修:修好血回滿、牌消失、免費")
+    await _go(Vector3(0, 0, 7))
+
+
 ## --- 第四次擴建(往南):魚湯廚房 ---
 ## $20000 的牌在主村南牆邊 -> 拆南牆、南塊沙地與柵欄、廚房(兩個輸入格)、魚湯櫃台、塔 25 / 26 的牌、僱用名額再開、熊多一個南入口 ->
 ## 廚房要魚片 + 烤魚各一才做湯(只有一種不做)-> 做出魚湯 -> 玩家送到魚湯櫃台 -> 顧客以 $15 買走
@@ -567,7 +649,17 @@ func _south_section() -> void:
             "付清 $20000:南塊蓋好(南牆拆掉)、廚房 + 魚湯櫃台 $15、塔 25 / 26 的牌出現、僱用名額 %d / %d、熊多一個南入口" % [hf.logic.max_buys, hp.logic.max_buys])
     _check(kitchen.logic.is_multi_input() and kitchen.input_pads.size() == 2 and kitchen.input_pad_for("grilled") != kitchen.input_pad_for("fillet")
             and (_level.price_pads["belt_kitchen"] as PricePad).visible, "廚房兩個輸入格(魚片 / 烤魚)、傳送帶牌出現")
-    # 只放魚片不做;再放烤魚就做(5 秒一碗)
+    var fc := _level.counter_by_id("fillet_counter")
+    _check(fc.max_customers == 10 and fc.expansion == 4 and sc.max_customers == 10 and sc.expansion == 4 and _level.counter_by_id("grill_counter_2").max_customers == 8
+            and CounterLogic.roll_want(fc.want_weights, 0.0) == 5 and is_equal_approx(fc.spawn_interval, 2.0 * pow(0.85, 4)),
+            "顧客成長:擴建四次後主村櫃台 10 位、擴建區 8 位、每人至少 5 件、間隔 %.2f 秒" % fc.spawn_interval)
+    var second_row := await _wait_until(func() -> bool: return sc.customers.size() >= 7, 60 * 25)   # 魚湯櫃台還沒貨,顧客只進不出
+    _check(second_row and (sc.customers[6] as Customer).target.z < sc.slot_position(0).z - 1.0, "第 7 位顧客排到第二排(北側)")
+    # 只放魚片不做;再放烤魚就做(5 秒一碗);搬運工先定住,不然他們會往廚房補料讓數量對不上
+    for h in _level.helpers:
+        if h.role == "porter":
+            h.set_physics_process(false)
+    kitchen.logic.counts = {}
     kitchen.logic.add_input_of("fillet", 3)
     kitchen.refresh_piles()
     await _step(90)
@@ -576,7 +668,10 @@ func _south_section() -> void:
     kitchen.refresh_piles()
     var made := await _wait_until(func() -> bool: return kitchen.logic.output_count >= 1, 60 * 8)
     _check(made and kitchen.logic.input_count_of("fillet") <= 2 and kitchen.logic.input_count_of("grilled") <= 1 and kitchen.input_pile.visible_count() == kitchen.logic.input_count_of("fillet"),
-            "加了烤魚:做出魚湯 %d 碗,魚片 / 烤魚各扣一個" % kitchen.logic.output_count)
+            "加了烤魚:做出魚湯 %d 碗,魚片 / 烤魚各扣一個(魚片 %d 烤魚 %d)" % [kitchen.logic.output_count, kitchen.logic.input_count_of("fillet"), kitchen.logic.input_count_of("grilled")])
+    for h in _level.helpers:
+        if h.role == "porter":
+            h.set_physics_process(true)
     # 玩家送湯去櫃台、自己收銀 -> 顧客 $15 買走
     await _empty_hands()
     await _go(kitchen.output_pad.global_position)

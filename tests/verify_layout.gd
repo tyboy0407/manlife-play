@@ -220,6 +220,27 @@ func _ready() -> void:
     # 魚群上限按水面面積:主村 16 × 7 = 18 條,擴建區 11 × 7 = 12 條
     _check(_level.fish_areas.size() == 4 and _level.fish_areas[0].max_fish == 18 and _level.fish_areas[1].max_fish == 12 and _level.fish_areas[3].max_fish == 12,
             "魚群上限按面積:主村 %d、擴建區 %d" % [_level.fish_areas[0].max_fish, _level.fish_areas[1].max_fish])
+    # 顧客成長:擴建四次後主村櫃台 6 + 4 = 10 位(第二排在北側 1.2 格)、擴建區櫃台 4 + 4 = 8;毛衣櫃台仍一次一件;生成間隔 × 0.85⁴
+    var fc := _level.counter_by_id("fillet_counter")
+    var fc2 := _level.counter_by_id("fillet_counter_2")
+    var sw := _level.counter_by_id("sweater_counter")
+    _check(fc.max_customers == 10 and fc2.max_customers == 8 and sw.max_customers == 10 and fc.expansion == 4
+            and is_equal_approx(fc.slot_position(6).z, fc.slot_position(0).z - 1.2) and is_equal_approx(fc.slot_position(6).x, fc.slot_position(0).x)
+            and is_equal_approx(fc.spawn_interval, 2.0 * pow(0.85, 4)) and fc.want_weights.size() == 9 and int(fc.want_weights[0]) == 0
+            and CounterLogic.roll_want(fc.want_weights, 0.0) == 5 and sw.want_weights.size() == 1 and int(sw.want_weights[0]) == 1,
+            "顧客成長:主村櫃台 %d 位(第 7 位排第二排)、擴建區 %d 位、間隔 %.2f 秒、要 5 ~ 9 件;毛衣櫃台仍一次一件" % [fc.max_customers, fc2.max_customers, fc.spawn_interval])
+    # 碼頭 / 旅行商人營地在村外,修理工牌在武器店院子裡
+    _check(_level.dock != null and not _level.is_inside_village(_level.dock.global_position) and _level.dock.global_position.x < -23.4
+            and not _level.is_inside_village(Harbor.MERCHANT_CAMP) and Harbor.MERCHANT_CAMP.x > (Harbor.ANNEX_RECTS[2] as Rect2).end.x + 2.0
+            and Harbor.MERCHANT_CAMP.x < Harbor.EXPLORE_RECT.end.x - 2.0 and _level.merchant != null
+            and (_level.price_pads["map_cash"] as PricePad).visible and (_level.price_pads["map_fish"] as PricePad).visible and (_level.price_pads["merchant_pelts"] as PricePad).visible
+            and _level.is_inside_village((_level.price_pads["hire_repairman"] as PricePad).global_position) and (_level.price_pads["hire_repairman"] as PricePad).global_position.x < -12.6,
+            "碼頭(x %.1f)與商人營地(x %.1f)都在村外雪原、三塊商人牌開著;修理工牌在武器店院子" % [_level.dock.global_position.x, Harbor.MERCHANT_CAMP.x])
+    # 搬運工去碼頭的路線:村裡 -> 碼頭繞西門與院子缺口(5 個中途點),反向倒著走;村裡之間不繞
+    var r_out := _level.route(Vector3(0, 0, 2), Harbor.DOCK_SPOT)
+    var r_back := _level.route(Harbor.DOCK_SPOT, Vector3(0, 0, 2))
+    _check(r_out.size() == 5 and r_out[0].x > r_out[4].x and r_back.size() == 5 and r_back[0] == r_out[4] and _level.route(Vector3(20, 0, 8), Vector3(-5, 0, 8)).is_empty()
+            and _level.route(Vector3(-18, 0, 2), Harbor.DOCK_SPOT).size() == 3, "碼頭路線:出去 5 個中途點、回來倒著走、院子出發 3 個、村裡之間不繞")
     _level.queue_free()
     await _step(2)
     if _fails == 0:

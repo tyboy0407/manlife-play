@@ -58,6 +58,38 @@ func _ready() -> void:
     _check(hud.notice_text() == "Picked up a polar bear pelt (2 total)" and hud.queued_notices() == 1, "1 秒後換下一則(毛皮累計 2)")
     hud._process(1.0)
     _check(hud.notice_text() == "Hire a fisher unlocked!" and hud.queued_notices() == 0, "再 1 秒換最後一則")
+    # 地圖 / 玩法說明 / 新版內容面板
+    hud.map_source = func() -> Dictionary: return {"world": Rect2(-40, -12, 130, 62), "rects": [{"rect": Rect2(-12.6, -11.2, 25.2, 23.8), "color": Color.WHITE, "label": "MAP_VILLAGE"}],
+            "points": [{"pos": Vector2(-30, -7), "color": Color.RED, "label": "MAP_DOCK"}], "player": Vector2(0, 7), "pieces": 0, "total": 3, "unknown": [Rect2(90, -12, 30, 62)]}
+    hud.menu_action("toggle")
+    hud.menu_action("map")
+    await get_tree().process_frame
+    _check(hud.map_open() and not hud.menu_panel.visible and not hud.map_home_visible() and hud._map_hint.visible, "0 片:地圖頁開了、顯示要去買碎片、沒有回村鈕")
+    hud.panel_action("map_home")
+    _check(hud.map_open(), "沒拼齊按回村沒反應")
+    hud.panel_action("map_close")
+    hud.map_source = func() -> Dictionary: return {"world": Rect2(-40, -12, 130, 62), "rects": [], "points": [], "player": Vector2(0, 7), "pieces": 3, "total": 3, "unknown": []}
+    var acted := [""]
+    hud.action.connect(func(id: String) -> void: acted[0] = id)
+    hud.show_map()
+    await get_tree().process_frame
+    _check(hud.map_open() and hud.map_home_visible() and not hud._map_hint.visible, "3 片:有回村鈕")
+    hud.panel_action("map_home")
+    _check(not hud.map_open() and acted[0] == "map_home", "按回村:面板關、發 action map_home")
+    hud.menu_action("help")
+    await get_tree().process_frame
+    _check(hud.help_open() and hud.help_tab_count() == 6, "玩法說明:六頁")
+    hud.panel_action("help_close")
+    _check(not hud.help_open(), "關閉玩法說明")
+    hud.show_changelog()
+    await get_tree().process_frame
+    _check(hud.changelog_open() and hud.changelog_text().count("•") >= 3 and hud._changelog_title.text.contains(GameData.latest_version()), "新版內容:最新版的條目(%s)" % GameData.latest_version())
+    hud.panel_action("changelog_close")
+    _check(not hud.changelog_open(), "關閉新版內容")
+    hud.set_order("Order: fillet 2/6")
+    _check(hud.order_text() == "Order: fillet 2/6", "訂單一行")
+    hud.set_order("")
+    _check(hud.order_text() == "", "沒訂單就藏起來")
     hud.free()
     if _fails == 0:
         print("VERIFY UI: ALL OK")

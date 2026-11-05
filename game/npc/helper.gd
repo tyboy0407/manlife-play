@@ -5,10 +5,12 @@ extends Carrier
 ## porter 搬運工:問 Harbor.find_porter_job(規則在 PorterPlanner:庫存比例最低的櫃台優先,烤魚櫃台缺貨會先補烤魚攤的原料),
 ##   只拿目的地放得下的量;卸不下去就換目的地,都沒有就放回來源工作站的輸出堆再走開(不抱著貨卡住);
 ## cashier 收銀員:走到被指派櫃台的收銀格站著(櫃台要有人站著才賣得出去)。
+## repairman 修理工:平常站在村裡的崗位(Harbor.REPAIRMAN_POST),有建築被拆(Harbor.broken_buildings)就走過去站 repairSec 秒免費修好
+##   (Harbor.repair_free),修到一半被熊嚇呆進度歸零。
 ## 數值在 game.json helpers.<role>;不收錢、不用垃圾桶。
 ## 北極熊:靠近時 set_panic(true) 嚇呆不動(頭上驚嘆號、emote-no),被吃掉 be_eaten() 規則上立刻消失、外觀縮小後釋放。
 
-const ROLE_COLORS := {"fisher": Color(0.5, 0.38, 0.6), "porter": Color(0.85, 0.55, 0.25), "cashier": Color(0.3, 0.6, 0.5)}
+const ROLE_COLORS := {"fisher": Color(0.5, 0.38, 0.6), "porter": Color(0.85, 0.55, 0.25), "cashier": Color(0.3, 0.6, 0.5), "repairman": Color(0.75, 0.6, 0.2)}
 
 var role := "fisher"
 var level: Harbor = null
@@ -17,6 +19,9 @@ var assigned_counter: Counter = null
 var state := "idle"
 var target := Vector3.ZERO
 var deposited_total := 0    # 漁夫卸進工作站的魚
+var repaired_total := 0     # 修理工修好的建築數
+var repair_sec := 15.0      # 修理工修一棟要站幾秒
+var repair_progress := 0.0  # 修理工目前修了幾秒
 var delivered_total := 0    # 搬運工送達的件數
 var returned_total := 0     # 搬運工送不出去、放回來源的件數
 var job := {}               # porter:{"from": Station, "to": Node3D, "item": String}
@@ -35,6 +40,7 @@ var _route: Array[Vector3] = []     # 去目的地要先經過的中途點(東�
 var _route_dest := Vector3(INF, 0, 0)
 var _stuck := 0.0                   # 走向目標卻沒前進的秒數
 var _base_capacity := 6
+var _repair_ring: ProgressRing = null
 
 
 func _ready() -> void:
@@ -46,6 +52,7 @@ func _ready() -> void:
     var cfg := GameData.helper(role)
     speed = float(cfg.get("speed", 4.5))
     _base_capacity = int(cfg.get("capacity", 6))
+    repair_sec = maxf(float(cfg.get("repairSec", 15.0)), 0.1)
     _apply_capacity()
     GameState.changed.connect(_apply_capacity)
     can_fish = role == "fisher"
@@ -83,6 +90,9 @@ func _track_transfer() -> void:
 func _physics_process(delta: float) -> void:
     if panicked:
         move_toward_dir(Vector3.ZERO, delta)
+        if role == "repairman" and repair_progress > 0.0:
+            repair_progress = 0.0   # 被熊嚇呆:修到一半歸零
+            _show_repair_ring(false)
         return
     match role:
         "fisher":
@@ -91,6 +101,8 @@ func _physics_process(delta: float) -> void:
             _porter(delta)
         "cashier":
             _cashier(delta)
+        "repairman":
+            _repairman(delta)
         _:
             move_toward_dir(Vector3.ZERO, delta)
 
@@ -394,3 +406,77 @@ func _cashier(delta: float) -> void:
         _:
             if go_to(target, delta, 0.25):
                 state = "serving"
+
+
+## --- 修理工 ---
+## idle(站崗位)-> to_repair(走到被拆的建築旁)-> repairing(站 repair_sec 秒,頭上進度環)-> 修好 Harbor.repair_free -> idle
+
+func _repairman(delta: float) -> void:
+    if level == null:
+        move_toward_dir(Vector3.ZERO, delta)
+        return
+    match state:
+        "to_post":
+            if go_to(target, delta, 0.4) or level.nearest_wrecked(global_position) != null:
+                state = "idle"
+                _idle_timer = 0.0
+        "to_repair":
+            if _dest == null or not is_instance_valid(_dest) or not level.is_wrecked(_dest):
+                _dest = null
+                state = "idle"
+                return
+            if go_to(target, delta, 0.45):
+                state = "repairing"
+                repair_progress = 0.0
+        "repairing":
+            move_toward_dir(Vector3.ZERO, delta)
+            if _dest == null or not is_instance_valid(_dest) or not level.is_wrecked(_dest):
+                _dest = null
+                repair_progress = 0.0
+                _show_repair_ring(false)
+                state = "idle"
+                return
+            repair_progress += delta
+            _show_repair_ring(true)
+            if model != null and model.current() != "interact-right":
+                model.set_action("interact-right", true, 1.0)
+            if repair_progress >= repair_sec:
+                repair_progress = 0.0
+                _show_repair_ring(false)
+                if model != null:
+                    model.clear_action()
+                if level.repair_free(_dest, self):
+                    repaired_total += 1
+                _dest = null
+                state = "idle"
+        _:
+            move_toward_dir(Vector3.ZERO, delta)
+            _idle_timer -= delta
+            if _idle_timer > 0.0:
+                return
+            _idle_timer = 0.5
+            var b := level.nearest_wrecked(global_position)
+            if b != null:
+                _dest = b
+                target = level.repair_spot(b)
+                state = "to_repair"
+                return
+            # 沒事做:回崗位站著
+            if planar_distance_to(level.REPAIRMAN_POST) > 0.6:
+                target = level.REPAIRMAN_POST
+                state = "to_post"
+
+
+func _show_repair_ring(on: bool) -> void:
+    if _repair_ring == null:
+        if not on:
+            return
+        _repair_ring = ProgressRing.new()
+        _repair_ring.inner = 0.45
+        _repair_ring.outer = 0.62
+        _repair_ring.color = Color(0.4, 0.9, 1.0)
+        _repair_ring.position = Vector3(0, stack_visual.position.y + 0.4, 0)
+        add_child(_repair_ring)
+    _repair_ring.visible = on
+    if on:
+        _repair_ring.set_progress(repair_progress / repair_sec)

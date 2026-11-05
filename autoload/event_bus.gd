@@ -44,3 +44,11 @@ signal chest_opened(reward: Dictionary)                 # 熊王寶箱打開(三
 signal chest_claimed(card: Dictionary)                  # 選了哪張卡
 signal king_leveled(level: int)                         # 王升級
 signal helper_insured(role: String)                     # 保險券:被吃的幫手會回來
+signal order_posted(order: Dictionary)                 # 碼頭貼了新訂單
+signal order_delivered(item: String, count: int)        # 送了幾件到碼頭
+signal order_completed(reward: Dictionary)              # 訂單送齊(現金 + 附贈)
+signal order_expired                                    # 訂單逾時
+signal rare_fish_spawned(fish: Node3D)                  # 水裡出現稀有魚
+signal rare_fish_caught(total: int)                     # 抓到稀有魚(累計)
+signal building_repaired(building: Node3D, by: Node3D)  # 修理工修好建築
+signal map_piece_bought(pieces: int)                    # 旅行商人:地圖碎片

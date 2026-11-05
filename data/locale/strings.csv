@@ -106,7 +106,6 @@ NOTICE_LOOT_pelt,Picked up a polar bear pelt (%d total). Bring pelts to the weap
 NOTICE_LOOT_tooth,Picked up a Bear King tooth (%d total). Stand under a guard tower to reinforce it!,撿到熊王牙(共 %d)，站到守衛塔下強化它!
 NOTICE_SHOP_UPGRADED,Weapon shop is now Lv%d! A stronger weapon is for sale,武器店升到 Lv%d!可以買更強的武器了
 NOTICE_TOWER_STRONG,Guard tower reinforced! HP %d and %d damage per arrow,守衛塔強化了!血 %d、每箭 %d 傷
-HUD_RES,Pelts %d | king teeth %d | weapon Lv%d,毛皮 %d|熊王牙 %d|武器 Lv%d
 NOTICE_BEAR_FULL,The polar bears are full and retreat!,北極熊吃飽了，撤退!
 HINT_counter_full_serve,The counter is full and nobody is serving. Stand on the serve pad and sell,櫃台滿了、沒人收銀：站到收銀格賣掉
 HINT_station_jammed,The station is jammed (products piled up). Trash what you carry then take the products,工作站塞住了（成品堆滿）：先丟掉手上的貨，再去拿成品
@@ -159,7 +158,7 @@ NOTICE_COUPON_UPGRADE,Free upgrade coupon used!,用掉免費升級券!
 NOTICE_ICE_TRAPS,Frost traps unlocked: every trap stuns 6 s and hits harder,冰封捕熊夾解鎖：所有夾子定住 6 秒、傷害更高
 HUD_KING_LV,King Lv%d,王 Lv%d
 HUD_STATS_ECON,Earned $%d | income $%d/min | offline $%d\nfish %d | sold %d | trashed %d\ntime %s,累計收入 $%d|收入 $%d/分|離線收益 $%d\n抓魚 %d|賣出 %d|丟棄 %d\n時間 %s
-HUD_STATS_HELPERS,fishers %d porters %d cashiers %d\nworker speed Lv%d | pile cap Lv%d | porter cap Lv%d\nweapon Lv%d | weapon shop Lv%d\neaten by bear %d | pelts %d,漁夫 %d 搬運工 %d 收銀員 %d\n工人速度 Lv%d|堆疊上限 Lv%d|搬運容量 Lv%d\n武器 Lv%d|武器店 Lv%d\n被北極熊吃掉 %d|毛皮 %d
+HUD_STATS_HELPERS,fishers %d porters %d cashiers %d repairmen %d\nworker speed Lv%d | pile cap Lv%d | porter cap Lv%d\nweapon Lv%d | weapon shop Lv%d\neaten by bear %d | pelts %d,漁夫 %d 搬運工 %d 收銀員 %d 修理工 %d\n工人速度 Lv%d|堆疊上限 Lv%d|搬運容量 Lv%d\n武器 Lv%d|武器店 Lv%d\n被北極熊吃掉 %d|毛皮 %d
 HUD_STATS_KING,Bear King Lv%d | slain %d | perfect streak %d\nking teeth %d | milestone backpack +%d,北極熊王 Lv%d|擊殺 %d|完美連勝 %d\n熊王牙 %d|里程碑背包 +%d
 TAB_economy,Economy,經濟
 TAB_helpers,Helpers & bears,幫手與熊
@@ -182,3 +181,56 @@ COUNTER_soup,Soup counter,魚湯櫃台
 SHOP_expand_village_4,Expand the village south (soup kitchen),往南擴建村莊（魚湯廚房）
 HINT_HOME,You are exploring outside the village. Follow the arrow to get back,你在村外探險，跟著箭頭回村
 HINT_kitchen_missing,The kitchen still needs %s. Bring some,廚房還缺 %s，拿一些過去
+ROLE_repairman,repairman,修理工
+SHOP_hire_repairman,Hire a repairman,僱用修理工
+NOTICE_HIRED_repairman,A repairman joined you! Wrecked buildings get fixed for free,修理工加入了!被拆的建築會自動免費修好
+NOTICE_REPAIRED_BY,The repairman fixed the %s,修理工把%s修好了
+STATION_tower,guard tower,守衛塔
+SHOP_map_piece,Map piece,地圖碎片
+SHOP_merchant_pelts,Pelt supply (5 pelts),毛皮補給（5 張）
+SIGN_MERCHANT,Traveling merchant,旅行商人
+SIGN_DOCK,Cargo ship (orders),貨船（訂單）
+PAD_DOCK,Deliver orders here,訂單交貨格
+COST_rarefish,Rare fish ×%d,稀有魚 ×%d
+ITEM_rarefish,Golden fish,金魚
+NOTICE_RARE_FISH,A golden fish appeared in the water! Stand next to it for 2 s to catch it,水裡出現金魚了!站到牠旁邊 2 秒就能抓到
+NOTICE_RARE_CAUGHT,Caught a golden fish (%d total). Trade them with the merchant or deliver orders,抓到金魚了(共 %d)!可以跟旅行商人換地圖、或交訂單
+NOTICE_ORDER_NEW,New order at the dock: %s (%d s),碼頭有新訂單：%s（限時 %d 秒）
+NOTICE_ORDER_DONE,Order delivered! +$%d and %s,訂單送齊了!+$%d，另附 %s
+NOTICE_ORDER_EXPIRED,The order expired. The ship will post another one,訂單逾時了，貨船之後會再貼新的
+NOTICE_MAP_PIECE,Map piece %d/%d! Open the map from the menu,拿到地圖碎片 %d/%d!到選單看地圖
+NOTICE_MAP_FULL,The map is complete! The map page can now teleport you home,地圖拼齊了!地圖頁可以一鍵回村
+NOTICE_MAP_HOME,Back in the village,回到村裡了
+BONUS_pelt,%d pelts,%d 張毛皮
+BONUS_coupon,a coupon,一張券
+HUD_ORDER,Order: %s | %d s left | $%d,訂單：%s｜剩 %d 秒｜$%d
+HUD_ORDER_LINE,%s %d/%d,%s %d/%d
+HINT_order,You carry what the ship ordered. Deliver it at the dock (northwest outside the village) for double pay,你背的貨正是訂單要的，送到村外西北的碼頭交貨格，賺兩倍
+HUD_RES,Pelts %d | king teeth %d | golden fish %d | weapon Lv%d,毛皮 %d|熊王牙 %d|金魚 %d|武器 Lv%d
+MENU_MAP,Map,地圖
+MENU_HELP,How to play,玩法說明
+MENU_CHANGELOG,What's new,新版內容
+MAP_TITLE,Map (%d/%d pieces),地圖（碎片 %d/%d）
+MAP_LOCKED,Buy map pieces from the traveling merchant (east snowfield) to reveal the map,跟村外東邊雪原的旅行商人買地圖碎片，地圖才會顯示
+MAP_HOME,Teleport home,一鍵回村
+MAP_UNKNOWN,???,？？？
+MAP_YOU,You,你
+MAP_MERCHANT,Merchant,商人
+MAP_DOCK,Dock,碼頭
+MAP_VILLAGE,Village,村莊
+MAP_SHOP,Weapon shop,武器店
+CHANGELOG_TITLE,What's new (%s),新版內容（%s）
+HELP_TITLE,How to play,玩法說明
+HELP_TAB_basics,Basics,基本操作
+HELP_TAB_chain,Production,生產鏈
+HELP_TAB_helpers,Helpers,幫手
+HELP_TAB_bears,Bears,熊與武器
+HELP_TAB_expand,Expansion,擴建
+HELP_TAB_king,King & more,王與其他
+HELP_basics,Walk with WASD / arrows / left stick; or press and drag on a touch screen.\nEverything happens by standing on pads: drop; take; stock; serve; pay and trash.\nCash on the money pad goes into your wallet. Stand on a price pad for a moment to pay in installments.\nThe arrow shows what to do next (toggle in the menu).,用 WASD / 方向鍵 / 手把左搖桿走路，觸控螢幕按住拖動。\n所有互動都是「站上格子就自動做」：放貨、拿貨、上架、收銀、付錢、丟棄。\n錢格的錢收進錢包；在價格牌上站一下就開始分期付款。\n箭頭會提示下一步（選單可開關）。
+HELP_chain,Catch fish in the shallows -> cutting table makes fillets -> grill makes grilled fish -> soup kitchen needs fillet + grilled fish.\nStock a counter and someone must stand on the serve pad to sell.\nPelts (from bears) go to the tailor: 5 pelts = 1 sweater ($200).\nConveyor belts carry products from a station straight to its counter.,淺水區抓魚 -> 切魚台做魚片 -> 烤魚攤做烤魚 -> 魚湯廚房要魚片 + 烤魚。\n貨上架到櫃台後，要有人站在收銀格才賣得出去。\n毛皮（打熊掉的）放進服飾店：5 張做一件毛衣（$200）。\n傳送帶把成品直接從工作站送到櫃台。
+HELP_helpers,Fishers catch fish and feed the cutting tables. Porters move products to where stock is lowest. Cashiers serve a counter each.\nThe repairman fixes wrecked buildings for free.\nHelpers can be eaten by bears; buy them back at 1.5x (helper insurance coupons keep the slot).\nUpgrades: worker speed; pile capacity; porter capacity; backpack.,漁夫抓魚送切魚台；搬運工把成品送到最缺貨的地方；收銀員各守一座櫃台。\n修理工會免費修好被拆的建築。\n幫手會被熊吃掉，買回價 1.5 倍（幫手保險券可保住名額）。\n升級：工人速度、堆疊上限、搬運工容量、背包。
+HELP_bears,Polar bears arrive from the edges after 3 minutes and eat helpers. Buy a weapon at the shop outside the west gate and walk into bears to hit them.\nDefeated bears drop pelts: upgrade the weapon shop (more weapon levels) or make sweaters.\nGuard towers ($200) shoot arrows; bear traps and bait slow bears down.,3 分鐘後北極熊會從地圖邊緣進村吃幫手。到西門外的武器店買武器，走到熊旁邊就會自動攻擊。\n打跑的熊掉毛皮：升級武器店（買更強的武器）或做毛衣。\n守衛塔（$200）射箭；捕熊夾與誘餌能拖住熊。
+HELP_expand,Expand the village east three times and south once: more water; stations; counters and hire slots.\nEach expansion brings more customers who buy more per visit and queue in two rows.\nThe cargo ship at the northwest dock posts timed orders: deliver for double pay. Porters help deliver.\nThe traveling merchant on the east snowfield sells map pieces (cash or golden fish).,村莊可往東擴建三次、往南一次：更多水區、工作站、櫃台與僱用名額。\n每擴建一次顧客更多、每人買得更多、排成兩排。\n村外西北碼頭的貨船會貼限時訂單：送齊賺兩倍，搬運工也會幫忙送。\n東邊雪原的旅行商人賣地圖碎片（現金或金魚）。
+HELP_king,The Polar Bear King comes at 8 minutes (45 s warning). It wrecks buildings it chews for 10 s. Kill it for a chest: pick one of three cards.\nKing teeth reinforce towers or buy altar coupons. Each kill levels the King up.\nGolden fish appear in the water now and then: only you can catch them (stand beside one for 2 s).\nOffline: helpers earn at half your recent income rate for up to 8 hours.,北極熊王 8 分鐘後來（提前 45 秒預告），咬建築 10 秒就拆掉。打死牠掉寶箱，三選一。\n熊王牙可強化守衛塔或在祭壇買券。每打死一次王會升級。\n水裡偶爾出現金魚：只有你抓得到（站在旁邊 2 秒）。\n離線時幫手照最近收入的一半賺錢，最多 8 小時。
+HUD_STATS_MORE,orders done %d ($%d) | golden fish %d | map %d/%d,訂單完成 %d（$%d）|金魚 %d|地圖 %d/%d

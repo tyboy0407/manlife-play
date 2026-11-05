@@ -11,6 +11,7 @@ const RETURN_SOON_SEC := 8.0   # 存檔時熊在場:讀回來後幾秒再來
 var level: Harbor = null
 var logic: BearLogic
 var enabled := true
+static var auto_enabled := true   # 建關卡時 enabled 的初始值(測試關掉:讀檔的冷卻若已到 0,關卡 _ready 後幾幀內就會生一群)
 var cooldown := -1.0   # < 0 = 還沒開始倒數(村裡沒幫手)
 var bears: Array[Bear] = []   # 在場的熊(含王)
 var king: Bear = null
@@ -27,7 +28,7 @@ var _warned_sec := -1           # 上次發 king_warning 的秒數(每秒發一�
 
 func _ready() -> void:
     logic = BearLogic.from_config(GameData.section("bear"), GameData.section("weapon"))
-    enabled = bool(GameData.section("bear").get("enabled", true))
+    enabled = auto_enabled and bool(GameData.section("bear").get("enabled", true))
     if king_logic == null:
         king_logic = KingLogic.from_config(GameData.section("bear").get("king", {}))
 

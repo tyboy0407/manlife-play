@@ -132,7 +132,8 @@ func build_state() -> Dictionary:
         "outside": level.player_outside(),
         "helpers_lost": GameState.helpers_lost,
         "outmatched": level.bears != null and level.bears.logic.outmatched(GameState.weapon_level, GameState.play_time),
-        "resources": {"pelt": GameState.pelts, "tooth": GameState.teeth},
+        "resources": {"pelt": GameState.pelts, "tooth": GameState.teeth, "rarefish": GameState.rarefish},
+        "order_items": level.orders.wanted_items() if level.orders != null else [],
     }
 
 
@@ -152,6 +153,11 @@ func _resolve(h: Dictionary) -> bool:
             return true
         "home":
             target_pos = level.home_point(level.player.global_position)
+            return true
+        "dock":
+            if level.dock == null:
+                return false
+            target_pos = level.dock.global_position
             return true
         "counter_deposit", "service":
             var c := level.counter_by_id(id)

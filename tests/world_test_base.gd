@@ -180,29 +180,35 @@ func _fish_until(count: int, max_sweeps: int = 18) -> void:
 
 
 func _spawn_level() -> void:
+    BearSpawner.auto_enabled = false   # 關卡一建好就不生熊(讀檔的冷卻可能已經到 0,等不到下面那行)
     _level = HARBOR.instantiate()
     add_child(_level)
     await _step(3)
     _player = _level.player
     _player.input_provider = _provide
     _level.bears.enabled = false   # 北極熊只在測試指定的時候出現(不然 45 秒後會自己來吃幫手)
+    _level.orders.next_in = 1.0e9  # 訂單 / 金魚也只在測試指定時出現(搬運工跑去碼頭、通知蓋掉別的會干擾檢查)
+    FishArea.rare_auto = false
 
 
 ## 追著熊跑並打它(玩家帶武器靠近會自動攻擊;熊會動,每幀更新目標)直到牠血條歸零逃走 / 消失或超時
 func _chase_bear(bear: Bear, max_frames: int) -> void:
     _moving = true
+    _player.collects_cash = false   # 追熊會跑過價格牌 / 錢格:追的期間不付錢不收錢(站在被咬的幫手旁 8 秒會把牌子買下來)
     for i in max_frames:
         if bear == null or not is_instance_valid(bear) or bear.state == "fleeing":
             break
         _target = bear.global_position
         await get_tree().physics_frame
     _moving = false
+    _player.collects_cash = true
     await _step(2)
 
 
 ## 追一群熊:每幀朝最近一隻還沒逃的走,全逃了或超時就停
 func _chase_pack(bs: BearSpawner, max_frames: int) -> void:
     _moving = true
+    _player.collects_cash = false
     for i in max_frames:
         var next: Bear = null
         var best := INF
@@ -215,6 +221,7 @@ func _chase_pack(bs: BearSpawner, max_frames: int) -> void:
         _target = next.global_position
         await get_tree().physics_frame
     _moving = false
+    _player.collects_cash = true
     await _step(2)
 
 
@@ -243,6 +250,12 @@ func _all_visible(nodes: Array) -> bool:
         if is_instance_valid(n) and not (n as Node3D).visible:
             return false
     return true
+
+
+## 通知會排隊(前一則不到 0.9 秒就等):等到 HUD 顯示含 key 翻譯前幾個字的通知,最多 max_frames
+func _notice_soon(key: String, max_frames: int = 240) -> bool:
+    var head := tr(key).substr(0, 4)
+    return await _wait_until(func() -> bool: return _level.hud.notice_text().contains(head), max_frames)
 
 
 func _sales_of(item: String) -> int:

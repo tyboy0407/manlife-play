@@ -135,6 +135,13 @@ func progress() -> float:
     return 1.0 - float(remaining) / float(current_cost())
 
 
+## 把買過幾次直接設成 n(旅行商人的地圖碎片用現金 / 稀有魚兩塊牌擇一付,買了一塊另一塊要跟著跳到下一片);價格重設成那一次的
+func set_buys(n: int) -> void:
+    buys = clampi(n, 0, max_buys)
+    lost = 0
+    remaining = 0 if is_exhausted() else current_cost()
+
+
 ## 存檔還原
 func restore(p_buys: int, p_remaining: int, p_lost: int = 0) -> void:
     buys = clampi(p_buys, 0, max_buys)

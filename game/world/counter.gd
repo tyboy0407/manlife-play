@@ -5,6 +5,9 @@ extends Node3D
 ## 庫存不夠就買得到幾件算幾件),
 ## 錢進 money_pad,然後走向出口消失;後面的往前補。
 ## 規則在 CounterLogic;庫存上限吃 pile_cap 升級。資料在 data/counters.json。
+## 擴建成長(customers.perExpansion,Harbor 在擴建 / 新建櫃台時 apply_expansion(n)):每擴建一次顧客上限 +max、生成間隔 × intervalMult、
+## 每人要的件數權重往多件偏 wantShift 件(上限 wantMax;counters.json 自己給 wantWeights 的櫃台(毛衣)不偏);
+## 超過一排(base_max_customers)的顧客排到第二排(local -Z 1.2 格,櫃台北側)。
 
 var def := {}
 var def_id := ""
@@ -17,7 +20,11 @@ var stock_pile: StackVisual
 var customers: Array = []   # Customer(filter 回傳無型別陣列,所以不標型別)
 var cashier: Helper = null
 var max_customers := 6
+var base_max_customers := 6      # 一排幾個(擴建前的上限,第二排從這之後起算)
+var base_spawn_interval := 2.0
 var spawn_interval := 2.0
+var expansion := 0               # 套用了幾次擴建成長
+var row_spacing := 1.2           # 第二排在櫃台北側幾格
 var serve_interval := 0.35
 var queue_spacing := 1.3                    # 排隊位間距(counters.json queueSpacing 可蓋過)
 var spawn_offset := Vector3(12.0, 0, 1.5)   # local:顧客出生點(沒設 door 時用)
@@ -25,6 +32,8 @@ var exit_offset := Vector3(12.0, 0, 4.0)    # local:離開點(沒設 door 時用
 var door := Vector3.INF                     # 世界座標:這塊地的顧客門外(Harbor.customer_door);顧客從這裡來、買完走回這裡
 var served_total := 0
 var want_weights: Array = [1]
+var base_want_weights: Array = [1]
+var fixed_want := false          # counters.json 自己給了 wantWeights(毛衣櫃台一次一件):擴建不偏
 
 var _spawn_timer := 0.5
 var _serve_timer := 0.0
@@ -45,12 +54,16 @@ func _ready() -> void:
     base_stock_cap = int(def.get("stockCap", 30))
     logic.price = int(def.get("price", 2))
     var ccfg := GameData.section("customers")
-    max_customers = int(def.get("maxCustomers", ccfg.get("max", 6)))   # counters.json 可蓋過(擴建區的櫃台排 4 個就到柵欄了)
+    base_max_customers = int(def.get("maxCustomers", ccfg.get("max", 6)))   # counters.json 可蓋過(擴建區的櫃台排 4 個就到柵欄了)
+    max_customers = base_max_customers
     queue_spacing = maxf(float(def.get("queueSpacing", ccfg.get("queueSpacing", 1.3))), 0.6)
-    spawn_interval = maxf(float(ccfg.get("spawnIntervalSec", 2.0)), 0.1)
+    base_spawn_interval = maxf(float(ccfg.get("spawnIntervalSec", 2.0)), 0.1)
+    spawn_interval = base_spawn_interval
     serve_interval = maxf(float(ccfg.get("serveIntervalSec", 0.35)), 0.0)
+    fixed_want = def.has("wantWeights")
     var ww = def.get("wantWeights", ccfg.get("wantWeights", [1]))   # counters.json 可蓋過(毛衣櫃台一次只買一件)
-    want_weights = ww if typeof(ww) == TYPE_ARRAY and not ww.is_empty() else [1]
+    base_want_weights = ww if typeof(ww) == TYPE_ARRAY and not ww.is_empty() else [1]
+    want_weights = base_want_weights
     add_child(VisualFactory.box(Vector3(1.0, 1.0, 2.6), Color(0.75, 0.52, 0.28), Vector3(0, 0.5, 0)))
     add_child(VisualFactory.box(Vector3(1.2, 0.08, 2.8), Color(0.85, 0.65, 0.4), Vector3(0, 1.04, 0)))
     var title := str(def.get("name", "COUNTER_%s" % def_id))
@@ -74,6 +87,21 @@ func _ready() -> void:
     apply_upgrades()
     GameState.changed.connect(apply_upgrades)
     refresh_pile()
+    apply_expansion(expansion)
+
+
+## 擴建成長:套 n 次(customers.perExpansion)
+func apply_expansion(n: int) -> void:
+    expansion = maxi(n, 0)
+    var pe = GameData.section("customers").get("perExpansion", {})
+    if typeof(pe) != TYPE_DICTIONARY:
+        pe = {}
+    max_customers = base_max_customers + int(pe.get("max", 1)) * expansion
+    spawn_interval = maxf(base_spawn_interval * pow(clampf(float(pe.get("intervalMult", 0.85)), 0.1, 1.0), float(expansion)), 0.1)
+    if fixed_want:
+        want_weights = base_want_weights
+    else:
+        want_weights = CounterLogic.shift_weights(base_want_weights, int(pe.get("wantShift", 1)) * expansion, int(pe.get("wantMax", 9)))
 
 
 func apply_upgrades() -> void:
@@ -98,8 +126,12 @@ func has_server() -> bool:
     return Engine.get_physics_frames() - _server_frame <= 2
 
 
+## 第 index 個排隊位:一排 base_max_customers 個,之後排到第二排(北側)
 func slot_position(index: int) -> Vector3:
-    return to_global(Vector3(1.6 + float(index) * queue_spacing, 0.0, 0.0))
+    var per_row := maxi(base_max_customers, 1)
+    var row := index / per_row
+    var col := index % per_row
+    return to_global(Vector3(1.6 + float(col) * queue_spacing, 0.0, -row_spacing * float(row)))
 
 
 func waiting_customers() -> int:
