@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1793884609|7298122';
+const CACHE_VERSION = '1793888883|7311787';
 /** @type {string} */
 const CACHE_PREFIX = 'ManLife-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
