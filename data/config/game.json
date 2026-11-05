@@ -60,6 +60,14 @@
       "speed": 4.8,
       "capacity": 1,
       "repairSec": 15.0
+    },
+    "guard": {
+      "speed": 5.4,
+      "capacity": 1,
+      "damage": 12,
+      "attackIntervalSec": 0.6,
+      "attackRange": 1.7,
+      "patrolWaitSec": 1.5
     }
   },
   "models": {
@@ -74,7 +82,8 @@
       "fisher": "character-male-b",
       "porter": "character-male-f",
       "cashier": "character-male-c",
-      "repairman": "character-male-d"
+      "repairman": "character-male-d",
+      "guard": "character-female-c"
     },
     "customers": [
       "character-female-a",
@@ -149,7 +158,7 @@
       "dropCount": 3,
       "reward": {
         "warnSec": 45,
-        "maxLevel": 10,
+        "maxLevel": 5,
         "hpPerLevel": 0.25,
         "scalePerLevel": 0.05,
         "biteMultPerLevel": 0.9,
@@ -252,6 +261,14 @@
     "biteSec": 2.5,
     "aggroRadius": 7.0,
     "height": 3.0,
+    "upgrade": {
+      "cost": 500,
+      "maxEach": 10,
+      "rateMult": 0.92,
+      "damagePerLevel": 0.2,
+      "dwellSec": 5.0,
+      "radius": 2.4
+    },
     "strong": {
       "hp": 2000,
       "damage": 25

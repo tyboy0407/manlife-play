@@ -199,6 +199,28 @@ func _run() -> void:
     await _frames(5)
     await _shot("16_journal")
     level.hud.panel_action("journal_close")
+    # 守衛塔升級面板(站在 tower_5 旁 5 秒會開;這裡直接開)與衛兵打熊
+    var t5 := level.tower_by_id("tower_5") as Tower
+    t5.rate_level = 3
+    t5.damage_level = 2
+    level.tower_upgrading = t5
+    level.player.global_position = Vector3(-3.0, 0, -0.8)
+    level.hud.show_tower_upgrade(level.tower_upgrade_data(t5))
+    await _frames(10)
+    await _shot("17_tower_upgrade")
+    level.hud.panel_action("tower_close")
+    GameState.apply_purchase("hire_guard", {"type": "hire", "role": "guard"})
+    var guard := level.spawn_helper("guard", true)
+    var gbear := level.bears.spawn()
+    gbear.set_physics_process(false)
+    gbear.hp_max = 400.0
+    gbear.hp = 300.0
+    gbear.global_position = Vector3(2.0, 0, 1.0)
+    guard.global_position = Vector3(-1.5, 0, 1.0)
+    level.player.global_position = Vector3(0.0, 0, 5.0)
+    await _frames(70)
+    await _shot("18_guard")
+    gbear.queue_free()
     level.player.global_position = Vector3(0.0, 0, 1.5)
     await _frames(5)
     # 選單打開:詳細統計收在面板裡,左上角只剩錢包 / 背包 / 毛皮 / 牙 / 武器

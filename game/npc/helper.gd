@@ -7,10 +7,13 @@ extends Carrier
 ## cashier 收銀員:走到被指派櫃台的收銀格站著(櫃台要有人站著才賣得出去)。
 ## repairman 修理工:平常站在村裡的崗位(Harbor.REPAIRMAN_POST),有建築被拆(Harbor.broken_buildings)就走過去站 repairSec 秒免費修好
 ##   (Harbor.repair_free),修到一半被熊嚇呆進度歸零。
+## guard 衛兵:在村裡的巡邏點(Harbor.patrol_points)之間走,有活著的熊(含王,Harbor.guard_target)就衝過去每 attackIntervalSec 打一下 damage;
+##   不會被熊嚇呆(被咬時照打),但一樣會被吃掉。
 ## 數值在 game.json helpers.<role>;不收錢、不用垃圾桶。
 ## 北極熊:靠近時 set_panic(true) 嚇呆不動(頭上驚嘆號、emote-no),被吃掉 be_eaten() 規則上立刻消失、外觀縮小後釋放。
 
-const ROLE_COLORS := {"fisher": Color(0.5, 0.38, 0.6), "porter": Color(0.85, 0.55, 0.25), "cashier": Color(0.3, 0.6, 0.5), "repairman": Color(0.75, 0.6, 0.2)}
+const ROLE_COLORS := {"fisher": Color(0.5, 0.38, 0.6), "porter": Color(0.85, 0.55, 0.25), "cashier": Color(0.3, 0.6, 0.5), "repairman": Color(0.75, 0.6, 0.2),
+    "guard": Color(0.35, 0.4, 0.7)}
 
 var role := "fisher"
 var level: Harbor = null
@@ -26,6 +29,13 @@ var delivered_total := 0    # 搬運工送達的件數
 var returned_total := 0     # 搬運工送不出去、放回來源的件數
 var job := {}               # porter:{"from": Station, "to": Node3D, "item": String}
 var panicked := false       # 被北極熊盯上:原地不動
+var hits_total := 0         # 衛兵打了熊幾下
+var guard_damage := 12.0
+var guard_interval := 0.6
+var guard_range := 1.7
+var patrol_wait := 1.5
+var _attack_cd := 0.0
+var _guard_bear: Bear = null
 var eaten := false          # 被吃掉了(等外觀縮完就釋放)
 
 var _dest: Node3D = null
@@ -52,6 +62,10 @@ func _ready() -> void:
     var cfg := GameData.helper(role)
     speed = float(cfg.get("speed", 4.5))
     _base_capacity = int(cfg.get("capacity", 6))
+    guard_damage = maxf(float(cfg.get("damage", 12.0)), 0.0)
+    guard_interval = maxf(float(cfg.get("attackIntervalSec", 0.6)), 0.05)
+    guard_range = maxf(float(cfg.get("attackRange", 1.7)), 0.3)
+    patrol_wait = maxf(float(cfg.get("patrolWaitSec", 1.5)), 0.0)
     repair_sec = maxf(float(cfg.get("repairSec", 15.0)), 0.1)
     _apply_capacity()
     GameState.changed.connect(_apply_capacity)
@@ -103,6 +117,8 @@ func _physics_process(delta: float) -> void:
             _cashier(delta)
         "repairman":
             _repairman(delta)
+        "guard":
+            _guard(delta)
         _:
             move_toward_dir(Vector3.ZERO, delta)
 
@@ -151,8 +167,8 @@ func _walk(p: Vector3, delta: float, stop: float) -> void:
 
 ## 嚇呆 / 解除:不動、頭上驚嘆號、模型一直搖頭(emote-no)
 func set_panic(on: bool) -> void:
-    if on == panicked or eaten:
-        return
+    if on == panicked or eaten or role == "guard":
+        return   # 衛兵不會嚇呆(被咬時照打)
     panicked = on
     if _mark == null:
         _mark = VisualFactory.label("!", Vector3(0, stack_visual.position.y + 0.9, 0), 72, Color(1.0, 0.3, 0.25))
@@ -465,6 +481,58 @@ func _repairman(delta: float) -> void:
             if planar_distance_to(level.REPAIRMAN_POST) > 0.6:
                 target = level.REPAIRMAN_POST
                 state = "to_post"
+
+
+## --- 衛兵 ---
+
+func _guard(delta: float) -> void:
+    if level == null:
+        move_toward_dir(Vector3.ZERO, delta)
+        return
+    _attack_cd = maxf(_attack_cd - delta, 0.0)
+    _idle_timer -= delta
+    if _idle_timer <= 0.0:
+        _idle_timer = 0.3
+        var b := level.guard_target(global_position)
+        if b != _guard_bear:
+            _guard_bear = b
+            if b != null:
+                state = "attack"
+    if state == "attack":
+        if _guard_bear == null or not is_instance_valid(_guard_bear) or not _guard_bear.alive():
+            _guard_bear = null
+            state = "idle"
+            return
+        var d := planar_distance_to(_guard_bear.global_position)
+        if d > guard_range:
+            go_to(_guard_bear.global_position, delta, guard_range * 0.85)
+            return
+        move_toward_dir(Vector3.ZERO, delta)
+        rotation.y = lerp_angle(rotation.y, atan2(_guard_bear.global_position.x - global_position.x, _guard_bear.global_position.z - global_position.z), 0.3)
+        if _attack_cd <= 0.0:
+            _attack_cd = guard_interval
+            hits_total += 1
+            if model != null:
+                model.set_action("attack-melee-right", false, 1.4)
+            _guard_bear.take_hit(guard_damage, self)
+        return
+    match state:
+        "patrol":
+            if go_to(target, delta, 0.5):
+                state = "wait"
+                _wait_timer = patrol_wait
+        "wait":
+            move_toward_dir(Vector3.ZERO, delta)
+            _wait_timer -= delta
+            if _wait_timer <= 0.0:
+                state = "idle"
+        _:
+            move_toward_dir(Vector3.ZERO, delta)
+            var pts := level.patrol_points()
+            if pts.is_empty():
+                return
+            target = pts[randi() % pts.size()]
+            state = "patrol"
 
 
 func _show_repair_ring(on: bool) -> void:

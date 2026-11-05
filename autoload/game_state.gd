@@ -319,7 +319,7 @@ func from_dict(d: Dictionary) -> void:
     items_sold = int(d.get("items_sold", 0))
     items_trashed = int(d.get("items_trashed", 0))
     offline_earned = maxi(int(d.get("offline_earned", 0)), 0)
-    king_level = maxi(int(d.get("king_level", 0)), 0)
+    king_level = KingLogic.from_config(GameData.section("bear").get("king", {})).clamp_level(int(d.get("king_level", 0)))   # 舊檔超過上限夾回來
     king_kills = maxi(int(d.get("king_kills", 0)), 0)
     king_streak = maxi(int(d.get("king_streak", 0)), 0)
     king_capacity_bonus = maxi(int(d.get("king_capacity_bonus", 0)), 0)

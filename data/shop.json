@@ -1022,6 +1022,19 @@
       "effect": {
         "type": "shrine"
       }
+    },
+    {
+      "id": "hire_guard",
+      "name": "SHOP_hire_guard",
+      "cost": 300,
+      "repeatable": true,
+      "maxBuys": 4,
+      "costMult": 1.0,
+      "rebuyMult": 1.5,
+      "effect": {
+        "type": "hire",
+        "role": "guard"
+      }
     }
   ],
   "repairStation": {

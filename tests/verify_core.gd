@@ -16,6 +16,7 @@ func _ready() -> void:
     _test_guide()
     _test_trap_and_belt()
     _test_story()
+    _test_tower_upgrades()
     _test_offline()
     _test_kitchen()
     _test_orders()
@@ -90,8 +91,13 @@ func _test_data() -> void:
     costs_expected.append_array([1, 3])   # 熊王祭壇:保險券 1 牙、冰封夾 3 牙
     costs_expected.append_array([300, 500, 3, 300])   # 修理工 $300、地圖碎片(現金 $500 / 稀有魚 3 條)、毛皮補給 $300
     costs_expected.append(3)   # 冰母的神龕:3 條稀有魚(結局)
-    _check(shop.size() == 99 and costs == costs_expected,
-            "shop.json:九十九塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊、神龕)%s" % str(costs))
+    costs_expected.append(300)   # 衛兵 $300(固定價,可僱 4 位)
+    _check(shop.size() == 100 and costs == costs_expected,
+            "shop.json:一百塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊、神龕、衛兵)%s" % str(costs))
+    var hg := GameData.purchase("hire_guard")
+    _check(str(hg.get("effect", {}).get("role", "")) == "guard" and int(hg.get("maxBuys", 0)) == 4 and is_equal_approx(float(hg.get("costMult", 0.0)), 1.0)
+            and is_equal_approx(float(hg.get("rebuyMult", 0.0)), 1.5) and float(GameData.helper("guard").get("damage", 0.0)) > 0.0
+            and ModelLibrary.role_model("guard") != "", "衛兵牌:$300 固定價、4 位、被吃 1.5 倍買回;helpers.guard 有攻擊力、有人物模型")
     var mc := GameData.purchase("map_cash")
     var mf := GameData.purchase("map_fish")
     var mcl := PurchaseLogic.from_def(mc)
@@ -628,11 +634,11 @@ func _test_offline() -> void:
 
 func _test_king() -> void:
     var k := KingLogic.from_config(GameData.section("bear").get("king", {}))
-    _check(is_equal_approx(k.warn_sec(), 45.0) and k.max_level() == 10 and k.teeth() == 3 and is_equal_approx(k.calm_sec(), 120.0)
-            and is_equal_approx(k.insurance_return_sec(), 10.0) and k.trophy_cap() == 10, "game.json king.reward:預告 45 秒、上限 Lv10、保底 3 顆牙、平靜 120 秒、保險 10 秒回來")
+    _check(is_equal_approx(k.warn_sec(), 45.0) and k.max_level() == 5 and k.teeth() == 3 and is_equal_approx(k.calm_sec(), 120.0)
+            and is_equal_approx(k.insurance_return_sec(), 10.0) and k.trophy_cap() == 10, "game.json king.reward:預告 45 秒、上限 Lv5、保底 3 顆牙、平靜 120 秒、保險 10 秒回來")
     _near(k.hp_mult(0), 1.0, "Lv0 血 ×1", 0.001)
     _near(k.hp_mult(4), 2.0, "Lv4 血 ×2(每級 +25%)", 0.001)
-    _near(k.hp_mult(99), 3.5, "等級夾在 10:血 ×3.5", 0.001)
+    _near(k.hp_mult(99), 2.25, "等級夾在 5:血 ×2.25", 0.001)
     _near(k.scale_mult(2), 1.1, "Lv2 體型 ×1.1", 0.001)
     _near(k.building_bite_mult(2), 0.81, "Lv2 咬建築 ×0.81(拆更快)", 0.001)
     _near(k.reward_level_mult(3), 1.6, "Lv3 寶箱 ×1.6", 0.001)
@@ -954,6 +960,26 @@ func _test_guide() -> void:
 
 
 ## --- 北極熊 / 武器 ---
+
+## --- 守衛塔升級 / 王的等級上限 ---
+
+func _test_tower_upgrades() -> void:
+    var t := TowerLogic.from_config(GameData.section("tower"))
+    _check(t.upgrade_cost() == 500 and t.max_upgrades() == 10 and is_equal_approx(t.upgrade_dwell_sec(), 5.0) and t.upgrade_radius() > 1.0,
+            "塔升級:每次 $500、各 10 次、站 5 秒")
+    _check(is_equal_approx(t.attack_interval(), 0.8) and is_equal_approx(t.attack_interval(1), 0.8 * 0.92) and t.attack_interval(10) < 0.8 * 0.44
+            and t.attack_interval(10) > 0.8 * 0.43 and is_equal_approx(t.attack_interval(99), t.attack_interval(10)),
+            "射速:每級間隔 × 0.92,十級 0.8 -> %.3f 秒(超過上限不再加)" % t.attack_interval(10))
+    _check(is_equal_approx(t.damage(0), 10.0) and is_equal_approx(t.damage(0, 1), 12.0) and is_equal_approx(t.damage(0, 10), 30.0)
+            and is_equal_approx(t.damage(1, 10), 75.0) and is_equal_approx(t.damage(1), 25.0) and is_equal_approx(t.damage(0, 99), 30.0),
+            "傷害:每級 +20% 基礎,十級一般塔 30、強力塔 75")
+    var k := KingLogic.from_config(GameData.section("bear").get("king", {}))
+    _check(k.max_level() == 5 and k.clamp_level(9) == 5 and k.clamp_level(3) == 3, "北極熊王等級上限 5")
+    GameState.reset()
+    GameState.from_dict({"king_level": 9})
+    _check(GameState.king_level == 5, "舊存檔的王等級超過上限會夾回 5")
+    GameState.reset()
+
 
 ## --- 故事 ---
 

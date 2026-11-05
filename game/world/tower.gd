@@ -7,6 +7,8 @@ extends Node3D
 ## 牌子重新出現標「修復」(rebuyMult 1 = 同價),付清再蓋回來。沒買過是 state none(只有牌子)。沒有物理(熊 / 玩家都穿得過)。
 ## 規則在 TowerLogic;蓋 / 塌的結算在 Harbor(_on_purchased "tower" / tower_destroyed)。外觀:方塊占位 + models.guard 的人物當守衛。
 ## tier 1 = 強力守衛塔(熊王牙牌 tooth_<id> 強化,Harbor._on_purchased "tower_upgrade" -> upgrade()):血 2000(50 口)、每箭 25;拆掉修好後還是強力的。
+## 升級(rate_level / damage_level,各最多 TowerLogic.max_upgrades 次、每次 upgrade_cost):玩家站在完好的塔旁 upgrade_radius 內滿 upgrade_dwell_sec 秒
+## -> Harbor.tower_upgrade_prompt(self) 開面板(射速 or 傷害);走開再站才會再開。存檔記 rate / damage 等級。
 
 signal destroyed(by: Node3D)
 
@@ -35,6 +37,10 @@ var _flag: MeshInstance3D = null
 var _strong_band: MeshInstance3D = null
 var _cooldown := 0.0
 var _flash := 0.0
+var rate_level := 0       # 射速升級幾次(射擊間隔 × rateMult^n)
+var damage_level := 0     # 傷害升級幾次
+var _near_t := 0.0        # 玩家站在旁邊幾秒了
+var _near_armed := true   # 開過面板後要走開才會再開
 var _meshes: Array[MeshInstance3D] = []
 
 static var _hit_overlay: StandardMaterial3D = null
@@ -237,6 +243,7 @@ func _physics_process(delta: float) -> void:
             _set_overlay(null)
     if not is_alive():
         return
+    _check_player(delta)
     _cooldown = maxf(_cooldown - delta, 0.0)
     if _cooldown > 0.0:
         return
@@ -244,6 +251,50 @@ func _physics_process(delta: float) -> void:
     if target == null:
         return
     _shoot(target)
+
+
+## 玩家站在塔旁滿 upgrade_dwell_sec 秒就請關卡開升級面板(走開才會再開一次)
+func _check_player(delta: float) -> void:
+    if level == null or level.player == null or not is_instance_valid(level.player):
+        return
+    if planar_distance_to(level.player.global_position) <= logic.upgrade_radius():
+        _near_t += delta
+        if _near_armed and _near_t >= logic.upgrade_dwell_sec():
+            _near_armed = false
+            level.tower_upgrade_prompt(self)
+    else:
+        _near_t = 0.0
+        _near_armed = true
+
+
+## 玩家站在旁邊幾秒了(測試用)
+func near_sec() -> float:
+    return _near_t
+
+
+func upgrades_left(kind: String) -> int:
+    return logic.max_upgrades() - (rate_level if kind == "rate" else damage_level)
+
+
+## 升一級射速 / 傷害(不扣錢,錢由 Harbor 管);升滿回 false
+func apply_upgrade(kind: String) -> bool:
+    if not is_alive() or upgrades_left(kind) <= 0:
+        return false
+    if kind == "rate":
+        rate_level += 1
+    elif kind == "damage":
+        damage_level += 1
+    else:
+        return false
+    return true
+
+
+func current_interval() -> float:
+    return logic.attack_interval(rate_level)
+
+
+func current_damage() -> float:
+    return logic.damage(tier, damage_level)
 
 
 ## 射程內最近的活熊
@@ -260,7 +311,7 @@ func _pick_target() -> Bear:
 
 
 func _shoot(target: Bear) -> void:
-    _cooldown = logic.attack_interval()
+    _cooldown = logic.attack_interval(rate_level)
     shots_total += 1
     last_target = target
     _face_guard(target.global_position)
@@ -268,7 +319,7 @@ func _shoot(target: Bear) -> void:
     a.tower = self
     a.target = target
     a.speed = logic.arrow_speed()
-    a.damage = logic.damage(tier)
+    a.damage = logic.damage(tier, damage_level)
     var parent := get_parent() if get_parent() != null else self
     parent.add_child(a)
     a.global_position = global_position + Vector3(0, logic.height(), 0)
@@ -316,11 +367,13 @@ static func _hit_material() -> StandardMaterial3D:
 ## --- 存檔 ---
 
 func snapshot() -> Dictionary:
-    return {"state": state, "hp": hp, "tier": tier}
+    return {"state": state, "hp": hp, "tier": tier, "rate": rate_level, "damage": damage_level}
 
 
 func restore(d: Dictionary) -> void:
     tier = clampi(int(d.get("tier", 0)), 0, logic.max_tier())
+    rate_level = clampi(int(d.get("rate", 0)), 0, logic.max_upgrades())
+    damage_level = clampi(int(d.get("damage", 0)), 0, logic.max_upgrades())
     hp_max = logic.hp(tier)
     var s := str(d.get("state", "none"))
     if s == "alive":

@@ -28,6 +28,8 @@ func _run() -> void:
     await _south_section()
     await _king_section()
     await _repairman_section()
+    await _tower_upgrade_section()
+    await _guard_section()
     await _tower_strong_section()
     await _story_section()
     # 存檔 -> 重建 -> 還原(先貼一張送了一點的訂單、地圖 2 片,看存檔有沒有記)
@@ -633,6 +635,76 @@ func _king_wreck_section(king: Bear) -> void:
 ## --- 修理工 ---
 ## 到武器店院子付 $300 僱修理工 -> 他站到崗位 -> 把 station_2 與 tower_1 設成廢墟(修復牌出現)-> 修理工走過去站 15 秒免費修好(錢包不動)->
 ## 再去修塔 -> 兩塊牌都消失
+## --- 守衛塔升級 ---
+## 站在 tower_1 旁 5 秒 -> 面板開(射速 / 傷害)-> 錢不夠按了不扣 -> 加錢升傷害、升射速:每箭傷害 / 間隔跟著變、各扣 $500 -> 走開再站才會再開
+func _tower_upgrade_section() -> void:
+    var t1: Tower = _level.tower_by_id("tower_1")
+    _check(t1 != null and t1.is_alive() and t1.rate_level == 0 and t1.damage_level == 0 and not _level.hud.tower_open(), "塔 1 完好、還沒升級、面板沒開")
+    await _go(Vector3(-11.6, 0, -2.0), 400)
+    await _go(Vector3(-9.3, 0, -9.5), 300)   # 塔旁(半徑 2.4 內,避開捕熊夾的牌)
+    var opened := await _wait_until(func() -> bool: return _level.hud.tower_open(), 420)
+    _check(opened and _level.tower_upgrading == t1 and t1.near_sec() >= 4.9 and _level.hud.tower_text().contains("0/10"),
+            "站在塔旁 5 秒:升級面板打開(%s)" % _level.hud.tower_text().replace("\n", " / "))
+    GameState.wallet = 0
+    _check(not _level.tower_stat_upgrade("damage") and t1.damage_level == 0, "錢不夠:按傷害不升、不扣")
+    GameState.add_wallet(1200)
+    var dmg0 := t1.current_damage()
+    var itv0 := t1.current_interval()
+    _check(_level.tower_stat_upgrade("damage") and t1.damage_level == 1 and GameState.wallet == 700 and is_equal_approx(t1.current_damage(), dmg0 * 1.2)
+            and _level.hud.tower_open() and _level.hud.tower_text().contains("1/10"), "升傷害:扣 $500、每箭 %.0f -> %.0f、面板更新" % [dmg0, t1.current_damage()])
+    _check(_level.tower_stat_upgrade("rate") and t1.rate_level == 1 and GameState.wallet == 200 and is_equal_approx(t1.current_interval(), itv0 * 0.92),
+            "升射速:扣 $500、間隔 %.2f -> %.2f 秒" % [itv0, t1.current_interval()])
+    _check(not _level.tower_stat_upgrade("rate") and GameState.wallet == 200, "只剩 $200:再升不了")
+    t1.rate_level = 10
+    _check(not _level.tower_stat_upgrade("rate") and t1.upgrades_left("rate") == 0 and t1.upgrades_left("damage") == 9, "射速升滿 10 次就不能再升")
+    t1.rate_level = 1
+    _level.hud.panel_action("tower_close")
+    var snap: Dictionary = t1.snapshot()
+    _check(not _level.hud.tower_open() and int(snap["rate"]) == 1 and int(snap["damage"]) == 1, "關掉面板;快照記射速 / 傷害等級")
+    await _go(Vector3(-11.6, 0, -2.0), 300)
+    await _step(5)
+    _check(not _level.hud.tower_open() and t1.near_sec() == 0.0, "走開:面板不會自己再開")
+    GameState.wallet = 0
+
+
+## --- 衛兵 ---
+## 南塊蓋好後「僱用衛兵」牌出現 -> 買一位 $300 -> 放一隻熊在村裡:衛兵衝過去打,熊血下降、衛兵不嚇呆 -> 熊被打跑
+func _guard_section() -> void:
+    var gp: PricePad = _level.price_pads["hire_guard"]
+    _check(gp.visible and gp.logic.current_cost() == 300 and gp.global_position.z > 12.6 and _level.south_block != null, "南塊蓋好:衛兵牌 $300 在南塊")
+    GameState.add_wallet(300)
+    await _go(Vector3(-6.0, 0, 11.5), 400)
+    var bought := await _pay_pad(gp)
+    await _step(3)
+    var guard := _find_helper("guard")
+    _check(bought and guard != null and GameState.hired_count("guard") == 1 and gp.visible and gp.logic.current_cost() == 300
+            and is_equal_approx(guard.guard_damage, 12.0) and not guard.can_fish and not guard.takes_output,
+            "僱到衛兵:固定 $300、牌留著可再僱、不抓魚不搬貨")
+    await _step(90)
+    _check(guard.state == "patrol" or guard.state == "wait" or guard.state == "idle", "沒熊時在巡邏(%s)" % guard.state)
+    var bs: BearSpawner = _level.bears
+    var bear := bs.spawn()
+    bear.set_physics_process(false)
+    bear.hp_max = 300.0
+    bear.hp = 300.0
+    bear.global_position = Vector3(0.0, 0, 4.0)
+    guard.global_position = Vector3(-4.0, 0, 4.0)
+    await _go(Vector3(-11.6, 0, 4.0), 300)   # 玩家走遠,免得自己打
+    var engaged := await _wait_until(func() -> bool: return guard.hits_total >= 3, 600)
+    _check(engaged and guard.state == "attack" and bear.hp <= 300.0 - 36.0 and not guard.panicked, "衛兵衝向熊、每 0.6 秒打一下 12(血 %.0f)" % bear.hp)
+    bear.target = guard
+    bear.set_physics_process(true)
+    await _step(120)
+    _check(not guard.panicked and guard.hits_total >= 5 and is_instance_valid(guard) and not guard.eaten, "被熊盯上也不嚇呆,照打(打了 %d 下)" % guard.hits_total)
+    bear.hp = 10.0
+    var beaten := await _wait_until(func() -> bool: return not is_instance_valid(bear) or not bear.alive(), 300)
+    _check(beaten, "熊被衛兵打到血條歸零逃走")
+    await _step(3)
+    var left := await _wait_until(func() -> bool: return not bs.has_bear(), 900)
+    _check(left, "熊離開")
+    GameState.wallet = 0
+
+
 func _repairman_section() -> void:
     _level.bears.enabled = false   # 王的段落開過熊,這段要一分多鐘,別讓熊群來吃幫手;已經在場的也清掉
     for b in _level.bears.bears:

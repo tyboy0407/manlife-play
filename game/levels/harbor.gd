@@ -53,6 +53,7 @@ const PAD_SPOTS := {
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
     "altar_insurance": Vector3(-21.9, 0, 4.6), "altar_ice": Vector3(-15.5, 0, 1.5),   # 熊王祭壇(收熊王牙):武器店院子裡
     "hire_repairman": Vector3(-15.5, 0, -1.5),   # 修理工的僱用牌:武器店院子東北角
+    "hire_guard": Vector3(-8.0, 0, 20.0),   # 衛兵的僱用牌:南塊(第四次擴建後才出現),魚湯廚房西邊
     "map_cash": Vector3(77.5, 0, -1.0), "map_fish": Vector3(80.5, 0, -1.0), "merchant_pelts": Vector3(83.5, 0, -1.0),   # 旅行商人營地(村外東邊雪原)
     "shrine": Vector3(86.0, 0, -9.0),   # 冰母的神龕(雪原東北角,三片地圖拼齊才出現;收 3 條稀有魚 = 結局)
     "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
@@ -187,6 +188,7 @@ var merchant: Node3D = null             # 旅行商人(人物)
 var captain: Node3D = null              # 貨船的船長(人物,故事泡泡用)
 var shrine: Node3D = null               # 冰母的神龕(外觀;地圖拼齊才顯示)
 var story: Story = null
+var tower_upgrading: Tower = null       # 升級面板目前對著哪座塔
 var _order_text_shown := ""
 var offline_sec := 0                    # 這次讀檔算出的離線秒數
 var _offline_pending := 0               # 還沒領的離線收益(面板開著)
@@ -1163,6 +1165,76 @@ func tower_by_id(id: String) -> Tower:
     return null
 
 
+## 衛兵巡邏點:每塊地四個角落內側(避開北邊的水區)、南塊四角
+func patrol_points() -> Array[Vector3]:
+    var out: Array[Vector3] = []
+    var rects: Array[Rect2] = [Rect2(-12.6, -11.2, 25.2, 23.8)]
+    for k in mini(expansion_level(), ANNEX_RECTS.size()):
+        rects.append(ANNEX_RECTS[k])
+    for r in rects:
+        out.append(Vector3(r.position.x + 3.0, 0, -2.6))
+        out.append(Vector3(r.end.x - 3.0, 0, -2.6))
+        out.append(Vector3(r.position.x + 3.0, 0, 6.8))
+        out.append(Vector3(r.end.x - 3.0, 0, 6.8))
+    if south_block != null:
+        out.append(Vector3(-9.0, 0, 14.5))
+        out.append(Vector3(9.0, 0, 14.5))
+        out.append(Vector3(-9.0, 0, 29.0))
+        out.append(Vector3(9.0, 0, 29.0))
+    return out
+
+
+## 衛兵要打的熊:活著的、最近的(含王);沒有回 null
+func guard_target(pos: Vector3) -> Bear:
+    if bears == null:
+        return null
+    var best: Bear = null
+    var best_d := INF
+    for b in bears.bears:
+        if b == null or not is_instance_valid(b) or not b.alive():
+            continue
+        var dd := b.planar_distance_to(pos)
+        if dd < best_d:
+            best_d = dd
+            best = b
+    return best
+
+
+## 玩家站在塔旁滿 5 秒(Tower._check_player):開升級面板(別的面板開著就不開)
+func tower_upgrade_prompt(t: Tower) -> void:
+    if t == null or not t.is_alive() or hud == null or hud.tower_open() or hud.menu_open():
+        return
+    tower_upgrading = t
+    hud.show_tower_upgrade(tower_upgrade_data(t))
+
+
+func tower_upgrade_data(t: Tower) -> Dictionary:
+    return {"id": t.id, "rate": t.rate_level, "damage": t.damage_level, "max": t.logic.max_upgrades(), "cost": t.logic.upgrade_cost(),
+            "wallet": GameState.wallet, "interval": t.current_interval(), "dmg": t.current_damage()}
+
+
+## 面板上按了射速 / 傷害:錢包夠就扣 $500 升一級(各最多 10 次),面板留著並更新;回傳有沒有升成
+func tower_stat_upgrade(kind: String) -> bool:
+    var t := tower_upgrading
+    if t == null or not is_instance_valid(t) or not t.is_alive():
+        hud.panel_action("tower_close")
+        return false
+    var cost := t.logic.upgrade_cost()
+    if t.upgrades_left(kind) <= 0:
+        return false
+    if GameState.wallet < cost:
+        EventBus.notice.emit(tr("NOTICE_TOWER_UP_NO_CASH") % cost)
+        return false
+    GameState.spend_resource("cash", cost)
+    t.apply_upgrade(kind)
+    var level_now := t.rate_level if kind == "rate" else t.damage_level
+    EventBus.tower_stat_upgraded.emit(t, kind, level_now)
+    EventBus.notice.emit(tr("NOTICE_TOWER_UP_RATE" if kind == "rate" else "NOTICE_TOWER_UP_DAMAGE") % [level_now, t.current_interval() if kind == "rate" else t.current_damage()])
+    hud.show_tower_upgrade(tower_upgrade_data(t))
+    save_now()
+    return true
+
+
 ## 蓋 / 修這座塔的牌(效果 tower、target = 塔 id)
 func tower_pad_for(tower_id: String) -> PricePad:
     for id in price_pads:
@@ -1230,6 +1302,9 @@ func _refresh_tower_pads() -> void:
             var spec: Dictionary = CONVEYORS[id]
             cp.set_open(conveyor_by_id(str(id)) == null and station_at(str(spec["from"])) != null and counter_by_id(str(spec["to"])) != null)
     _refresh_shrine()
+    var hg: PricePad = price_pads.get("hire_guard", null)
+    if hg != null:
+        hg.set_open(south_block != null)   # 衛兵:擴建四次(南塊)後才能僱
 
 
 ## --- 捕熊夾 / 誘餌 / 傳送帶 ---
@@ -1922,6 +1997,8 @@ func _on_hud_action(id: String) -> void:
         "journal":
             if story != null:
                 hud.show_journal(story.chapter_entries(), story.journal_entries())
+        "tower_up:rate", "tower_up:damage":
+            tower_stat_upgrade(id.trim_prefix("tower_up:"))
         _:
             if id.begins_with("choice:"):
                 _claim_chest(int(id.trim_prefix("choice:")))

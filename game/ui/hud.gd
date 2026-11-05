@@ -54,6 +54,10 @@ var journal_panel: PanelContainer = null   # 日誌頁(選單)
 var _story_title: Label
 var _story_body: Label
 var _journal_box: VBoxContainer
+var tower_panel: PanelContainer = null     # 守衛塔升級(站在塔旁 5 秒)
+var _tower_body: Label
+var _tower_rate_btn: Button
+var _tower_dmg_btn: Button
 var _map_cache := {}                # 上次 show_map 拿到的地圖資料
 var _notice_timer := 0.0
 var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
@@ -128,6 +132,7 @@ func _ready() -> void:
     _build_changelog_panel()
     _build_story_panel()
     _build_journal_panel()
+    _build_tower_panel()
     joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel, map_panel, help_panel, changelog_panel]
     EventBus.notice.connect(show_notice)
     EventBus.items_moved.connect(_on_items_moved)
@@ -568,6 +573,54 @@ func journal_open() -> bool:
     return journal_panel.visible
 
 
+## 守衛塔升級面板:射速 / 傷害各一顆按鈕(按了發 action "tower_up:rate" / "tower_up:damage",關卡扣錢並重新餵資料)
+func _build_tower_panel() -> void:
+    var parts := _centered_panel("TowerPanel", 380, "TOWER_UP_TITLE")
+    tower_panel = parts["panel"]
+    var box: VBoxContainer = parts["box"]
+    _tower_body = Label.new()
+    _tower_body.add_theme_font_size_override("font_size", 15)
+    _tower_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _tower_body.custom_minimum_size = Vector2(340, 0)
+    box.add_child(_tower_body)
+    _tower_rate_btn = Button.new()
+    _tower_rate_btn.name = "RateButton"
+    _tower_rate_btn.custom_minimum_size = Vector2(0, 60)
+    _tower_rate_btn.add_theme_font_size_override("font_size", 18)
+    _tower_rate_btn.pressed.connect(panel_action.bind("tower_up:rate"))
+    box.add_child(_tower_rate_btn)
+    _tower_dmg_btn = Button.new()
+    _tower_dmg_btn.name = "DamageButton"
+    _tower_dmg_btn.custom_minimum_size = Vector2(0, 60)
+    _tower_dmg_btn.add_theme_font_size_override("font_size", 18)
+    _tower_dmg_btn.pressed.connect(panel_action.bind("tower_up:damage"))
+    box.add_child(_tower_dmg_btn)
+    box.add_child(_close_button("tower_close"))
+
+
+## d:{id, rate, damage, max, cost, wallet, interval, dmg}
+func show_tower_upgrade(d: Dictionary) -> void:
+    _tower_body.text = tr("TOWER_UP_DESC") % [str(d.get("id", "")).trim_prefix("tower_"), float(d.get("interval", 0.8)), float(d.get("dmg", 10.0)), int(d.get("wallet", 0))]
+    var mx := int(d.get("max", 10))
+    var cost := int(d.get("cost", 500))
+    var r := int(d.get("rate", 0))
+    var g := int(d.get("damage", 0))
+    _tower_rate_btn.text = tr("TOWER_UP_RATE") % [r, mx, cost] if r < mx else tr("TOWER_UP_RATE_MAX") % mx
+    _tower_dmg_btn.text = tr("TOWER_UP_DAMAGE") % [g, mx, cost] if g < mx else tr("TOWER_UP_DAMAGE_MAX") % mx
+    _tower_rate_btn.disabled = r >= mx
+    _tower_dmg_btn.disabled = g >= mx
+    menu_panel.visible = false
+    tower_panel.visible = true
+
+
+func tower_open() -> bool:
+    return tower_panel.visible
+
+
+func tower_text() -> String:
+    return _tower_body.text + "\n" + _tower_rate_btn.text + "\n" + _tower_dmg_btn.text
+
+
 func journal_text() -> String:
     var parts: Array[String] = []
     for c in _journal_box.get_children():
@@ -587,6 +640,10 @@ func panel_action(id: String) -> void:
             changelog_panel.visible = false
         "story_close":
             story_panel.visible = false
+        "tower_close":
+            tower_panel.visible = false
+        "tower_up:rate", "tower_up:damage":
+            action.emit(id)
         "journal_close":
             journal_panel.visible = false
         "map_home":
@@ -768,6 +825,7 @@ func stats_pages() -> Array[String]:
         tr("HUD_STATS_ECON") % [GameState.cash_earned, int(round(income_rate * 60.0)), GameState.offline_earned, GameState.fish_caught,
                 GameState.items_sold, GameState.items_trashed, t],
         tr("HUD_STATS_HELPERS") % [GameState.hired_count("fisher"), GameState.hired_count("porter"), GameState.hired_count("cashier"), GameState.hired_count("repairman"),
+                GameState.hired_count("guard"),
                 GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"), GameState.upgrade_level("porter_cap"),
                 GameState.weapon_level, GameState.shop_level, GameState.helpers_lost, GameState.pelts],
         tr("HUD_STATS_KING") % [GameState.king_level, GameState.king_kills, GameState.king_streak, GameState.teeth, GameState.king_capacity_bonus]

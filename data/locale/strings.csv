@@ -158,7 +158,7 @@ NOTICE_COUPON_UPGRADE,Free upgrade coupon used!,用掉免費升級券!
 NOTICE_ICE_TRAPS,Frost traps unlocked: every trap stuns 6 s and hits harder,冰封捕熊夾解鎖：所有夾子定住 6 秒、傷害更高
 HUD_KING_LV,King Lv%d,王 Lv%d
 HUD_STATS_ECON,Earned $%d | income $%d/min | offline $%d\nfish %d | sold %d | trashed %d\ntime %s,累計收入 $%d|收入 $%d/分|離線收益 $%d\n抓魚 %d|賣出 %d|丟棄 %d\n時間 %s
-HUD_STATS_HELPERS,fishers %d porters %d cashiers %d repairmen %d\nworker speed Lv%d | pile cap Lv%d | porter cap Lv%d\nweapon Lv%d | weapon shop Lv%d\neaten by bear %d | pelts %d,漁夫 %d 搬運工 %d 收銀員 %d 修理工 %d\n工人速度 Lv%d|堆疊上限 Lv%d|搬運容量 Lv%d\n武器 Lv%d|武器店 Lv%d\n被北極熊吃掉 %d|毛皮 %d
+HUD_STATS_HELPERS,fishers %d porters %d cashiers %d repairmen %d guards %d\nworker speed Lv%d | pile cap Lv%d | porter cap Lv%d\nweapon Lv%d | weapon shop Lv%d\neaten by bear %d | pelts %d,漁夫 %d 搬運工 %d 收銀員 %d 修理工 %d 衛兵 %d\n工人速度 Lv%d|堆疊上限 Lv%d|搬運容量 Lv%d\n武器 Lv%d|武器店 Lv%d\n被北極熊吃掉 %d|毛皮 %d
 HUD_STATS_KING,Bear King Lv%d | slain %d | perfect streak %d\nking teeth %d | milestone backpack +%d,北極熊王 Lv%d|擊殺 %d|完美連勝 %d\n熊王牙 %d|里程碑背包 +%d
 TAB_economy,Economy,經濟
 TAB_helpers,Helpers & bears,幫手與熊
@@ -321,3 +321,15 @@ LINE_CUST_SWEATER_2,Bear fur? If I walk at night in this will the bears think I 
 LINE_CUST_SWEATER_3,Up north the snow has stopped in one place.,北邊的雪停了一塊。
 LINE_CUST_END_1,......,……
 LINE_CUST_END_2,She is watching.,她在看。
+SHOP_hire_guard,Hire a guard,僱用衛兵
+ROLE_guard,guard,衛兵
+NOTICE_HIRED_guard,A guard joined you! Patrols the village and attacks any bear on sight,衛兵加入了!會在村裡巡邏，看到北極熊就衝上去打
+TOWER_UP_TITLE,Guard tower upgrade,守衛塔升級
+TOWER_UP_DESC,Tower %s: one arrow every %.2f s dealing %.0f. Wallet $%d. Each upgrade costs $500 (10 per stat).,守衛塔 %s：每 %.2f 秒一箭、每箭 %.0f 傷。錢包 $%d。每次升級 $500，射速與傷害各可升 10 次。
+TOWER_UP_RATE,Fire rate Lv%d/%d (+1 for $%d),射速 Lv%d/%d（升一級 $%d）
+TOWER_UP_DAMAGE,Damage Lv%d/%d (+1 for $%d),傷害 Lv%d/%d（升一級 $%d）
+TOWER_UP_RATE_MAX,Fire rate Lv%d (max),射速 Lv%d（已滿）
+TOWER_UP_DAMAGE_MAX,Damage Lv%d (max),傷害 Lv%d（已滿）
+NOTICE_TOWER_UP_RATE,Fire rate Lv%d: one arrow every %.2f s,射速 Lv%d：每 %.2f 秒一箭
+NOTICE_TOWER_UP_DAMAGE,Damage Lv%d: %.0f per arrow,傷害 Lv%d：每箭 %.0f 傷
+NOTICE_TOWER_UP_NO_CASH,Not enough cash: an upgrade costs $%d,錢不夠：升級要 $%d

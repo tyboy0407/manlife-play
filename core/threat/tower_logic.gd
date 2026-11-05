@@ -5,6 +5,8 @@ extends RefCounted
 ## biteSec, aggroRadius, height}:hp 800 / biteDamage 40 = 扛得住 20 口。北極熊王不看血量,咬滿 BearLogic.king_building_bite_sec 秒直接拆掉。
 ## 蓋 / 修的價格在 shop.json(tower_1 ~ tower_4,rebuyMult 1 = 修復同價)。
 ## 強力守衛塔(tier 1,熊王牙強化):tower.strong {hp 2000 = 扛 50 口, damage 25};hp(tier) / damage(tier) 吃 tier。
+## 塔的升級(tower.upgrade):站在塔旁 dwellSec 秒開面板,射速 / 傷害各可升 maxEach 次、每次 cost;射速每級射擊間隔 × rateMult(0.92),
+## 傷害每級 +damagePerLevel(0.2)倍的基礎傷害(attack_interval(rate_level) / damage(tier, damage_level))。
 
 var cfg := {}
 
@@ -27,11 +29,44 @@ func hp(tier: int = 0) -> float:
     return maxf(float(cfg.get("hp", 800.0)), 1.0)
 
 
-## 每一箭的傷害
-func damage(tier: int = 0) -> float:
-    if tier >= 1:
-        return maxf(float(_strong().get("damage", 25.0)), 0.0)
-    return maxf(float(cfg.get("damage", 10.0)), 0.0)
+## 每一箭的傷害(tier 強力塔的基礎值 × 傷害升級倍率)
+func damage(tier: int = 0, damage_level: int = 0) -> float:
+    var base := maxf(float(_strong().get("damage", 25.0)), 0.0) if tier >= 1 else maxf(float(cfg.get("damage", 10.0)), 0.0)
+    return base * damage_mult(damage_level)
+
+
+func _upgrade() -> Dictionary:
+    var v = cfg.get("upgrade", {})
+    return v if typeof(v) == TYPE_DICTIONARY else {}
+
+
+## 每次升級的價格
+func upgrade_cost() -> int:
+    return maxi(int(_upgrade().get("cost", 500)), 0)
+
+
+## 射速 / 傷害各最多升幾次
+func max_upgrades() -> int:
+    return maxi(int(_upgrade().get("maxEach", 10)), 0)
+
+
+## 站在塔旁幾秒開升級面板、算「旁邊」的距離
+func upgrade_dwell_sec() -> float:
+    return maxf(float(_upgrade().get("dwellSec", 5.0)), 0.1)
+
+
+func upgrade_radius() -> float:
+    return maxf(float(_upgrade().get("radius", 2.4)), 0.3)
+
+
+## 射速升級:射擊間隔倍率(每級 × rateMult)
+func rate_mult(rate_level: int) -> float:
+    return pow(clampf(float(_upgrade().get("rateMult", 0.92)), 0.1, 1.0), float(clampi(rate_level, 0, max_upgrades())))
+
+
+## 傷害升級:倍率(1 + damagePerLevel × 級)
+func damage_mult(damage_level: int) -> float:
+    return 1.0 + maxf(float(_upgrade().get("damagePerLevel", 0.2)), 0.0) * float(clampi(damage_level, 0, max_upgrades()))
 
 
 func max_tier() -> int:
@@ -42,8 +77,8 @@ func attack_range() -> float:
     return maxf(float(cfg.get("range", 9.0)), 0.5)
 
 
-func attack_interval() -> float:
-    return maxf(float(cfg.get("attackIntervalSec", 0.8)), 0.05)
+func attack_interval(rate_level: int = 0) -> float:
+    return maxf(float(cfg.get("attackIntervalSec", 0.8)) * rate_mult(rate_level), 0.05)
 
 
 func arrow_speed() -> float:
