@@ -1013,6 +1013,15 @@
         "kind": "pelt",
         "amount": 5
       }
+    },
+    {
+      "id": "shrine",
+      "name": "SHOP_shrine",
+      "cost": 3,
+      "currency": "rarefish",
+      "effect": {
+        "type": "shrine"
+      }
     }
   ],
   "repairStation": {

@@ -234,3 +234,90 @@ HELP_bears,Polar bears arrive from the edges after 3 minutes and eat helpers. Bu
 HELP_expand,Expand the village east three times and south once: more water; stations; counters and hire slots.\nEach expansion brings more customers who buy more per visit and queue in two rows.\nThe cargo ship at the northwest dock posts timed orders: deliver for double pay. Porters help deliver.\nThe traveling merchant on the east snowfield sells map pieces (cash or golden fish).,村莊可往東擴建三次、往南一次：更多水區、工作站、櫃台與僱用名額。\n每擴建一次顧客更多、每人買得更多、排成兩排。\n村外西北碼頭的貨船會貼限時訂單：送齊賺兩倍，搬運工也會幫忙送。\n東邊雪原的旅行商人賣地圖碎片（現金或金魚）。
 HELP_king,The Polar Bear King comes at 8 minutes (45 s warning). It wrecks buildings it chews for 10 s. Kill it for a chest: pick one of three cards.\nKing teeth reinforce towers or buy altar coupons. Each kill levels the King up.\nGolden fish appear in the water now and then: only you can catch them (stand beside one for 2 s).\nOffline: helpers earn at half your recent income rate for up to 8 hours.,北極熊王 8 分鐘後來（提前 45 秒預告），咬建築 10 秒就拆掉。打死牠掉寶箱，三選一。\n熊王牙可強化守衛塔或在祭壇買券。每打死一次王會升級。\n水裡偶爾出現金魚：只有你抓得到（站在旁邊 2 秒）。\n離線時幫手照最近收入的一半賺錢，最多 8 小時。
 HUD_STATS_MORE,orders done %d ($%d) | golden fish %d | map %d/%d,訂單完成 %d（$%d）|金魚 %d|地圖 %d/%d
+MENU_JOURNAL,Journal,日誌
+JOURNAL_TITLE,Journal,日誌
+JOURNAL_CHAPTERS,Chapters,章節
+JOURNAL_ENTRIES,Clues,線索
+JOURNAL_LOCKED,???,？？？
+STORY_TITLE,Story,故事
+NOTICE_JOURNAL,Journal: %s,日誌新增：%s
+NOTICE_SHRINE,You gave the fish back. The snow thins. The queue is longer.,你把魚放回去了。風雪變小了。隊伍變長了。
+SHOP_shrine,Return the fish,放回金魚
+SIGN_SHRINE,Shrine of the Ice Mother,冰母的神龕
+MAP_SHRINE,Shrine,神龕
+STORY_CH0_TITLE,Prologue: Year Three Hundred,序章：第三百年
+STORY_CH0_TEXT,A morning in the three-hundredth year of snow. You put fish on the cutting table; the queue stamps its feet to keep warm.\nStar Harbour has nothing else: only fish and people who keep walking here to buy them. Nobody asks why.,風雪第三百年的某個早晨。你把魚放上切魚台，排隊的人在跺腳取暖。\n星港沒有別的，只有魚，和不知道為什麼一直走來買魚的人。
+STORY_CH1_TITLE,Chapter 1: Shepherds,第一章：牧者
+STORY_CH1_TEXT,They come out of the snow and walk straight at people. They do not even look at the fish.\nThe old man selling axes outside the village says: They are not hungry. They are counting.\nYou ask what they count. He does not answer.,牠們從雪裡來，直直走向人，連魚都不看。\n村外賣斧頭的老人說：「牠們不餓。牠們在數。」\n你問數什麼。他沒回答。
+STORY_CH2_TITLE,Chapter 2: The Ship That Circles,第二章：繞圈的船
+STORY_CH2_TEXT,The Icebreakers' ship has tied up at the dock. The captain says they have sailed the coast for three hundred years and never seen its end.\nEvery time we think we have reached it we are back at Star Harbour. He says it is the wind.,破冰者的船靠了碼頭。船長說他們沿著海岸跑了三百年，從沒看過海岸的盡頭。\n「每次以為到了，就又回到星港。」他說這是風的關係。
+STORY_CH3_TITLE,Chapter 3: The Rule,第三章：規矩
+STORY_CH3_TEXT,The Windwalkers' caravan is camped to the east. The map is sold in three pieces; the merchant says that is the rule.\nYou ask who made it. He thinks for a long time and says he does not remember. Only that it must be this way.,風行者的商隊在東邊紮營。地圖分三次賣，商人說這是規矩。\n你問誰定的。他想了很久，說他不記得了，只記得一定要這樣。
+STORY_CH4_TITLE,Chapter 4: The Pipes,第四章：管線
+STORY_CH4_TEXT,The people of Hearthfort have come with pots and a repairman and a sheet of paper three hundred years old.\nIt reads: In the first famine we fished out the golden fish. From that day the sea has been watching us.\nThe repairman says the pipes his people have mended for generations run down to the sea floor.,爐火堡的人來了，帶來鍋、修理工，和一張三百年前的紙。\n紙上寫：「第一個荒年，我們把金魚撈光了。從那天起，海一直在看我們。」\n修理工說他們一代代修的管線，是往海底去的。
+STORY_CH5_TITLE,Final Chapter: The Eye,終章：眼睛
+STORY_CH5_TEXT,The last piece of the map is drawn on the sea ice to the north. It does not snow there.\nThe Nightwatchman says the Bear King walked out of that place; then he hangs his axe back on the wall.\nYou take the golden fish you have caught over the years. You think you are giving something back.,地圖最後一塊畫在北方的海冰上。那裡不下雪。\n守夜人說熊王是從那裡走出來的，說完他把斧頭掛回牆上。\n你帶上這些年抓到的金魚。你以為你在把什麼還給她。
+STORY_CH6_TITLE,Epilogue: Light Snow,尾聲：細雪
+STORY_CH6_TEXT,The storm has become a light snow. She no longer needs to dream.\nYou go back to the cutting table. The queue is still there. Nobody stamps their feet. They all face north.\nThe queue is longer than yesterday.,風雪變成細雪。她不需要再做夢了。\n你回到切魚台。排隊的人還在，沒有人跺腳，他們全部面向北方。\n隊伍比昨天長。
+JOURNAL_01_TITLE,Year three hundred,第三百年
+JOURNAL_01_TEXT,The three-hundredth year of snow. Nobody remembers the first. Nobody has ever asked why.,風雪第三百年。沒有人記得第一年。沒有人問過為什麼。
+JOURNAL_02_TITLE,Shepherds,牧者
+JOURNAL_02_TEXT,The bears walk straight at people and look back at the sea when they flee. The Nightwatchmen call them shepherds. Shepherds do not eat the sheep. Shepherds count them.,熊直直走向人，逃的時候回頭看海。守夜人叫牠們牧者。牧者不吃羊，牧者數羊。
+JOURNAL_03_TITLE,Marks on the rock,岩石上的刻痕
+JOURNAL_03_TEXT,A row of lines carved into the rock like someone counting days. It stops halfway. Every line is the same depth as if all were cut in one day.,岩石上刻著一排線，像在數日子。數到一半停了。刻痕的深度一樣，像是一天刻完的。
+JOURNAL_04_TITLE,The net under the tree,枯樹下的網
+JOURNAL_04_TEXT,A fishing net buried under the dead tree. Its mesh is too fine for even a small fish to slip through. Three hundred years old. There are still scales in it. Golden ones.,樹下埋著一張漁網，網眼小得連小魚都漏不過。三百年前的東西。網裡還有鱗片，是金色的。
+JOURNAL_05_TITLE,The plank in the snow,雪堆裡的船板
+JOURNAL_05_TEXT,A ship's plank carved with the name Star Harbour. Half a day's walk from the sea. The break is not from a collision. It is a bite.,一塊船板，刻著「星港」。這裡離海有半天路。船板的斷口不是撞的，是咬的。
+JOURNAL_06_TITLE,The eye of the sea,海的眼睛
+JOURNAL_06_TEXT,A golden fish. It burns in your hands and its eye keeps looking at you. In the bucket it is still looking.,金色的魚，抓到時在手裡發燙，魚眼一直看著你。放進桶裡之後，還是看著你。
+JOURNAL_07_TITLE,Circling,繞圈
+JOURNAL_07_TEXT,The Icebreakers have sailed the coast for three hundred years and never seen its end. Every time they think they have they are back at Star Harbour.,破冰者沿岸航行三百年，從沒看過海岸的盡頭。每次以為到了，就又回到星港。
+JOURNAL_08_TITLE,The end of the road,路的盡頭
+JOURNAL_08_TEXT,The place the caravan walks around. It does not snow there. People who go do not come back. The ones who come back are not people.,商隊繞著走的地方。不下雪。人去了不回來，回來的不像人。
+JOURNAL_09_TITLE,The colour of the sea,海的顏色
+JOURNAL_09_TEXT,Its eyes were the colour of the sea. It fell facing north as if reporting.,牠的眼睛是海的顏色。倒下的時候朝著北方，像在回報。
+JOURNAL_10_TITLE,The first famine,第一個荒年
+JOURNAL_10_TEXT,The paper from Hearthfort: In the first famine we fished out the golden fish. From that day the sea has been watching us.,爐火堡的紙：第一個荒年，我們把金魚撈光了。從那天起，海一直在看我們。
+JOURNAL_11_TITLE,Her,她
+JOURNAL_11_TEXT,The shrine is not a shrine. It is the eye she has opened. The snow is not punishment. It is her dreaming. The dream is us.,神龕不是神龕，是她睜開的那隻眼。風雪不是懲罰，是她在做夢。夢的內容是我們。
+JOURNAL_12_TITLE,Light snow,細雪
+JOURNAL_12_TEXT,I gave her eyes back. The snow is lighter because she no longer needs to dream. She looks directly now. The queue is longer than yesterday. Tomorrow I still have to cut fish.,我把眼睛還給她了。風雪變小，是因為她不用再做夢，她直接看。隊伍比昨天長。明天我還是要切魚。
+LINE_SHOP_A1,Axes are cheap. Lives are not. I am short of both.,斧頭便宜。命不便宜。兩樣我都不多。
+LINE_SHOP_A2,Year three hundred of the snow. My grandfather's grandfather said the same.,風雪第三百年。我爺爺的爺爺也這麼說。
+LINE_SHOP_B1,They watch people. Not fish. Like counting sheep.,牠們盯人，不盯魚。像在數羊。
+LINE_SHOP_C1,It looked back at the sea as it ran. They all do. Soon you will stop finding that strange.,牠逃的時候回頭看海。每一隻都會。你以後就不會覺得這有什麼了。
+LINE_SHOP_D1,Its eyes were the colour of the sea. Not like the sea. The sea. I saw it once under the ice wall when I was young. I have sold axes ever since.,牠的眼睛是海的顏色。不是像，是海。我年輕時在冰牆下看過，從那天起我就賣斧頭了。
+LINE_SHOP_E1,The shrine is on the sea ice. Leave the weapon. It is useless. Bring fish. You will go anyway.,神龕在海冰上。別帶武器，沒用。帶魚去吧，反正你也會去。
+LINE_SHOP_F1,I told you it was useless.,我說過沒用。
+LINE_CAPT_A1,The south wants fish. I pay in news. News is worthless so I am generous with it.,南方的聚落要魚。我給你消息，消息不值錢，所以我很大方。
+LINE_CAPT_B1,Three hundred years along this coast. The further north the quieter the sea. Quiet like someone holding their breath.,我們沿岸跑了三百年。越往北海越安靜，安靜得像有人屏住呼吸。
+LINE_CAPT_C1,The old sailors say there is singing under the sea at night. I have heard it. It is not singing. It is someone counting. Slowly.,老水手說夜裡海底有歌聲。我聽過。不是歌，是有人在數數。數得很慢。
+LINE_CAPT_D1,A golden fish? Take it back. The old sailors say it is the eye of the sea. Catch one and the sea remembers you.,金色的魚？拿回去。老水手說那是海的眼睛，抓到的人，海就記得你了。
+LINE_CAPT_E1,I will not go to the shrine. Fleet rule: never look back at it.,神龕我不去。船隊的規矩：不看回去。
+LINE_CAPT_F1,The coast has no end. I knew that long ago.,海岸沒有盡頭。我早就知道了。
+LINE_MERC_A1,The roads are in my head. The map is sold in three pieces. That is the rule. Not business.,路在我腦子裡。地圖分三次賣，這是規矩，不是生意。
+LINE_MERC_A2,Pelts I buy. The Windwalkers live on them out there.,毛皮我收。風行者在雪原上靠的就是這個。
+LINE_MERC_B1,This piece is your home. The second is the road. The third is where the road ends. It does not snow there.,這片畫的是你家。第二片畫路，第三片畫路的盡頭。盡頭不下雪。
+LINE_MERC_C1,That place we walk around. The bears come from there. People who go do not come back. The ones who come back are not people.,那個地方我們繞著走。熊從那邊來，人去了不回來。回來的也不像人。
+LINE_MERC_D1,There. Do not ask me who made the rule. I thought about it once and stopped halfway.,給你了。別問我誰定的規矩。我想過這個問題，想到一半就不想了。
+LINE_MERC_E1,She made the rule. I remember now.,規矩是她定的。我現在記起來了。
+LINE_REPAIR_A1,Hearthfort folk are not afraid of broken things. Only of cold.,爐火堡的人不怕壞東西，只怕冷。
+LINE_REPAIR_B1,Under the vents there are pipes from the old world. We mend them generation after generation. The heat comes up from the sea floor.,地熱口底下有舊世界的管線，我們一代代修。熱是從海底來的。
+LINE_REPAIR_C1,The fort keeps a sheet of paper three hundred years old. Want to read it? Once you have read it you cannot un-read it.,堡裡留著一張紙，三百年前的。你要看嗎？看了就不能不看了。
+LINE_REPAIR_D1,The last line on the paper: The sea is watching us. As a boy I thought it was about the weather. Now I know. It is about the weather.,紙上最後一行：「海在看我們。」我小時候以為是在講天氣。我現在知道，就是在講天氣。
+LINE_REPAIR_E1,The pipes run down to the sea floor. We have been keeping her warm all along.,管線是往海底去的。我們一直在替她保暖。
+LINE_CUST_FILLET_1,Not much wind today.,今天風小。
+LINE_CUST_FILLET_2,Grandma said ships used to stop here. She never said where they went.,奶奶說以前這裡停船。她沒說船去了哪裡。
+LINE_CUST_FILLET_3,Have you noticed the queue keeps getting longer?,你有沒有覺得隊伍越來越長？
+LINE_CUST_GRILL_1,Bears were calling by the ice wall again last night.,冰牆那邊昨晚又有熊叫。
+LINE_CUST_GRILL_2,This is for the night watch. He has not talked much lately.,帶回去給值夜的。他最近不太說話。
+LINE_CUST_GRILL_3,When the bears call they face the sea.,熊叫的時候，是朝著海。
+LINE_CUST_SOUP_1,Three days' walk for this bowl.,走了三天，就為這碗。
+LINE_CUST_SOUP_2,The elders say the soup must steam. They say the heat is borrowed.,堡裡的老人說湯要熱到冒煙。他說熱是借來的。
+LINE_CUST_SOUP_3,The pipes have been very hot lately.,管線最近很燙。
+LINE_CUST_SWEATER_1,The caravan goes north. We need thick ones.,商隊往北走，要厚的。
+LINE_CUST_SWEATER_2,Bear fur? If I walk at night in this will the bears think I am one of them.,這毛皮是熊的？穿著走夜路，熊會不會以為我是自己人。
+LINE_CUST_SWEATER_3,Up north the snow has stopped in one place.,北邊的雪停了一塊。
+LINE_CUST_END_1,......,……
+LINE_CUST_END_2,She is watching.,她在看。

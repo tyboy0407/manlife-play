@@ -9,6 +9,7 @@ const STATIONS_PATH := "res://data/stations.json"
 const COUNTERS_PATH := "res://data/counters.json"
 const SHOP_PATH := "res://data/shop.json"
 const CHANGELOG_PATH := "res://data/changelog.json"
+const STORY_PATH := "res://data/story.json"
 
 static var _config := {}
 static var _items := {}
@@ -17,6 +18,7 @@ static var _counters := {}
 static var _shop: Array = []
 static var _repair := {}   # shop.json repairStation:被拆的建築修復價
 static var _changelog: Array = []   # changelog.json versions:新版內容(最新的在前)
+static var _story := {}             # story.json:章節 / 日誌 / NPC 台詞(StoryLogic 吃)
 static var _loaded := false
 
 
@@ -44,6 +46,7 @@ static func reload() -> void:
         for v in cl:
             if typeof(v) == TYPE_DICTIONARY and v.has("version"):
                 _changelog.append(v)
+    _story = _load(STORY_PATH)
     _loaded = true
 
 
@@ -158,6 +161,12 @@ static func purchase(id: String) -> Dictionary:
 static func changelog() -> Array:
     _ensure()
     return _changelog
+
+
+## 故事資料(data/story.json)
+static func story() -> Dictionary:
+    _ensure()
+    return _story
 
 
 static func latest_version() -> String:

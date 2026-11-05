@@ -175,6 +175,15 @@
   6 新版內容:data/changelog.json {versions: [{version, notes}]}(最新在前),Settings.seen_version(裝置設定,不在存檔)!= 最新版且有存檔就在開局彈 Hud.show_changelog
   (離線面板開著就下次再彈);新玩家直接記成看過;選單「新版內容」隨時可看。7 玩法說明:選單「玩法說明」Hud.show_help 六頁(HELP_TAB_* / HELP_*:基本操作 / 生產鏈 / 幫手 / 熊與武器 / 擴建 / 王與其他)。
   測試:world_test_base 建關卡後 orders.next_in = 1e9、FishArea.rare_auto = false(訂單 / 金魚只在測試指定時出現)。
+- 2026-11-05(故事,使用者選 1b 古神「冰母」、2a 無名主角、3a 泡泡 + 日誌 + 章節短文;第二稿要求更沉重、克蘇魯式絕望結局;大綱 notes/story_outline.md):
+  資料 data/story.json(chapters / journal 各帶 when 條件;lines{npc: [{when, keys}]} 取最後一個成立的;customerLines 依櫃台種類與階段),文字全在 strings.csv。
+  純規則 core/story/story_logic.gd(StoryLogic:check(cond, state) / unlocked_chapters / unlocked_journal / npc_lines / customer_lines_for / stage early-late-ended / counter_kind)。
+  節點 game/story/story.gd(Story,掛關卡下,群組 story):每 0.5 秒餵進度(GameState + expansion_level),新章節 -> GameState.story_add + HUD.show_chapter、
+  新日誌 -> 通知;讀檔第一次 refresh 靜音(silent_first)。NPC 泡泡:老闆 / 船長(新加在甲板上,只有外觀 Harbor.captain)/ 商人 / 修理工,
+  站 2.2 內滿 1 秒冒一句(輪流)、3.5 秒或走開收;跟修理工談過(南邊擴建後)記 flag repairman_talked -> 第一個荒年日誌。雪原地標走到 2.5 內記 landmarks。
+  結局:三片地圖拼齊 -> 神龕(SHRINE_SPOT (86, -9) 雪原東北角,_build_shrine 外觀、牌 shrine 收 3 條稀有魚,_refresh_shrine)-> 付清 unlocked["shrine"] ->
+  尾聲章節、顧客買到不道謝改面向北方(Customer.leave 問 Story.ended / customer_line)。存檔 GameState.story {chapters, journal, landmarks, flags}。
+  選單多「日誌」頁(Hud.show_journal / journal_text,未解鎖 ???);章節短文面板 Hud.show_chapter(不暫停)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式

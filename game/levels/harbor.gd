@@ -54,6 +54,7 @@ const PAD_SPOTS := {
     "altar_insurance": Vector3(-21.9, 0, 4.6), "altar_ice": Vector3(-15.5, 0, 1.5),   # 熊王祭壇(收熊王牙):武器店院子裡
     "hire_repairman": Vector3(-15.5, 0, -1.5),   # 修理工的僱用牌:武器店院子東北角
     "map_cash": Vector3(77.5, 0, -1.0), "map_fish": Vector3(80.5, 0, -1.0), "merchant_pelts": Vector3(83.5, 0, -1.0),   # 旅行商人營地(村外東邊雪原)
+    "shrine": Vector3(86.0, 0, -9.0),   # 冰母的神龕(雪原東北角,三片地圖拼齊才出現;收 3 條稀有魚 = 結局)
     "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
     "tooth_tower_5": Vector3(-3.0, 0, -2.9), "tooth_tower_6": Vector3(3.0, 0, -2.9),
 }
@@ -126,6 +127,7 @@ const WEST_ROUTE := [Vector3(-9.0, 0, 3.6), Vector3(-11.4, 0, 2.5), Vector3(-14.
 # 旅行商人營地:村外東邊雪原(最東那塊擴建區 x 68.8 之外、空氣牆 90 之內)
 const MERCHANT_CAMP := Vector3(80.0, 0, -6.0)
 const MERCHANT_SPOT := Vector3(80.0, 0, -3.8)
+const SHRINE_SPOT := Vector3(86.0, 0, -9.0)   # 故事終章:冰母的神龕(雪原東北角,「不下雪的地方」),牌 shrine 同位置
 const REPAIRMAN_POST := Vector3(-10.5, 0, 2.4)   # 修理工沒事時站的崗位(西門內側走道)
 const CUSTOMER_DOOR_Z := Vector2(9.2, 11.2)   # 每塊地東柵欄上的「顧客門」(只開視覺柵欄,隱形牆留著);顧客從門外走進來、買完走回門外
 const CUSTOMER_DOOR_OUT := 1.5                # 顧客出生 / 離開點在柵欄外幾格
@@ -182,6 +184,9 @@ var orders: OrderLogic                  # 訂單(碼頭的貨船)
 var dock: OrderDock = null              # 碼頭的交貨格
 var dock_sign: Label3D = null           # 貨船上的訂單牌
 var merchant: Node3D = null             # 旅行商人(人物)
+var captain: Node3D = null              # 貨船的船長(人物,故事泡泡用)
+var shrine: Node3D = null               # 冰母的神龕(外觀;地圖拼齊才顯示)
+var story: Story = null
 var _order_text_shown := ""
 var offline_sec := 0                    # 這次讀檔算出的離線秒數
 var _offline_pending := 0               # 還沒領的離線收益(面板開著)
@@ -202,6 +207,7 @@ func _ready() -> void:
     _build_outside()
     _build_dock()
     _build_merchant_camp()
+    _build_shrine()
     fish_area = FishArea.new()
     fish_area.name = "FishArea"
     fish_area.rect = Rect2(-8.0, -11.0, 16.0, 7.0)
@@ -280,6 +286,11 @@ func _ready() -> void:
     guide.name = "Guide"
     guide.level = self
     add_child(guide)
+    story = Story.new()
+    story.name = "Story"
+    story.level = self
+    story.silent_first = loaded_from_save   # 讀檔:舊進度的章節 / 日誌直接補進去,不一次彈一堆
+    add_child(story)
     EventBus.purchased.connect(_on_purchased)
     EventBus.purchased.connect(func(_id: String, _effect: Dictionary) -> void: save_now())
 
@@ -404,6 +415,17 @@ func _build_dock() -> void:
     scenery.add_box(Vector3(0.6, 0.3, 0.06), Color(0.55, 0.18, 0.15), BOAT_SPOT + Vector3(0.7, 4.5, 0))   # 旗
     dock_sign = VisualFactory.label(tr("SIGN_DOCK"), BOAT_SPOT + Vector3(0, 5.2, 0), 44, Color(1.0, 0.95, 0.8))
     world.add_child(dock_sign)
+    # 船長(破冰者):站在甲板上,只有外觀,故事的泡泡掛在他頭上
+    captain = Node3D.new()
+    captain.name = "Captain"
+    captain.position = BOAT_SPOT + Vector3(-1.0, 1.15, 1.0)
+    world.add_child(captain)
+    var cmodels := ModelLibrary.customer_models()
+    var cscene: PackedScene = ModelLibrary.character(str(cmodels[cmodels.size() - 1])) if not cmodels.is_empty() else null
+    if cscene != null:
+        captain.add_child(CharacterModel.create(cscene, ModelLibrary.character_height()))
+    else:
+        captain.add_child(VisualFactory.capsule(0.4, 1.6, Color(0.3, 0.35, 0.5), Vector3(0, 0.9, 0)))
 
 
 ## 旅行商人營地:帳篷 + 營火 + 商人(人物模型)+ 招牌;牌子(map_cash / map_fish / merchant_pelts)在帳篷前
@@ -430,6 +452,34 @@ func _build_merchant_camp() -> void:
     else:
         merchant.add_child(VisualFactory.capsule(0.4, 1.6, Color(0.5, 0.25, 0.2), Vector3(0, 0.9, 0)))
     merchant.add_child(VisualFactory.blob_shadow(0.5, Settings.is_smooth()))
+
+
+## 冰母的神龕(故事終章):冰台 + 一圈冰柱圍著一灘黑水;三片地圖拼齊才顯示(_refresh_shrine),牌 shrine 收 3 條稀有魚
+func _build_shrine() -> void:
+    shrine = Node3D.new()
+    shrine.name = "Shrine"
+    shrine.position = SHRINE_SPOT
+    world.add_child(shrine)
+    var ice := Color(0.8, 0.9, 1.0)
+    var dark := Color(0.04, 0.07, 0.12)
+    shrine.add_child(VisualFactory.cylinder(2.2, 0.12, ice.darkened(0.25), Vector3(0, 0.06, 0)))
+    shrine.add_child(VisualFactory.cylinder(1.3, 0.08, dark, Vector3(0, 0.14, 0)))
+    for i in 6:
+        var a := TAU * float(i) / 6.0
+        var h := 1.6 + float(i % 2) * 0.9
+        shrine.add_child(VisualFactory.box(Vector3(0.35, h, 0.35), ice, Vector3(cos(a) * 2.6, h / 2.0, sin(a) * 2.6)))
+    shrine.add_child(VisualFactory.label(tr("SIGN_SHRINE"), Vector3(0, 3.6, 0), 44, Color(0.85, 0.9, 1.0)))
+    shrine.visible = false
+
+
+## 神龕與它的牌只在三片地圖拼齊後出現;付清(結局)後牌消失、神龕留著
+func _refresh_shrine() -> void:
+    var full := GameState.has_full_map()
+    if shrine != null:
+        shrine.visible = full
+    var sp: PricePad = price_pads.get("shrine", null)
+    if sp != null:
+        sp.set_open(full and not GameState.is_unlocked("shrine"))
 
 
 ## 擴建區(annex):第 k 塊(1 起)。拆掉它西邊那面牆(k = 1 是主村的整面東牆 east_walls,k >= 2 是前一塊的東牆),
@@ -938,6 +988,8 @@ func map_data() -> Dictionary:
     var points := []
     points.append({"pos": Vector2(DOCK_SPOT.x, DOCK_SPOT.z), "color": Color(0.45, 0.3, 0.2), "label": "MAP_DOCK"})
     points.append({"pos": Vector2(MERCHANT_CAMP.x, MERCHANT_CAMP.z), "color": Color(0.55, 0.18, 0.15), "label": "MAP_MERCHANT"})
+    if GameState.has_full_map():
+        points.append({"pos": Vector2(SHRINE_SPOT.x, SHRINE_SPOT.z), "color": Color(0.04, 0.07, 0.12), "label": "MAP_SHRINE"})
     var pp := player.global_position if player != null and is_instance_valid(player) else PLAYER_SPAWN
     return {"world": EXPLORE_RECT, "rects": rects, "points": points, "player": Vector2(pp.x, pp.z), "pieces": GameState.map_pieces,
             "total": GameState.MAP_PIECES, "unknown": [Rect2(90.0, -12.0, 30.0, 62.0), Rect2(-40.0, 50.0, 160.0, 14.0)]}
@@ -1177,6 +1229,7 @@ func _refresh_tower_pads() -> void:
         if cp != null:
             var spec: Dictionary = CONVEYORS[id]
             cp.set_open(conveyor_by_id(str(id)) == null and station_at(str(spec["from"])) != null and counter_by_id(str(spec["to"])) != null)
+    _refresh_shrine()
 
 
 ## --- 捕熊夾 / 誘餌 / 傳送帶 ---
@@ -1627,8 +1680,15 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
             pass   # GameState.apply_purchase 已經加券
         "map_piece":
             _sync_map_pads()
+            _refresh_shrine()
             EventBus.map_piece_bought.emit(GameState.map_pieces)
             EventBus.notice.emit(tr("NOTICE_MAP_FULL") if GameState.has_full_map() else tr("NOTICE_MAP_PIECE") % [GameState.map_pieces, GameState.MAP_PIECES])
+        "shrine":
+            _refresh_shrine()
+            EventBus.shrine_offered.emit()
+            EventBus.notice.emit(tr("NOTICE_SHRINE"))
+            if story != null:
+                story.refresh()
         "resource":
             EventBus.items_moved.emit("loot", str(effect.get("kind", "pelt")), merchant.global_position + Vector3(0, 1.4, 0) if merchant != null else player.global_position,
                     player.stack_top(), int(effect.get("amount", 1)))
@@ -1859,6 +1919,9 @@ func _on_hud_action(id: String) -> void:
             _claim_offline()
         "map_home":
             map_home()
+        "journal":
+            if story != null:
+                hud.show_journal(story.chapter_entries(), story.journal_entries())
         _:
             if id.begins_with("choice:"):
                 _claim_chest(int(id.trim_prefix("choice:")))

@@ -171,6 +171,36 @@ func _run() -> void:
     level.player.global_position = Vector3(-7.5, 0, -1.0)
     await _frames(30)
     await _shot("13_trap_bait_belt")
+    # 故事:武器店老闆的泡泡(王打死過 -> 海的顏色那句)、章節短文面板
+    GameState.king_kills = 1
+    GameState.set_story_flag("bear_seen")
+    GameState.set_story_flag("bear_beaten")
+    level.player.global_position = Vector3(-18.3, 0, 2.2)
+    await _frames(80)
+    level.hud.panel_action("story_close")   # 序章短文會自己彈出來,先關掉才看得到泡泡
+    await _frames(2)
+    await _shot("14_story_bubble")
+    level.hud.show_chapter(tr("STORY_CH1_TITLE"), tr("STORY_CH1_TEXT"))
+    await _frames(5)
+    await _shot("14b_story_chapter")
+    level.hud.panel_action("story_close")
+    # 三片地圖拼齊:雪原東北角的冰母神龕與牌
+    GameState.map_pieces = 3
+    level._sync_map_pads()
+    level._refresh_tower_pads()
+    level.player.global_position = Vector3(86.0, 0, -5.0)
+    await _frames(40)
+    level.hud.panel_action("story_close")
+    await _frames(2)
+    await _shot("15_shrine")
+    # 日誌頁
+    level.story.refresh()
+    level.hud.show_journal(level.story.chapter_entries(), level.story.journal_entries())
+    await _frames(5)
+    await _shot("16_journal")
+    level.hud.panel_action("journal_close")
+    level.player.global_position = Vector3(0.0, 0, 1.5)
+    await _frames(5)
     # 選單打開:詳細統計收在面板裡,左上角只剩錢包 / 背包 / 毛皮 / 牙 / 武器
     level.hud.menu_action("toggle")
     await _frames(5)

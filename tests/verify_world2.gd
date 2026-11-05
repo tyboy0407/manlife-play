@@ -29,6 +29,7 @@ func _run() -> void:
     await _king_section()
     await _repairman_section()
     await _tower_strong_section()
+    await _story_section()
     # 存檔 -> 重建 -> 還原(先貼一張送了一點的訂單、地圖 2 片,看存檔有沒有記)
     _level.orders.generate({"fillet": 2, "grilled": 5}, 1, 1.0)
     _level.orders.deliver(_level.orders.wanted_items()[0], 2)
@@ -433,6 +434,71 @@ func _king_section() -> void:
 
 
 ## 打死王掉下熊王牙 -> 撿起來 -> 完好的 tower_1 底下有熊王牙牌(沒蓋的塔沒有)-> 站上去付 1 顆 -> 強力守衛塔:血 2000、每箭 25
+## --- 故事 ---
+## 到這裡已經:教學完成、熊來過 / 打跑過、南邊擴建、打死過王 -> 章節 0 / 1 / 4 與對應日誌都該解鎖了;
+## 走到武器店老闆旁邊冒泡泡(王打死後那句)-> 西邊雪原的岩石留下線索 -> 三片地圖拼齊:神龕出現、終章 -> 帶 3 條稀有魚走到雪原東北角付清:
+## 尾聲、結局(顧客不再道謝)-> 日誌頁 -> 地圖頁回村
+func _story_section() -> void:
+    var story: Story = _level.story
+    await _step(35)
+    _check(story != null and GameState.story_has("chapters", "ch0") and GameState.story_has("chapters", "ch1") and GameState.story_has("chapters", "ch4")
+            and not GameState.story_has("chapters", "ch6") and GameState.story_has("journal", "j01") and GameState.story_has("journal", "j02")
+            and GameState.story_has("journal", "j09") and GameState.story_flag("bear_seen") and GameState.story_flag("bear_beaten"),
+            "故事:序章 / 牧者 / 管線三章與牧者、海的顏色等日誌已解鎖(%s)" % str(GameState.story_list("chapters")))
+    _level.hud.panel_action("story_close")
+    # 武器店老闆:站旁邊 1 秒冒泡泡(依當下進度取最後一個階段的那句:打死過王是海的顏色,前面的段落若已拼齊地圖就是神龕那句)
+    var expect_keys := story.logic.npc_lines("shopkeeper", story.state())
+    await _go_outside()
+    await _go(Vector3(-19.5, 0, 2.4))
+    var spoke := await _wait_until(func() -> bool: return story.npc_bubble_text("shopkeeper") != "", 150)
+    _check(spoke and not expect_keys.is_empty() and story.npc_bubble_text("shopkeeper") == tr(expect_keys[0]) and expect_keys[0] != "LINE_SHOP_A1",
+            "武器店老闆的泡泡隨進度換(%s):%s" % [expect_keys[0] if not expect_keys.is_empty() else "", story.npc_bubble_text("shopkeeper")])
+    # 雪原地標:院子西缺口出去,走到岩石旁
+    await _go(Vector3(-24.5, 0, 2.0), 300)
+    await _go(Vector3(-34.2, 0, 2.6), 400)
+    var rock := await _wait_until(func() -> bool: return GameState.story_has("journal", "j03"), 90)
+    _check(rock and GameState.story_landmarks().has("rock") and not GameState.story_landmarks().has("tree"), "走到雪原的岩石旁:岩石上的刻痕(日誌)")
+    await _go(Vector3(-24.5, 0, 2.0), 400)
+    await _go(Vector3(-14.5, 0, 2.5), 300)
+    await _go(Vector3(-11.0, 0, 2.5))
+    # 三片地圖拼齊:神龕出現、終章
+    var sp: PricePad = _level.price_pads["shrine"]
+    var had_map := GameState.has_full_map()
+    _check(had_map or (not _level.shrine.visible and not sp.visible), "地圖沒拼齊時神龕與牌藏著(目前 %d 片)" % GameState.map_pieces)
+    GameState.map_pieces = 3
+    _level._sync_map_pads()
+    _level._refresh_tower_pads()
+    await _step(35)
+    _check(_level.shrine.visible and sp.visible and sp.logic.currency == "rarefish" and sp.logic.current_cost() == 3
+            and GameState.story_has("chapters", "ch5") and GameState.story_has("journal", "j11")
+            and (had_map or (_level.hud.story_open() and _level.hud.story_text().contains(tr("STORY_CH5_TITLE")))),
+            "三片拼齊:神龕與牌出現(收 3 條稀有魚)、終章與「她」解鎖")
+    _level.hud.panel_action("story_close")
+    # 帶 3 條金魚走到雪原東北角(沿工作站那排 z 0.5 走到最東邊的探險缺口,再到營地東邊)
+    GameState.rarefish = 3
+    await _go(Vector3(11.0, 0, 0.5), 400)
+    await _go(Vector3(60.0, 0, 0.5), 900)
+    await _go(Vector3(72.0, 0, 0.5), 400)
+    await _go(Vector3(84.0, 0, -7.0), 500)
+    var offered := await _pay_pad(sp)
+    await _step(35)
+    _check(offered and GameState.is_unlocked("shrine") and GameState.rarefish == 0 and not sp.visible and _level.shrine.visible and story.ended()
+            and GameState.story_has("chapters", "ch6") and GameState.story_has("journal", "j12") and _level.hud.story_text().contains(tr("STORY_CH6_TITLE")),
+            "神龕付清 3 條稀有魚:結局、尾聲短文、細雪日誌;神龕留著、牌消失")
+    _level.hud.panel_action("story_close")
+    _check(story.customer_line("fillet_counter") != "" and story.customer_line("grill_counter_2", 0.99) != ""
+            and story.npc_bubble_text("shopkeeper") == "" , "結局後顧客一定說話(省略號 / 她在看)")
+    # 日誌頁:章節與線索都列出來,沒去過的枯樹是 ???
+    _level.hud.menu_action("toggle")
+    _level.hud.menu_action("journal")
+    var jt := _level.hud.journal_text()
+    _check(_level.hud.journal_open() and jt.contains(tr("STORY_CH6_TITLE")) and jt.contains(tr("JOURNAL_12_TITLE")) and jt.contains(tr("JOURNAL_LOCKED"))
+            and not jt.contains(tr("JOURNAL_04_TITLE")) and story.unlocked_count() >= 8, "日誌頁:列出已解鎖的章節與線索,沒去過的是 ???(共 %d 條)" % story.unlocked_count())
+    _level.hud.panel_action("journal_close")
+    _check(_level.map_home() and _player.global_position.distance_to(Harbor.PLAYER_SPAWN) < 0.5, "地圖頁回村")
+    await _step(3)
+
+
 func _tower_strong_section() -> void:
     var t1: Tower = _level.tower_by_id("tower_1")
     var tp: PricePad = _level.price_pads["tooth_tower_1"]

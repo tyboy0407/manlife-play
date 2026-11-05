@@ -36,6 +36,7 @@ var rarefish := 0              # 稀有魚(金魚,玩家自己抓的,不佔背�
 var map_pieces := 0            # 地圖碎片(旅行商人賣的,3 片拼成大地圖)
 var orders_done := 0           # 完成的訂單數
 var orders_cash := 0           # 訂單賺的錢
+var story := {}                # 故事進度:chapters / journal / landmarks(id 清單)、flags {name: true}(Story 寫,存檔)
 
 
 func _ready() -> void:
@@ -73,6 +74,7 @@ func reset() -> void:
     rarefish = 0
     map_pieces = 0
     orders_done = 0
+    story = {}
     orders_cash = 0
     changed.emit()
 
@@ -285,6 +287,7 @@ func to_dict() -> Dictionary:
         "king_level": king_level, "king_kills": king_kills, "king_streak": king_streak, "coupons": coupons.duplicate(),
         "king_capacity_bonus": king_capacity_bonus,
         "rarefish": rarefish, "map_pieces": map_pieces, "orders_done": orders_done, "orders_cash": orders_cash,
+        "story": story.duplicate(true),
     }
 
 
@@ -335,4 +338,50 @@ func from_dict(d: Dictionary) -> void:
     map_pieces = clampi(int(d.get("map_pieces", 0)), 0, MAP_PIECES)
     orders_done = maxi(int(d.get("orders_done", 0)), 0)
     orders_cash = maxi(int(d.get("orders_cash", 0)), 0)
+    var sd = d.get("story", {})
+    story = sd.duplicate(true) if typeof(sd) == TYPE_DICTIONARY else {}
     changed.emit()
+
+
+## --- 故事進度(Story 節點寫;chapters / journal / landmarks 是 id 清單,flags 是 {name: true})---
+
+func story_list(kind: String) -> Array:
+    var v = story.get(kind, null)
+    if typeof(v) != TYPE_ARRAY:
+        v = []
+        story[kind] = v
+    return v
+
+
+func story_has(kind: String, id: String) -> bool:
+    return story_list(kind).has(id)
+
+
+## 加一筆;已經有了回 false
+func story_add(kind: String, id: String) -> bool:
+    var l := story_list(kind)
+    if l.has(id):
+        return false
+    l.append(id)
+    return true
+
+
+func story_flag(name: String) -> bool:
+    var f = story.get("flags", {})
+    return typeof(f) == TYPE_DICTIONARY and bool(f.get(name, false))
+
+
+func set_story_flag(name: String) -> void:
+    var f = story.get("flags", null)
+    if typeof(f) != TYPE_DICTIONARY:
+        f = {}
+        story["flags"] = f
+    f[name] = true
+
+
+## 到過的地標種類 {rock: true, ...}
+func story_landmarks() -> Dictionary:
+    var out := {}
+    for k in story_list("landmarks"):
+        out[str(k)] = true
+    return out

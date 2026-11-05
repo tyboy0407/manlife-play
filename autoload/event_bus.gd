@@ -52,3 +52,7 @@ signal rare_fish_spawned(fish: Node3D)                  # 水裡出現稀有魚
 signal rare_fish_caught(total: int)                     # 抓到稀有魚(累計)
 signal building_repaired(building: Node3D, by: Node3D)  # 修理工修好建築
 signal map_piece_bought(pieces: int)                    # 旅行商人:地圖碎片
+signal chapter_started(id: String)                      # 故事:章節解鎖(HUD 彈短文)
+signal journal_unlocked(id: String)                     # 故事:日誌新增一條
+signal npc_spoke(npc: String, key: String)              # 故事:NPC 冒了一句泡泡
+signal shrine_offered                                   # 故事:神龕付清(結局)

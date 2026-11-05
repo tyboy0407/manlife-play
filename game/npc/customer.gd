@@ -10,6 +10,7 @@ static var _next_model := 0   # 輪流用不同的顧客模型
 var speed := 3.5
 var want := 1
 var item_name := ""   # 泡泡上顯示要買什麼(由櫃台在 add_child 前設定)
+var counter_id := ""  # 哪座櫃台的客人(故事:各聚落的閒話看櫃台種類)
 var target := Vector3.ZERO
 var arrived := false
 var leaving := false
@@ -47,15 +48,31 @@ func set_target(p: Vector3) -> void:
     arrived = planar_distance(p) < 0.15
 
 
-## 買到了:泡泡換成道謝、原地比個手勢,半秒後收起泡泡並走向出口
+## 買到了:泡泡換成道謝、原地比個手勢,半秒後收起泡泡並走向出口。
+## 故事:偶爾改說一句聚落的閒話(Story.customer_line);結局(神龕之後)不道謝、不比手勢,靜靜轉向北方站一下再走
 func leave(exit_point: Vector3) -> void:
     leaving = true
     served = true
     _thanks = THANKS_SEC
+    var story := get_tree().get_first_node_in_group("story") as Story
+    var line := story.customer_line(counter_id) if story != null else ""
+    if story != null and story.ended():
+        _thanks = THANKS_SEC * 2.0
+        rotation.y = PI   # 面向北方(-Z)
+        _bubble.text = line
+        _bubble.modulate = Color(0.75, 0.8, 0.9)
+        _bubble.visible = line != ""
+        set_target(exit_point)
+        return
     if model != null:
         model.set_action("emote-yes", false)
-    _bubble.text = tr("CUSTOMER_THANKS")
-    _bubble.modulate = Color(0.7, 1.0, 0.7)
+    if line != "":
+        _bubble.text = line
+        _bubble.modulate = Color(0.9, 0.9, 1.0)
+        _thanks = THANKS_SEC * 2.5
+    else:
+        _bubble.text = tr("CUSTOMER_THANKS")
+        _bubble.modulate = Color(0.7, 1.0, 0.7)
     set_target(exit_point)
 
 

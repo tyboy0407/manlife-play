@@ -15,6 +15,7 @@ func _ready() -> void:
     _test_porter()
     _test_guide()
     _test_trap_and_belt()
+    _test_story()
     _test_offline()
     _test_kitchen()
     _test_orders()
@@ -88,8 +89,9 @@ func _test_data() -> void:
         costs_expected.append(1)
     costs_expected.append_array([1, 3])   # 熊王祭壇:保險券 1 牙、冰封夾 3 牙
     costs_expected.append_array([300, 500, 3, 300])   # 修理工 $300、地圖碎片(現金 $500 / 稀有魚 3 條)、毛皮補給 $300
-    _check(shop.size() == 98 and costs == costs_expected,
-            "shop.json:九十八塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊)%s" % str(costs))
+    costs_expected.append(3)   # 冰母的神龕:3 條稀有魚(結局)
+    _check(shop.size() == 99 and costs == costs_expected,
+            "shop.json:九十九塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊、神龕)%s" % str(costs))
     var mc := GameData.purchase("map_cash")
     var mf := GameData.purchase("map_fish")
     var mcl := PurchaseLogic.from_def(mc)
@@ -952,6 +954,80 @@ func _test_guide() -> void:
 
 
 ## --- 北極熊 / 武器 ---
+
+## --- 故事 ---
+
+func _test_story() -> void:
+    var s := StoryLogic.from_data(GameData.story())
+    _check(s.chapters.size() == 7 and s.journal.size() == 12 and s.lines.has("shopkeeper") and s.lines.has("captain") and s.lines.has("merchant")
+            and s.lines.has("repairman") and s.shrine_cost == 3 and is_equal_approx(s.customer_chance, 0.1),
+            "story.json:七章、十二條日誌、四個 NPC 的台詞、神龕 3 條魚")
+    var missing: Array[String] = []
+    for c in s.chapters:
+        for k in ["title", "text"]:
+            if tr(str(c[k])) == str(c[k]):
+                missing.append(str(c[k]))
+    for j in s.journal:
+        for k in ["title", "text"]:
+            if tr(str(j[k])) == str(j[k]):
+                missing.append(str(j[k]))
+    for npc in s.lines:
+        for e in s.lines[npc]:
+            for k in e.get("keys", []):
+                if tr(str(k)) == str(k):
+                    missing.append(str(k))
+    _check(missing.is_empty(), "故事的文字鍵都有翻譯(缺 %s)" % str(missing))
+    var st := {}
+    _check(s.unlocked_chapters(st).is_empty() and s.unlocked_journal(st).is_empty() and s.stage(st) == "early" and not s.ended(st), "空進度:什麼都沒解鎖")
+    st["tutorial_done"] = true
+    _check(s.unlocked_chapters(st) == ["ch0"] and s.unlocked_journal(st) == ["j01"], "教學完成:序章 + 第一條日誌")
+    st["weapon_level"] = 1
+    _check(s.unlocked_chapters(st) == ["ch0", "ch1"] and not StoryLogic.check("bear_met", st), "買了武器也算熊來過(第一章);還沒被咬 / 打跑不算 bear_met")
+    st["helpers_lost"] = 1
+    _check(s.unlocked_journal(st) == ["j01", "j02"], "被咬過:牧者的日誌")
+    st["orders_done"] = 1
+    st["map_pieces"] = 2
+    st["landmarks"] = {"rock": true, "pile": true}
+    _check(s.unlocked_chapters(st) == ["ch0", "ch1", "ch2", "ch3"] and s.unlocked_journal(st) == ["j01", "j02", "j03", "j05", "j07", "j08"],
+            "訂單 / 兩片地圖 / 岩石與雪堆:第二三章與對應日誌(枯樹沒去過就沒有)")
+    st["expansion"] = 4
+    _check(s.stage(st) == "late" and s.unlocked_chapters(st).has("ch4") and not s.unlocked_journal(st).has("j10"),
+            "南邊擴建:第四章、階段 late;第一個荒年要跟修理工談過才有")
+    st["repairman_talked"] = true
+    st["king_kills"] = 1
+    st["rare_caught"] = true
+    _check(s.unlocked_journal(st).has("j10") and s.unlocked_journal(st).has("j09") and s.unlocked_journal(st).has("j06")
+            and not s.unlocked_chapters(st).has("ch5"), "修理工 / 王 / 金魚的日誌;兩片地圖還沒終章")
+    st["map_pieces"] = 3
+    _check(s.unlocked_chapters(st).has("ch5") and s.unlocked_journal(st).has("j11") and not s.unlocked_chapters(st).has("ch6"), "三片拼齊:終章、她;還沒尾聲")
+    st["shrine"] = true
+    _check(s.unlocked_chapters(st).size() == 7 and s.unlocked_journal(st).size() == 11 and s.ended(st) and s.stage(st) == "ended",
+            "神龕付清:尾聲、細雪、結局(枯樹那條還是沒去過)")
+    # NPC 台詞依進度換,取最後一個成立的階段
+    _check(s.npc_lines("shopkeeper", {}) == ["LINE_SHOP_A1", "LINE_SHOP_A2"] and s.npc_lines("shopkeeper", {"weapon_level": 1}) == ["LINE_SHOP_B1"]
+            and s.npc_lines("shopkeeper", {"king_kills": 1}) == ["LINE_SHOP_D1"] and s.npc_lines("shopkeeper", st) == ["LINE_SHOP_F1"]
+            and s.npc_lines("captain", {"orders_done": 3}) == ["LINE_CAPT_C1"] and s.npc_lines("merchant", {"map_pieces": 2}) == ["LINE_MERC_C1"]
+            and s.npc_lines("repairman", {"expansion": 4}) == ["LINE_REPAIR_C1"] and s.npc_lines("nobody", st).is_empty(),
+            "NPC 台詞:老闆 / 船長 / 商人 / 修理工依進度換;沒這個 NPC 回空")
+    # 顧客台詞:櫃台種類(去掉 _2 / _3)與階段;結局後全部同一組
+    _check(StoryLogic.counter_kind("fillet_counter_3") == "fillet_counter" and StoryLogic.counter_kind("soup_counter") == "soup_counter"
+            and s.customer_lines_for("grill_counter_2", {}) == ["LINE_CUST_GRILL_1", "LINE_CUST_GRILL_2"]
+            and s.customer_lines_for("grill_counter", {"expansion": 4}) == ["LINE_CUST_GRILL_3"]
+            and s.customer_lines_for("sweater_counter", st) == ["LINE_CUST_END_1", "LINE_CUST_END_2"]
+            and s.customer_lines_for("nope_counter", {}).is_empty(), "顧客閒話:依櫃台種類與階段;結局後只剩省略號 / 她在看")
+    # GameState 的故事進度:清單 / 旗標 / 存檔往返
+    GameState.reset()
+    _check(GameState.story_add("journal", "j01") and not GameState.story_add("journal", "j01") and GameState.story_has("journal", "j01")
+            and not GameState.story_has("chapters", "ch0") and not GameState.story_flag("bear_seen"), "故事進度:加一筆只加一次")
+    GameState.set_story_flag("bear_seen")
+    GameState.story_add("landmarks", "rock")
+    var dd := GameState.to_dict()
+    GameState.reset()
+    GameState.from_dict(JSON.parse_string(JSON.stringify(dd)))
+    _check(GameState.story_has("journal", "j01") and GameState.story_flag("bear_seen") and GameState.story_landmarks().has("rock")
+            and not GameState.story_landmarks().has("tree"), "故事進度 to_dict -> JSON -> from_dict 往返")
+    GameState.reset()
+
 
 ## --- 捕熊夾 / 誘餌 / 傳送帶 ---
 

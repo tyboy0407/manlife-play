@@ -49,6 +49,11 @@ var _map_hint: Label
 var _help_tabs: TabContainer
 var _changelog_title: Label
 var _changelog_body: Label
+var story_panel: PanelContainer = null     # 章節短文(故事解鎖時彈)
+var journal_panel: PanelContainer = null   # 日誌頁(選單)
+var _story_title: Label
+var _story_body: Label
+var _journal_box: VBoxContainer
 var _map_cache := {}                # 上次 show_map 拿到的地圖資料
 var _notice_timer := 0.0
 var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
@@ -121,6 +126,8 @@ func _ready() -> void:
     _build_map_panel()
     _build_help_panel()
     _build_changelog_panel()
+    _build_story_panel()
+    _build_journal_panel()
     joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel, map_panel, help_panel, changelog_panel]
     EventBus.notice.connect(show_notice)
     EventBus.items_moved.connect(_on_items_moved)
@@ -221,6 +228,7 @@ func _build_menu() -> void:
     box.add_child(_make_button(tr("MENU_MAP"), "map"))
     box.add_child(_make_button(tr("MENU_HELP"), "help"))
     box.add_child(_make_button(tr("MENU_CHANGELOG"), "changelog"))
+    box.add_child(_make_button(tr("MENU_JOURNAL"), "journal"))
     _new_game_btn = _make_button("", "new_game")
     box.add_child(_new_game_btn)
     box.add_child(_make_button(tr("MENU_CLOSE"), "close"))
@@ -300,6 +308,13 @@ func _centered_panel(name: String, width: float, title_key: String) -> Dictionar
     panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
     panel.grow_vertical = Control.GROW_DIRECTION_BOTH
     panel.visible = false
+    var sb := StyleBoxFlat.new()   # 不透明深色底:面板疊在 3D 的標籤上才看得清
+    sb.bg_color = Color(0.08, 0.09, 0.12, 0.97)
+    sb.border_color = Color(0.35, 0.38, 0.45)
+    sb.set_border_width_all(1)
+    sb.set_corner_radius_all(10)
+    sb.set_content_margin_all(14)
+    panel.add_theme_stylebox_override("panel", sb)
     add_child(panel)
     var box := VBoxContainer.new()
     box.add_theme_constant_override("separation", 10)
@@ -479,6 +494,88 @@ func changelog_text() -> String:
     return _changelog_body.text
 
 
+## 故事章節短文:解鎖時彈(不暫停),關了可以在日誌頁重看
+func _build_story_panel() -> void:
+    var parts := _centered_panel("StoryPanel", 420, "STORY_TITLE")
+    story_panel = parts["panel"]
+    _story_title = parts["title"]
+    var box: VBoxContainer = parts["box"]
+    _story_body = Label.new()
+    _story_body.add_theme_font_size_override("font_size", 16)
+    _story_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _story_body.custom_minimum_size = Vector2(380, 0)
+    box.add_child(_story_body)
+    box.add_child(_close_button("story_close"))
+
+
+func show_chapter(title: String, body: String) -> void:
+    _story_title.text = title
+    _story_body.text = body
+    menu_panel.visible = false
+    story_panel.visible = true
+
+
+func story_open() -> bool:
+    return story_panel.visible
+
+
+func story_text() -> String:
+    return _story_title.text + "\n" + _story_body.text
+
+
+## 日誌頁:章節(可重看)+ 線索;沒解鎖的顯示 ???
+func _build_journal_panel() -> void:
+    var parts := _centered_panel("JournalPanel", 420, "JOURNAL_TITLE")
+    journal_panel = parts["panel"]
+    var box: VBoxContainer = parts["box"]
+    var scroll := ScrollContainer.new()
+    scroll.custom_minimum_size = Vector2(396, 520)
+    scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    box.add_child(scroll)
+    _journal_box = VBoxContainer.new()
+    _journal_box.add_theme_constant_override("separation", 6)
+    _journal_box.custom_minimum_size = Vector2(380, 0)
+    scroll.add_child(_journal_box)
+    box.add_child(_close_button("journal_close"))
+
+
+func show_journal(chapters: Array, entries: Array) -> void:
+    for c in _journal_box.get_children():
+        c.queue_free()
+    _journal_section(tr("JOURNAL_CHAPTERS"), chapters)
+    _journal_section(tr("JOURNAL_ENTRIES"), entries)
+    menu_panel.visible = false
+    journal_panel.visible = true
+
+
+func _journal_section(header: String, items: Array) -> void:
+    var h := _make_label(18, Color(1.0, 0.88, 0.45))
+    h.text = header
+    _journal_box.add_child(h)
+    for it in items:
+        var t := _make_label(15, Color(0.95, 0.97, 1.0) if bool(it.get("unlocked", false)) else Color(0.55, 0.55, 0.6))
+        t.text = "• " + str(it.get("title", ""))
+        _journal_box.add_child(t)
+        if bool(it.get("unlocked", false)) and str(it.get("text", "")) != "":
+            var b := _make_label(14, Color(0.85, 0.87, 0.92))
+            b.text = str(it.get("text", ""))
+            b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+            b.custom_minimum_size = Vector2(370, 0)
+            _journal_box.add_child(b)
+
+
+func journal_open() -> bool:
+    return journal_panel.visible
+
+
+func journal_text() -> String:
+    var parts: Array[String] = []
+    for c in _journal_box.get_children():
+        if c is Label:
+            parts.append((c as Label).text)
+    return "\n".join(parts)
+
+
 ## 大面板上的按鈕(與測試)都走這裡
 func panel_action(id: String) -> void:
     match id:
@@ -488,6 +585,10 @@ func panel_action(id: String) -> void:
             help_panel.visible = false
         "changelog_close":
             changelog_panel.visible = false
+        "story_close":
+            story_panel.visible = false
+        "journal_close":
+            journal_panel.visible = false
         "map_home":
             if map_panel.visible and _map_home_btn.visible:
                 map_panel.visible = false
@@ -724,6 +825,9 @@ func menu_action(id: String) -> void:
             show_help()
         "changelog":
             show_changelog()
+        "journal":
+            menu_panel.visible = false
+            action.emit("journal")
         "new_game":
             if not _confirm_new_game:
                 _confirm_new_game = true

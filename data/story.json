@@ -1,0 +1,66 @@
+{
+  "chapters": [
+    {"id": "ch0", "when": "tutorial_done", "title": "STORY_CH0_TITLE", "text": "STORY_CH0_TEXT"},
+    {"id": "ch1", "when": "bear_seen", "title": "STORY_CH1_TITLE", "text": "STORY_CH1_TEXT"},
+    {"id": "ch2", "when": "order_done", "title": "STORY_CH2_TITLE", "text": "STORY_CH2_TEXT"},
+    {"id": "ch3", "when": "map_1", "title": "STORY_CH3_TITLE", "text": "STORY_CH3_TEXT"},
+    {"id": "ch4", "when": "south_built", "title": "STORY_CH4_TITLE", "text": "STORY_CH4_TEXT"},
+    {"id": "ch5", "when": "map_3", "title": "STORY_CH5_TITLE", "text": "STORY_CH5_TEXT"},
+    {"id": "ch6", "when": "shrine", "title": "STORY_CH6_TITLE", "text": "STORY_CH6_TEXT"}
+  ],
+  "journal": [
+    {"id": "j01", "when": "tutorial_done", "title": "JOURNAL_01_TITLE", "text": "JOURNAL_01_TEXT"},
+    {"id": "j02", "when": "bear_met", "title": "JOURNAL_02_TITLE", "text": "JOURNAL_02_TEXT"},
+    {"id": "j03", "when": "landmark_rock", "title": "JOURNAL_03_TITLE", "text": "JOURNAL_03_TEXT"},
+    {"id": "j04", "when": "landmark_tree", "title": "JOURNAL_04_TITLE", "text": "JOURNAL_04_TEXT"},
+    {"id": "j05", "when": "landmark_pile", "title": "JOURNAL_05_TITLE", "text": "JOURNAL_05_TEXT"},
+    {"id": "j06", "when": "rare_caught", "title": "JOURNAL_06_TITLE", "text": "JOURNAL_06_TEXT"},
+    {"id": "j07", "when": "order_done", "title": "JOURNAL_07_TITLE", "text": "JOURNAL_07_TEXT"},
+    {"id": "j08", "when": "map_2", "title": "JOURNAL_08_TITLE", "text": "JOURNAL_08_TEXT"},
+    {"id": "j09", "when": "king_killed", "title": "JOURNAL_09_TITLE", "text": "JOURNAL_09_TEXT"},
+    {"id": "j10", "when": "repairman_talked", "title": "JOURNAL_10_TITLE", "text": "JOURNAL_10_TEXT"},
+    {"id": "j11", "when": "map_3", "title": "JOURNAL_11_TITLE", "text": "JOURNAL_11_TEXT"},
+    {"id": "j12", "when": "shrine", "title": "JOURNAL_12_TITLE", "text": "JOURNAL_12_TEXT"}
+  ],
+  "lines": {
+    "shopkeeper": [
+      {"when": "always", "keys": ["LINE_SHOP_A1", "LINE_SHOP_A2"]},
+      {"when": "bear_seen", "keys": ["LINE_SHOP_B1"]},
+      {"when": "bear_beaten", "keys": ["LINE_SHOP_C1"]},
+      {"when": "king_killed", "keys": ["LINE_SHOP_D1"]},
+      {"when": "map_3", "keys": ["LINE_SHOP_E1"]},
+      {"when": "shrine", "keys": ["LINE_SHOP_F1"]}
+    ],
+    "captain": [
+      {"when": "always", "keys": ["LINE_CAPT_A1"]},
+      {"when": "order_done", "keys": ["LINE_CAPT_B1"]},
+      {"when": "orders_3", "keys": ["LINE_CAPT_C1"]},
+      {"when": "rare_caught", "keys": ["LINE_CAPT_D1"]},
+      {"when": "map_3", "keys": ["LINE_CAPT_E1"]},
+      {"when": "shrine", "keys": ["LINE_CAPT_F1"]}
+    ],
+    "merchant": [
+      {"when": "always", "keys": ["LINE_MERC_A1", "LINE_MERC_A2"]},
+      {"when": "map_1", "keys": ["LINE_MERC_B1"]},
+      {"when": "map_2", "keys": ["LINE_MERC_C1"]},
+      {"when": "map_3", "keys": ["LINE_MERC_D1"]},
+      {"when": "shrine", "keys": ["LINE_MERC_E1"]}
+    ],
+    "repairman": [
+      {"when": "always", "keys": ["LINE_REPAIR_A1"]},
+      {"when": "repaired_once", "keys": ["LINE_REPAIR_B1"]},
+      {"when": "south_built", "keys": ["LINE_REPAIR_C1"]},
+      {"when": "map_3", "keys": ["LINE_REPAIR_D1"]},
+      {"when": "shrine", "keys": ["LINE_REPAIR_E1"]}
+    ]
+  },
+  "customerLines": {
+    "fillet_counter": {"early": ["LINE_CUST_FILLET_1", "LINE_CUST_FILLET_2"], "late": ["LINE_CUST_FILLET_3"]},
+    "grill_counter": {"early": ["LINE_CUST_GRILL_1", "LINE_CUST_GRILL_2"], "late": ["LINE_CUST_GRILL_3"]},
+    "soup_counter": {"early": ["LINE_CUST_SOUP_1", "LINE_CUST_SOUP_2"], "late": ["LINE_CUST_SOUP_3"]},
+    "sweater_counter": {"early": ["LINE_CUST_SWEATER_1", "LINE_CUST_SWEATER_2"], "late": ["LINE_CUST_SWEATER_3"]},
+    "ended": ["LINE_CUST_END_1", "LINE_CUST_END_2"]
+  },
+  "customerLineChance": 0.1,
+  "shrine": {"cost": 3}
+}

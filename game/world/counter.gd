@@ -175,6 +175,7 @@ func _spawn_customer() -> void:
     var c := Customer.new()
     c.want = CounterLogic.roll_want(want_weights, randf())
     c.item_name = GameData.item_name(logic.item_id)
+    c.counter_id = def_id
     get_parent().add_child(c)
     c.global_position = spawn_point() + Vector3(0, 0, randf_range(-0.5, 0.5))
     customers.append(c)
