@@ -5,10 +5,10 @@
   "transferPerSec": 8,
   "cashPickupPerSec": 40,
   "cashPickupFrac": 1.5,
-  "payPerSec": 15,
+  "payPerSec": 20,
   "payDelaySec": 0.6,
   "resourceInputDelaySec": 0.8,
-  "payScaleCost": 100,
+  "payScaleCost": 25,
   "fish": {
     "maxInWater": 18,
     "spawnIntervalSec": 0.5,
@@ -266,8 +266,7 @@
       "maxEach": 10,
       "rateMult": 0.92,
       "damagePerLevel": 0.2,
-      "dwellSec": 5.0,
-      "radius": 2.4
+      "radius": 2.6
     },
     "strong": {
       "hp": 2000,

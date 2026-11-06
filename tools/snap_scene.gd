@@ -205,6 +205,7 @@ func _run() -> void:
     t5.damage_level = 2
     level.tower_upgrading = t5
     level.player.global_position = Vector3(-3.0, 0, -0.8)
+    await _frames(60)   # 相機從神龕那邊慢慢跟回來
     level.hud.show_tower_upgrade(level.tower_upgrade_data(t5))
     await _frames(10)
     await _shot("17_tower_upgrade")
@@ -243,6 +244,7 @@ func _frames(n: int) -> void:
 
 func _shot(name: String) -> void:
     await get_tree().process_frame
+    await RenderingServer.frame_post_draw   # 等這一幀真的畫完再讀,不然會拿到舊的畫面
     var img := get_viewport().get_texture().get_image()
     var path := out_dir.path_join(name + ".png")
     var err := img.save_png(path)

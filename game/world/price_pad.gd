@@ -6,7 +6,7 @@ extends Pad
 ## 買滿或一次性的牌付清就消失;僱用牌的幫手被吃掉(on_lost)名額退回來、牌子重新出現並標「買回 ×1.5」;
 ## 守衛塔牌(effect tower)就是塔的地基,塔被拆 on_lost 後標「修復」(同價);工作站的修復牌(effect repair,Harbor._add_station 生的)
 ## 完好時藏著(當作已買),被王拆了 on_lost 才出現。擴建村莊 expand():僱用牌多開放 expandBuys 個名額。
-## 付款速度 payPerSec × max(1, 本次價格 / payScaleCost):大額牌(擴建村莊 $1000)不用站一分鐘。build_spot = 橘色半透明建地。付款中發黃光。
+## 付款速度 payPerSec × max(1, 本次價格 / payScaleCost):$25 以上的牌都約 1.25 秒付清(20 / 秒 × 價格 / 25),小牌更快;大額牌不用站一分鐘。build_spot = 橘色半透明建地。付款中發黃光。
 ## currency 不是 cash 的牌(武器店升級收毛皮、強化守衛塔收熊王牙)從 GameState 的資源計數扣;set_open 給關卡手動開關(熊王牙牌只在塔完好時出現)。
 ## 捕熊夾 / 誘餌牌(effect trap / bait)是消耗品:用掉後 on_lost 同價重新出現(rebuyMult 1、不標買回);傳送帶牌(effect conveyor)一次性。
 

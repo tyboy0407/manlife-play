@@ -965,8 +965,7 @@ func _test_guide() -> void:
 
 func _test_tower_upgrades() -> void:
     var t := TowerLogic.from_config(GameData.section("tower"))
-    _check(t.upgrade_cost() == 500 and t.max_upgrades() == 10 and is_equal_approx(t.upgrade_dwell_sec(), 5.0) and t.upgrade_radius() > 1.0,
-            "塔升級:每次 $500、各 10 次、站 5 秒")
+    _check(t.upgrade_cost() == 500 and t.max_upgrades() == 10 and t.upgrade_radius() > 1.0, "塔升級:每次 $500、各 10 次、靠近就有升級鈕")
     _check(is_equal_approx(t.attack_interval(), 0.8) and is_equal_approx(t.attack_interval(1), 0.8 * 0.92) and t.attack_interval(10) < 0.8 * 0.44
             and t.attack_interval(10) > 0.8 * 0.43 and is_equal_approx(t.attack_interval(99), t.attack_interval(10)),
             "射速:每級間隔 × 0.92,十級 0.8 -> %.3f 秒(超過上限不再加)" % t.attack_interval(10))

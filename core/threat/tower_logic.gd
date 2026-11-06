@@ -5,7 +5,7 @@ extends RefCounted
 ## biteSec, aggroRadius, height}:hp 800 / biteDamage 40 = 扛得住 20 口。北極熊王不看血量,咬滿 BearLogic.king_building_bite_sec 秒直接拆掉。
 ## 蓋 / 修的價格在 shop.json(tower_1 ~ tower_4,rebuyMult 1 = 修復同價)。
 ## 強力守衛塔(tier 1,熊王牙強化):tower.strong {hp 2000 = 扛 50 口, damage 25};hp(tier) / damage(tier) 吃 tier。
-## 塔的升級(tower.upgrade):站在塔旁 dwellSec 秒開面板,射速 / 傷害各可升 maxEach 次、每次 cost;射速每級射擊間隔 × rateMult(0.92),
+## 塔的升級(tower.upgrade):走到塔旁 radius 內出現「升級」鈕,射速 / 傷害各可升 maxEach 次、每次 cost;射速每級射擊間隔 × rateMult(0.92),
 ## 傷害每級 +damagePerLevel(0.2)倍的基礎傷害(attack_interval(rate_level) / damage(tier, damage_level))。
 
 var cfg := {}
@@ -50,11 +50,7 @@ func max_upgrades() -> int:
     return maxi(int(_upgrade().get("maxEach", 10)), 0)
 
 
-## 站在塔旁幾秒開升級面板、算「旁邊」的距離
-func upgrade_dwell_sec() -> float:
-    return maxf(float(_upgrade().get("dwellSec", 5.0)), 0.1)
-
-
+## 離塔多近算「旁邊」(HUD 出現升級鈕)
 func upgrade_radius() -> float:
     return maxf(float(_upgrade().get("radius", 2.4)), 0.3)
 

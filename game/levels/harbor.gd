@@ -1200,9 +1200,29 @@ func guard_target(pos: Vector3) -> Bear:
     return best
 
 
-## 玩家站在塔旁滿 5 秒(Tower._check_player):開升級面板(別的面板開著就不開)
+## 每幀:玩家在哪座完好的塔旁(upgrade_radius 內、最近的)就顯示「升級」鈕;走開鈕收起、面板也關
+func _update_tower_button() -> void:
+    var best: Tower = null
+    var best_d := INF
+    if player != null and is_instance_valid(player):
+        var p := player.global_position
+        for t in towers:
+            if t.in_upgrade_reach(p):
+                var d := t.planar_distance_to(p)
+                if d < best_d:
+                    best_d = d
+                    best = t
+    if best != tower_upgrading:
+        tower_upgrading = best
+        if best == null and hud != null and hud.tower_open():
+            hud.panel_action("tower_close")
+    if hud != null:
+        hud.set_upgrade_button(best != null)
+
+
+## 按了「升級」鈕:開面板(射速 / 傷害)
 func tower_upgrade_prompt(t: Tower) -> void:
-    if t == null or not t.is_alive() or hud == null or hud.tower_open() or hud.menu_open():
+    if t == null or not t.is_alive() or hud == null:
         return
     tower_upgrading = t
     hud.show_tower_upgrade(tower_upgrade_data(t))
@@ -1967,6 +1987,7 @@ func _claim_offline() -> void:
 func _physics_process(delta: float) -> void:
     GameState.play_time += delta
     hud.income_rate = offline.rate(GameState.play_time)
+    _update_tower_button()
     _tick_orders(delta)
     if not _insured.is_empty() and GameState.play_time >= float(_insured[0].get("at", 0.0)):
         var e: Dictionary = _insured.pop_front()
@@ -1999,6 +2020,9 @@ func _on_hud_action(id: String) -> void:
                 hud.show_journal(story.chapter_entries(), story.journal_entries())
         "tower_up:rate", "tower_up:damage":
             tower_stat_upgrade(id.trim_prefix("tower_up:"))
+        "tower_upgrade_open":
+            if tower_upgrading != null and is_instance_valid(tower_upgrading):
+                tower_upgrade_prompt(tower_upgrading)
         _:
             if id.begins_with("choice:"):
                 _claim_chest(int(id.trim_prefix("choice:")))

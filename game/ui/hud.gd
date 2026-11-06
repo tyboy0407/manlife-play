@@ -58,6 +58,7 @@ var tower_panel: PanelContainer = null     # 守衛塔升級(站在塔旁 5 秒)
 var _tower_body: Label
 var _tower_rate_btn: Button
 var _tower_dmg_btn: Button
+var _upgrade_btn: Button                   # 走到守衛塔旁出現的「升級」鈕(畫面下方中央)
 var _map_cache := {}                # 上次 show_map 拿到的地圖資料
 var _notice_timer := 0.0
 var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
@@ -133,7 +134,24 @@ func _ready() -> void:
     _build_story_panel()
     _build_journal_panel()
     _build_tower_panel()
-    joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel, map_panel, help_panel, changelog_panel]
+    _upgrade_btn = Button.new()
+    _upgrade_btn.name = "UpgradeButton"
+    _upgrade_btn.text = tr("MENU_UPGRADE_TOWER")
+    _upgrade_btn.add_theme_font_size_override("font_size", 22)
+    _upgrade_btn.anchor_left = 0.5
+    _upgrade_btn.anchor_right = 0.5
+    _upgrade_btn.anchor_top = 1.0
+    _upgrade_btn.anchor_bottom = 1.0
+    _upgrade_btn.offset_left = -80
+    _upgrade_btn.offset_right = 80
+    _upgrade_btn.offset_top = -132
+    _upgrade_btn.offset_bottom = -72
+    _upgrade_btn.grow_horizontal = Control.GROW_DIRECTION_BOTH
+    _upgrade_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN
+    _upgrade_btn.visible = false
+    _upgrade_btn.pressed.connect(panel_action.bind("tower_upgrade_open"))
+    add_child(_upgrade_btn)
+    joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel, map_panel, help_panel, changelog_panel, story_panel, journal_panel, tower_panel, _upgrade_btn]
     EventBus.notice.connect(show_notice)
     EventBus.items_moved.connect(_on_items_moved)
 
@@ -617,6 +635,16 @@ func tower_open() -> bool:
     return tower_panel.visible
 
 
+## 走到守衛塔旁:顯示「升級」鈕(關卡每幀餵)
+func set_upgrade_button(on: bool) -> void:
+    if _upgrade_btn.visible != on:
+        _upgrade_btn.visible = on
+
+
+func upgrade_button_visible() -> bool:
+    return _upgrade_btn.visible
+
+
 func tower_text() -> String:
     return _tower_body.text + "\n" + _tower_rate_btn.text + "\n" + _tower_dmg_btn.text
 
@@ -642,7 +670,7 @@ func panel_action(id: String) -> void:
             story_panel.visible = false
         "tower_close":
             tower_panel.visible = false
-        "tower_up:rate", "tower_up:damage":
+        "tower_up:rate", "tower_up:damage", "tower_upgrade_open":
             action.emit(id)
         "journal_close":
             journal_panel.visible = false

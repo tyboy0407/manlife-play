@@ -333,3 +333,4 @@ TOWER_UP_DAMAGE_MAX,Damage Lv%d (max),傷害 Lv%d（已滿）
 NOTICE_TOWER_UP_RATE,Fire rate Lv%d: one arrow every %.2f s,射速 Lv%d：每 %.2f 秒一箭
 NOTICE_TOWER_UP_DAMAGE,Damage Lv%d: %.0f per arrow,傷害 Lv%d：每箭 %.0f 傷
 NOTICE_TOWER_UP_NO_CASH,Not enough cash: an upgrade costs $%d,錢不夠：升級要 $%d
+MENU_UPGRADE_TOWER,Upgrade,升級

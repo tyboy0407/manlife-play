@@ -8,7 +8,7 @@ extends Carrier
 ## repairman 修理工:平常站在村裡的崗位(Harbor.REPAIRMAN_POST),有建築被拆(Harbor.broken_buildings)就走過去站 repairSec 秒免費修好
 ##   (Harbor.repair_free),修到一半被熊嚇呆進度歸零。
 ## guard 衛兵:在村裡的巡邏點(Harbor.patrol_points)之間走,有活著的熊(含王,Harbor.guard_target)就衝過去每 attackIntervalSec 打一下 damage;
-##   不會被熊嚇呆(被咬時照打),但一樣會被吃掉。
+##   不會被熊嚇呆(被咬時照打),但一樣會被吃掉。外觀:人物模型外面套盔甲(頭盔 / 胸甲 / 肩甲)、手拿斧頭、頭上「衛兵」標籤(_dress_guard)。
 ## 數值在 game.json helpers.<role>;不收錢、不用垃圾桶。
 ## 北極熊:靠近時 set_panic(true) 嚇呆不動(頭上驚嘆號、emote-no),被吃掉 be_eaten() 規則上立刻消失、外觀縮小後釋放。
 
@@ -79,6 +79,8 @@ func _ready() -> void:
     if model == null:
         # 占位膠囊時用頭上的色塊標記職業(有模型時每種職業是不同人物)
         add_child(VisualFactory.box(Vector3(0.5, 0.18, 0.5), color.darkened(0.35), Vector3(0, 1.72, 0)))
+    if role == "guard":
+        _dress_guard()
 
 
 ## 背包容量 = 設定值 + 升級(只有搬運工有容量升級牌 porter_cap,+4 / 級;GameState.changed 時重算,現有的搬運工也吃到)
@@ -484,6 +486,38 @@ func _repairman(delta: float) -> void:
 
 
 ## --- 衛兵 ---
+
+## 盔甲(頭盔 / 帽簷 / 胸甲 / 肩甲)+ 右手斧頭(武器店 Lv2 的模型)+ 頭上「衛兵」標籤,讓玩家一眼認得出來
+func _dress_guard() -> void:
+    var top := model.height if model != null else 1.6
+    var steel := Color(0.74, 0.77, 0.84)
+    var armor := Node3D.new()
+    armor.name = "Armor"
+    add_child(armor)
+    armor.add_child(VisualFactory.box(Vector3(0.48, 0.22, 0.48), steel, Vector3(0, top - 0.06, 0)))                 # 頭盔
+    armor.add_child(VisualFactory.box(Vector3(0.54, 0.06, 0.14), steel.darkened(0.3), Vector3(0, top - 0.2, 0.24)))  # 帽簷
+    armor.add_child(VisualFactory.box(Vector3(0.54, 0.44, 0.16), steel, Vector3(0, top * 0.6, 0.2)))                 # 胸甲
+    for sx in [-0.36, 0.36]:
+        armor.add_child(VisualFactory.box(Vector3(0.22, 0.14, 0.28), steel.darkened(0.15), Vector3(float(sx), top * 0.78, 0.05)))   # 肩甲
+    var hand := Node3D.new()
+    hand.name = "Axe"
+    hand.position = Vector3(0.44, top * 0.5, 0.18)
+    hand.rotation = Vector3(0.0, 0.0, -0.45)
+    var m := BearLogic.from_config({}, GameData.section("weapon")).weapon_model(2)
+    var scene := ModelLibrary.prop(str(m.get("file", "")))
+    if scene != null:
+        var inst := scene.instantiate() as Node3D
+        var box := ModelLibrary.scene_aabb(inst)
+        var s := float(m.get("length", 0.9)) / maxf(box.size.y, 0.01)
+        inst.scale = Vector3(s, s, s)
+        inst.position = -box.get_center() * s
+        hand.add_child(inst)
+    else:
+        hand.add_child(VisualFactory.box(Vector3(0.08, 0.9, 0.08), Color(0.45, 0.3, 0.18)))
+        hand.add_child(VisualFactory.box(Vector3(0.3, 0.2, 0.08), steel, Vector3(-0.1, 0.35, 0)))
+    armor.add_child(hand)
+    add_child(VisualFactory.label(tr("ROLE_guard"), Vector3(0, top + 0.55, 0), 34, Color(1.0, 0.85, 0.3)))
+
 
 func _guard(delta: float) -> void:
     if level == null:

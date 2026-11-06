@@ -636,15 +636,19 @@ func _king_wreck_section(king: Bear) -> void:
 ## 到武器店院子付 $300 僱修理工 -> 他站到崗位 -> 把 station_2 與 tower_1 設成廢墟(修復牌出現)-> 修理工走過去站 15 秒免費修好(錢包不動)->
 ## 再去修塔 -> 兩塊牌都消失
 ## --- 守衛塔升級 ---
-## 站在 tower_1 旁 5 秒 -> 面板開(射速 / 傷害)-> 錢不夠按了不扣 -> 加錢升傷害、升射速:每箭傷害 / 間隔跟著變、各扣 $500 -> 走開再站才會再開
+## 走到 tower_1 旁 -> 畫面下方出現「升級」鈕 -> 按了面板開(射速 / 傷害)-> 錢不夠按了不扣 -> 加錢升傷害、升射速:每箭傷害 / 間隔跟著變、各扣 $500 -> 走開鈕與面板都收
 func _tower_upgrade_section() -> void:
     var t1: Tower = _level.tower_by_id("tower_1")
-    _check(t1 != null and t1.is_alive() and t1.rate_level == 0 and t1.damage_level == 0 and not _level.hud.tower_open(), "塔 1 完好、還沒升級、面板沒開")
+    _check(t1 != null and t1.is_alive() and t1.rate_level == 0 and t1.damage_level == 0 and not _level.hud.tower_open()
+            and not _level.hud.upgrade_button_visible(), "塔 1 完好、還沒升級、面板沒開、沒有升級鈕")
     await _go(Vector3(-11.6, 0, -2.0), 400)
-    await _go(Vector3(-9.3, 0, -9.5), 300)   # 塔旁(半徑 2.4 內,避開捕熊夾的牌)
-    var opened := await _wait_until(func() -> bool: return _level.hud.tower_open(), 420)
-    _check(opened and _level.tower_upgrading == t1 and t1.near_sec() >= 4.9 and _level.hud.tower_text().contains("0/10"),
-            "站在塔旁 5 秒:升級面板打開(%s)" % _level.hud.tower_text().replace("\n", " / "))
+    await _go(Vector3(-9.3, 0, -9.5), 300)   # 塔旁(半徑內,避開捕熊夾的牌)
+    await _step(3)
+    _check(_level.hud.upgrade_button_visible() and _level.tower_upgrading == t1 and not _level.hud.tower_open(), "走到塔旁:出現「升級」鈕、面板還沒開")
+    _level.hud.panel_action("tower_upgrade_open")
+    await _step(2)
+    _check(_level.hud.tower_open() and _level.hud.tower_text().contains("0/10"),
+            "按「升級」鈕:面板打開(%s)" % _level.hud.tower_text().replace("\n", " / "))
     GameState.wallet = 0
     _check(not _level.tower_stat_upgrade("damage") and t1.damage_level == 0, "錢不夠:按傷害不升、不扣")
     GameState.add_wallet(1200)
@@ -661,9 +665,12 @@ func _tower_upgrade_section() -> void:
     _level.hud.panel_action("tower_close")
     var snap: Dictionary = t1.snapshot()
     _check(not _level.hud.tower_open() and int(snap["rate"]) == 1 and int(snap["damage"]) == 1, "關掉面板;快照記射速 / 傷害等級")
+    _level.hud.panel_action("tower_upgrade_open")
+    await _step(2)
+    _check(_level.hud.tower_open(), "再按一次鈕:面板再開")
     await _go(Vector3(-11.6, 0, -2.0), 300)
     await _step(5)
-    _check(not _level.hud.tower_open() and t1.near_sec() == 0.0, "走開:面板不會自己再開")
+    _check(not _level.hud.tower_open() and not _level.hud.upgrade_button_visible() and _level.tower_upgrading == null, "走開:鈕收起、面板關掉")
     GameState.wallet = 0
 
 

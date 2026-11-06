@@ -184,13 +184,16 @@
   結局:三片地圖拼齊 -> 神龕(SHRINE_SPOT (86, -9) 雪原東北角,_build_shrine 外觀、牌 shrine 收 3 條稀有魚,_refresh_shrine)-> 付清 unlocked["shrine"] ->
   尾聲章節、顧客買到不道謝改面向北方(Customer.leave 問 Story.ended / customer_line)。存檔 GameState.story {chapters, journal, landmarks, flags}。
   選單多「日誌」頁(Hud.show_journal / journal_text,未解鎖 ???);章節短文面板 Hud.show_chapter(不暫停)。
-- 2026-11-06(使用者點名三項,沒開問題):1 北極熊王等級上限 10 -> 5(bear.king.reward.maxLevel,舊檔 from_dict 夾回);2 守衛塔升級:玩家站在完好的塔旁
-  tower.upgrade.radius 2.4 內滿 dwellSec 5 秒(Tower._check_player)-> Harbor.tower_upgrade_prompt -> Hud.show_tower_upgrade 面板(射速 / 傷害兩顆按鈕 + 關閉,不暫停,
-  走開再站才會再開),按了 action tower_up:rate / damage -> Harbor.tower_stat_upgrade:錢包扣 $500(cost)升一級,各最多 maxEach 10 次;
+- 2026-11-06(使用者點名三項,沒開問題):1 北極熊王等級上限 10 -> 5(bear.king.reward.maxLevel,舊檔 from_dict 夾回);2 守衛塔升級:玩家走到完好的塔旁
+  tower.upgrade.radius 2.6 內(Harbor._update_tower_button 每幀找最近的,tower_upgrading)HUD 下方中央出現「升級」鈕(Hud.set_upgrade_button,搖桿排除區)
+  -> 按了 action tower_upgrade_open -> Harbor.tower_upgrade_prompt -> Hud.show_tower_upgrade 面板(射速 / 傷害兩顆按鈕 + 關閉,不暫停;走開鈕收起、面板也關;
+  原本「站滿 5 秒自動開」同日依使用者要求改掉),按了 action tower_up:rate / damage -> Harbor.tower_stat_upgrade:錢包扣 $500(cost)升一級,各最多 maxEach 10 次;
   射速每級射擊間隔 × rateMult 0.92(十級 0.35 秒)、傷害每級 +damagePerLevel 0.2 倍基礎(十級一般塔 30、強力塔 75);Tower.rate_level / damage_level 存檔 towers{rate, damage};
   3 衛兵:牌 hire_guard $300 固定價(costMult 1、maxBuys 4、被吃 1.5 買回)在南塊 (-8, 20),擴建四次(south_block)後才開;Helper role guard(helpers.guard:速度 5.4、
   damage 12、attackIntervalSec 0.6、attackRange 1.7、patrolWaitSec 1.5,models.roles.guard female-c):在 Harbor.patrol_points(每塊地四角內側 + 南塊四角)隨機巡邏,
   有活熊(含王,Harbor.guard_target 最近的)就衝過去打(hits_total),不會被嚇呆(set_panic 忽略)、會被吃。
+  同日追加(使用者點名):衛兵外觀套盔甲(頭盔 / 胸甲 / 肩甲方塊)+ 右手斧頭(武器 Lv2 模型)+ 頭上「衛兵」標籤(Helper._dress_guard;Kenney 套件沒有盔甲人物);
+  價格牌付錢加速:payPerSec 15 -> 20、payScaleCost 100 -> 25($25 以上的牌都約 1.25 秒付清,payDelaySec 0.6 不變所以走過仍不付)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
