@@ -472,7 +472,7 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     var eaten := await _wait_until(func() -> bool: return not is_instance_valid(fisher) or fisher.eaten, 600)
     var bite_sec := float(Time.get_ticks_msec() - bite_t0) / 1000.0
     _check(biting and _count("bear_biting") == 1 and eaten and bite_sec >= 3.0, "咬了 %.1f 秒才吃掉(設定 %.0f 秒)" % [bite_sec, bs.logic.bite_sec()])
-    _check(_level.helpers.size() == helpers_before - 1 and GameState.hired_count("fisher") == hired_fisher - 1 and GameState.helpers_lost == 1
+    _check(_level.helpers.size() == GameState.hired_total() and GameState.hired_count("fisher") == hired_fisher - 1 and GameState.helpers_lost == 1
             and _count("eaten_fisher") == 1 and _find_helper("fisher") == null, "漁夫被吃掉:幫手少一個、僱用數 -1")
     _check(fisher_pad.visible and fisher_pad.logic.buys == fisher_buys - 1 and fisher_pad.logic.lost == 1 and fisher_pad.logic.is_rebuy()
             and fisher_pad.logic.remaining == 15 and fisher_pad.label.text.contains("×1.5"),
@@ -509,7 +509,7 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
             and _player.model != null and _player.model.current() == "attack-melee-right",
             "Lv1 每下 10:打了 %d 下血條歸零才逃、玩家揮武器" % (bear.hits_taken if is_instance_valid(bear) else -1))
     var gone := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
-    _check(gone and _count("bear_left_fled") == 1 and bs.cooldown >= 33.0 and bs.cooldown <= 55.0 and _level.helpers.size() == helpers_before - 1,
+    _check(gone and _count("bear_left_fled") == 1 and bs.cooldown >= 33.0 and bs.cooldown <= 55.0 and _level.helpers.size() == GameState.hired_total(),
             "熊逃到地圖邊緣消失,下一群 %.0f 秒後再來,沒有再損失幫手(gone %s、fled %d、幫手 %d / %d、events %s)" % [bs.cooldown, str(gone), _count("bear_left_fled"), _level.helpers.size(), helpers_before - 1, str(_roles_and_hires())])
     # 打跑的熊掉一張毛皮(掉在被打倒的地方,玩家就在旁邊,可能當場就撿到)
     var dropped := _count("loot_dropped")
@@ -525,7 +525,7 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     _level.money_pad.add_cash(40)
     var rebought := await _pay_pad(fisher_pad)
     await _step(3)
-    _check(rebought and _find_helper("fisher") != null and GameState.hired_count("fisher") == hired_fisher and _level.helpers.size() == helpers_before
+    _check(rebought and _find_helper("fisher") != null and GameState.hired_count("fisher") == hired_fisher and _level.helpers.size() == GameState.hired_total()
             and fisher_pad.logic.buys == fisher_buys and fisher_pad.logic.lost == 0 and not fisher_pad.logic.is_rebuy() and fisher_pad.logic.remaining == 18,
             "花 $15 買回漁夫:幫手回來、名額補回、下一次回到正常的 $18(買成 %s、漁夫 %d / %d、幫手 %d / %d、buys %d / %d、lost %d、剩 %d)"
             % [str(rebought), GameState.hired_count("fisher"), hired_fisher, _level.helpers.size(), helpers_before, fisher_pad.logic.buys, fisher_buys, fisher_pad.logic.lost, fisher_pad.logic.remaining])
@@ -573,7 +573,7 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     var gone2 := await _wait_until(func() -> bool: return not bs.has_bear(), 900)
     var iv := bs.logic.interval(GameState.play_time)
     _check(gone2 and _count("bear_left_fled") == 4 and bs.cooldown >= iv.x - 2.0 and bs.cooldown <= iv.y + 0.01
-            and _level.helpers.size() == helpers_before, "三隻都逃光才重新倒數(%.0f 秒,此時間隔 %.0f ~ %.0f;gone %s、fled %d、幫手 %d / %d)" % [bs.cooldown, iv.x, iv.y, str(gone2), _count("bear_left_fled"), _level.helpers.size(), helpers_before])
+            and _level.helpers.size() == GameState.hired_total(), "三隻都逃光才重新倒數(%.0f 秒,此時間隔 %.0f ~ %.0f;gone %s、fled %d、幫手 %d / %d)" % [bs.cooldown, iv.x, iv.y, str(gone2), _count("bear_left_fled"), _level.helpers.size(), helpers_before])
     bs.enabled = false
     _check(_count("loot_dropped") >= 4 and _count("loot_dropped") <= 8, "三隻熊各掉 1 ~ 2 張毛皮(累計 %d 張)" % _count("loot_dropped"))
     # 毛皮升級武器店:湊 3 張站上升級牌 -> 武器店 Lv1、武器牌重新出現賣 Lv4($172)
