@@ -285,9 +285,9 @@ func _porter(delta: float) -> void:
         "picking":
             move_toward_dir(Vector3.ZERO, delta)
             _wait_timer -= delta
-            var from: Station = job.get("from", null)
+            var from = job.get("from", null)   # Station 或 FishDepot(都有 logic.output_count / output_pad / take_back / pile_top)
             var want := int(job.get("amount", stack.capacity))
-            var source_empty := from == null or not is_instance_valid(from) or from.logic.output_count <= 0
+            var source_empty: bool = from == null or not is_instance_valid(from) or from.logic.output_count <= 0
             if stack.count >= want or stack.is_full() or (source_empty and not stack.is_empty()) or (_wait_timer <= 0.0 and not stack.is_empty()):
                 _start_dropoff(job.get("to", null))
             elif _wait_timer <= 0.0 and stack.is_empty():
@@ -318,7 +318,7 @@ func _porter(delta: float) -> void:
             _stall = 0.0
             _start_dropoff(level.find_dest_for(stack.item_id, _dest) if level != null else null)
         "returning":
-            var from: Station = job.get("from", null)
+            var from = job.get("from", null)
             if from == null or not is_instance_valid(from):
                 takes_output = true
                 job = {}
@@ -326,7 +326,7 @@ func _porter(delta: float) -> void:
                 return
             if go_to(target, delta, 0.3):
                 var item := stack.item_id
-                var back := from.take_back(stack.count)
+                var back: int = from.take_back(stack.count)
                 for i in back:
                     stack.pop()
                 returned_total += back
@@ -359,7 +359,7 @@ func _porter(delta: float) -> void:
                 return
             job = level.find_porter_job(stack.capacity)
             if not job.is_empty():
-                target = (job["from"] as Station).output_pad.global_position
+                target = job["from"].output_pad.global_position
                 state = "to_pickup"
 
 
@@ -368,7 +368,7 @@ func _start_dropoff(dest: Node3D) -> void:
     if (dest == null or not is_instance_valid(dest)) and level != null:
         dest = level.find_dest_for(stack.item_id, null)
     if dest == null or not is_instance_valid(dest):
-        var from: Station = job.get("from", null)
+        var from = job.get("from", null)
         if from != null and is_instance_valid(from) and from.logic.output_id == stack.item_id and from.logic.output_count < from.logic.output_cap:
             _start_return(from)
         else:
@@ -380,8 +380,8 @@ func _start_dropoff(dest: Node3D) -> void:
     state = "to_dropoff"
 
 
-## 把手上的貨拿回 from 的輸出堆;路上與放回時不收貨
-func _start_return(from: Station) -> void:
+## 把手上的貨拿回 from(工作站 / 放置區)的輸出堆;路上與放回時不收貨
+func _start_return(from) -> void:
     takes_output = false
     _dest = null
     target = from.output_pad.global_position

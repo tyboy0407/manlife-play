@@ -1035,6 +1035,17 @@
         "type": "hire",
         "role": "guard"
       }
+    },
+    {
+      "id": "truck",
+      "name": "SHOP_truck",
+      "cost": 1500,
+      "repeatable": true,
+      "maxBuys": 3,
+      "costMult": 1.5,
+      "effect": {
+        "type": "truck"
+      }
     }
   ],
   "repairStation": {

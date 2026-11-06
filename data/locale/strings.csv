@@ -334,3 +334,7 @@ NOTICE_TOWER_UP_RATE,Fire rate Lv%d: one arrow every %.2f s,射速 Lv%d：每 %.
 NOTICE_TOWER_UP_DAMAGE,Damage Lv%d: %.0f per arrow,傷害 Lv%d：每箭 %.0f 傷
 NOTICE_TOWER_UP_NO_CASH,Not enough cash: an upgrade costs $%d,錢不夠：升級要 $%d
 MENU_UPGRADE_TOWER,Upgrade,升級
+SHOP_truck,Snow truck,雪地貨車
+TRUCK_LABEL,Snow truck,雪地貨車
+SIGN_DEPOT,Fish depot\nfish %d/%d,貨物放置區\n魚 %d/%d
+NOTICE_TRUCK_BOUGHT,A snow truck! The fisher drives to the wild ponds and brings back 30 fish per trip,雪地貨車來了!漁夫會開去野外的魚池，每趟載 30 條魚回放置區

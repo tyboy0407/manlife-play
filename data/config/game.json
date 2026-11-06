@@ -338,6 +338,16 @@
       "perLevel": 4
     }
   },
+  "truck": {
+    "capacity": 30,
+    "catchSec": 0.7,
+    "speed": 7.0,
+    "unloadPerSec": 8,
+    "giveUpSec": 12
+  },
+  "depot": {
+    "cap": 300
+  },
   "trap": {
     "damage": 60,
     "kingDamage": 150,

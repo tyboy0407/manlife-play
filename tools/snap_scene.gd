@@ -222,6 +222,18 @@ func _run() -> void:
     await _frames(70)
     await _shot("18_guard")
     gbear.queue_free()
+    # 雪地貨車停在車庫(車上 12 條魚)、放置區 120 條、搬運工來拿
+    GameState.apply_purchase("truck", {"type": "truck"})
+    (level.price_pads["truck"] as PricePad).restore_state(1, 0)
+    var tk := level.trucks[0] if not level.trucks.is_empty() else level.spawn_truck(true)
+    tk.fish = 12
+    tk._refresh_pile()
+    tk.set_physics_process(false)
+    level.depot.receive(120)
+    level.player.global_position = Vector3(2.5, 0, 8.0)
+    await _frames(40)
+    await _shot("19_truck_depot")
+    tk.set_physics_process(true)
     level.player.global_position = Vector3(0.0, 0, 1.5)
     await _frames(5)
     # 選單打開:詳細統計收在面板裡,左上角只剩錢包 / 背包 / 毛皮 / 牙 / 武器

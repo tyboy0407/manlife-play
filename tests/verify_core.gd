@@ -17,6 +17,7 @@ func _ready() -> void:
     _test_trap_and_belt()
     _test_story()
     _test_tower_upgrades()
+    _test_truck()
     _test_offline()
     _test_kitchen()
     _test_orders()
@@ -92,8 +93,9 @@ func _test_data() -> void:
     costs_expected.append_array([300, 500, 3, 300])   # 修理工 $300、地圖碎片(現金 $500 / 稀有魚 3 條)、毛皮補給 $300
     costs_expected.append(3)   # 冰母的神龕:3 條稀有魚(結局)
     costs_expected.append(300)   # 衛兵 $300(固定價,可僱 4 位)
-    _check(shop.size() == 100 and costs == costs_expected,
-            "shop.json:一百塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊、神龕、衛兵)%s" % str(costs))
+    costs_expected.append(1500)   # 雪地貨車 $1500 ×1.5(最多 3 台)
+    _check(shop.size() == 101 and costs == costs_expected,
+            "shop.json:一百零一塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊、神龕、衛兵、貨車)%s" % str(costs))
     var hg := GameData.purchase("hire_guard")
     _check(str(hg.get("effect", {}).get("role", "")) == "guard" and int(hg.get("maxBuys", 0)) == 4 and is_equal_approx(float(hg.get("costMult", 0.0)), 1.0)
             and is_equal_approx(float(hg.get("rebuyMult", 0.0)), 1.5) and float(GameData.helper("guard").get("damage", 0.0)) > 0.0
@@ -960,6 +962,20 @@ func _test_guide() -> void:
 
 
 ## --- 北極熊 / 武器 ---
+
+## --- 雪地貨車 ---
+
+func _test_truck() -> void:
+    var t := TruckLogic.from_config(GameData.section("truck"))
+    _check(t.capacity() == 30 and is_equal_approx(t.catch_sec(), 0.7) and t.speed() > 0.0 and is_equal_approx(t.unload_per_sec(), 8.0)
+            and is_equal_approx(t.give_up_sec(), 12.0) and int(GameData.section("depot").get("cap", 0)) == 300, "貨車:載 30 條、每 0.7 秒撈一條、每秒卸 8 條;放置區 300 條")
+    _check(not t.is_full(29) and t.is_full(30) and not t.should_return(5, 3.0) and t.should_return(30, 0.0) and t.should_return(5, 12.0)
+            and not t.should_return(0, 99.0), "滿 30 條或池子空了 12 秒(車上有魚)就回程;空車不回")
+    _check(TruckLogic.pick_pond([3, 8, 5], -1) == 1 and TruckLogic.pick_pond([0, 0, 0], 1) == 2 and TruckLogic.pick_pond([0, 0, 0], 2) == 0
+            and TruckLogic.pick_pond([4, 4, 4], 0) == 1 and TruckLogic.pick_pond([], 0) == -1, "挑魚池:魚最多的;都空輪下一個;同分不選上一次那個")
+    var empty := TruckLogic.from_config({})
+    _check(empty.capacity() == 30 and empty.catch_sec() > 0.0, "沒設定用預設值")
+
 
 ## --- 守衛塔升級 / 王的等級上限 ---
 

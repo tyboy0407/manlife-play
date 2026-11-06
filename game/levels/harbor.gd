@@ -56,6 +56,7 @@ const PAD_SPOTS := {
     "hire_guard": Vector3(-8.0, 0, 20.0),   # 衛兵的僱用牌:南塊(第四次擴建後才出現),魚湯廚房西邊
     "map_cash": Vector3(77.5, 0, -1.0), "map_fish": Vector3(80.5, 0, -1.0), "merchant_pelts": Vector3(83.5, 0, -1.0),   # 旅行商人營地(村外東邊雪原)
     "shrine": Vector3(86.0, 0, -9.0),   # 冰母的神龕(雪原東北角,三片地圖拼齊才出現;收 3 條稀有魚 = 結局)
+    "truck": Vector3(-0.5, 0, 10.7),   # 雪地貨車(主村南排,錢格與烤魚櫃台收銀格之間;= GARAGE_SPOT)
     "tooth_tower_1": Vector3(-11.0, 0, -9.5), "tooth_tower_2": Vector3(11.0, 0, -9.5), "tooth_tower_3": Vector3(-11.0, 0, 11.0), "tooth_tower_4": Vector3(11.0, 0, 11.0),
     "tooth_tower_5": Vector3(-3.0, 0, -2.9), "tooth_tower_6": Vector3(3.0, 0, -2.9),
 }
@@ -129,6 +130,12 @@ const WEST_ROUTE := [Vector3(-9.0, 0, 3.6), Vector3(-11.4, 0, 2.5), Vector3(-14.
 const MERCHANT_CAMP := Vector3(80.0, 0, -6.0)
 const MERCHANT_SPOT := Vector3(80.0, 0, -3.8)
 const SHRINE_SPOT := Vector3(86.0, 0, -9.0)   # 故事終章:冰母的神龕(雪原東北角,「不下雪的地方」),牌 shrine 同位置
+# 雪地貨車:牌 truck 在主村南排(也是車庫 / 停車位),貨物放置區 FishDepot 在同一排東邊;野外三座魚池(村子南邊的雪原)各有一個停車岸邊 dock
+const GARAGE_SPOT := Vector3(-0.5, 0, 10.7)
+const DEPOT_SPOT := Vector3(6.0, 0, 10.7)
+const TRUCK_PONDS := [{"rect": Rect2(-24.0, 19.0, 8.0, 6.0), "dock": Vector3(-14.8, 0, 22.0)},
+    {"rect": Rect2(16.0, 21.0, 8.0, 6.0), "dock": Vector3(14.8, 0, 24.0)},
+    {"rect": Rect2(-6.0, 37.0, 8.0, 6.0), "dock": Vector3(-2.0, 0, 35.6)}]
 const REPAIRMAN_POST := Vector3(-10.5, 0, 2.4)   # 修理工沒事時站的崗位(西門內側走道)
 const CUSTOMER_DOOR_Z := Vector2(9.2, 11.2)   # 每塊地東柵欄上的「顧客門」(只開視覺柵欄,隱形牆留著);顧客從門外走進來、買完走回門外
 const CUSTOMER_DOOR_OUT := 1.5                # 顧客出生 / 離開點在柵欄外幾格
@@ -188,6 +195,9 @@ var merchant: Node3D = null             # 旅行商人(人物)
 var captain: Node3D = null              # 貨船的船長(人物,故事泡泡用)
 var shrine: Node3D = null               # 冰母的神龕(外觀;地圖拼齊才顯示)
 var story: Story = null
+var ponds: Array[FishArea] = []         # 野外魚池(不在 fish_areas 裡:漁夫 / 提示 / 王不理)
+var depot: FishDepot = null             # 貨物放置區
+var trucks: Array[Truck] = []           # 雪地貨車
 var tower_upgrading: Tower = null       # 升級面板目前對著哪座塔
 var _order_text_shown := ""
 var offline_sec := 0                    # 這次讀檔算出的離線秒數
@@ -246,6 +256,8 @@ func _ready() -> void:
             pad.label.position.y = 6.4   # 牌子在塔底下,字要浮在塔頂上
     _build_towers()
     _build_traps()
+    _build_ponds()
+    _build_depot()
     player = Player.new()
     player.name = "Player"
     player.position = PLAYER_SPAWN
@@ -987,6 +999,8 @@ func map_data() -> Dictionary:
         rects.append({"rect": SOUTH_RECT, "color": Color(0.88, 0.76, 0.6), "label": ""})
     for fa in fish_areas:
         rects.append({"rect": fa.rect, "color": Color(0.35, 0.65, 0.95), "label": ""})
+    for p in ponds:
+        rects.append({"rect": p.rect, "color": Color(0.35, 0.65, 0.95), "label": ""})
     var points := []
     points.append({"pos": Vector2(DOCK_SPOT.x, DOCK_SPOT.z), "color": Color(0.45, 0.3, 0.2), "label": "MAP_DOCK"})
     points.append({"pos": Vector2(MERCHANT_CAMP.x, MERCHANT_CAMP.z), "color": Color(0.55, 0.18, 0.15), "label": "MAP_MERCHANT"})
@@ -1329,6 +1343,68 @@ func _refresh_tower_pads() -> void:
 
 ## --- 捕熊夾 / 誘餌 / 傳送帶 ---
 
+## 野外三座魚池(FishArea,wild;不進 fish_areas)
+func _build_ponds() -> void:
+    for i in TRUCK_PONDS.size():
+        var fa := FishArea.new()
+        fa.name = "Pond%d" % (i + 1)
+        fa.rect = TRUCK_PONDS[i]["rect"]
+        fa.wild = true
+        world.add_child(fa)
+        ponds.append(fa)
+
+
+func _build_depot() -> void:
+    depot = FishDepot.new()
+    depot.name = "FishDepot"
+    depot.level = self
+    depot.position = DEPOT_SPOT
+    world.add_child(depot)
+
+
+## 買了雪地貨車:生一台停在車庫(牌子的位置)
+func spawn_truck(silent: bool = false) -> Truck:
+    var t := Truck.new()
+    t.name = "Truck_%d" % (trucks.size() + 1)
+    t.level = self
+    t.position = GARAGE_SPOT + Vector3(0, 0, 0.6)
+    t.rotation.y = PI
+    world.add_child(t)
+    trucks.append(t)
+    if not silent:
+        _spawn_flash(t.global_position)
+        EventBus.notice.emit(tr("NOTICE_TRUCK_BOUGHT"))
+    return t
+
+
+func pond_counts() -> Array:
+    var out := []
+    for p in ponds:
+        out.append(p.fish.size())
+    return out
+
+
+## 貨車的路線:車庫 -> 南邊缺口(主村南牆,或南塊蓋了就繞 x 8.5 的車道到南塊的南缺口)-> 村外的環道(z 14.6 / 33)-> 魚池岸邊;回程倒著走
+func truck_route(pond: int, outbound: bool) -> Array[Vector3]:
+    var pts: Array[Vector3] = []
+    var ring_z := 33.0 if south_block != null else 14.6
+    if south_block != null:
+        pts.append(Vector3(8.5, 0, 12.2))
+        pts.append(Vector3(8.5, 0, 29.2))
+        pts.append(Vector3(0.0, 0, 31.8))
+    else:
+        pts.append(Vector3(0.0, 0, 11.6))
+        pts.append(Vector3(0.0, 0, 13.8))
+    var dock: Vector3 = TRUCK_PONDS[clampi(pond, 0, TRUCK_PONDS.size() - 1)]["dock"]
+    pts.append(Vector3(dock.x, 0, ring_z))
+    pts.append(dock)
+    if outbound:
+        return pts
+    pts.reverse()
+    pts.append(GARAGE_SPOT + Vector3(0, 0, 0.6))
+    return pts
+
+
 ## 夾子與誘餌一開始就在(沒買是空的),牌子就是位置
 func _build_traps() -> void:
     for id in TRAP_SPOTS:
@@ -1668,11 +1744,13 @@ func find_station_with_input(item: String) -> Station:
     return null
 
 
-## 產 item 且輸出堆還有空位的工作站(搬運工把送不出去的貨放回去用)
-func find_station_with_output(item: String) -> Station:
+## 產 item 且輸出堆還有空位的工作站(搬運工把送不出去的貨放回去用);魚就放回放置區
+func find_station_with_output(item: String) -> Node3D:
     for s in stations:
         if not s.is_broken() and s.logic.output_id == item and s.logic.output_count < s.logic.output_cap:
             return s
+    if item == "fish" and depot != null and depot.space() > 0:
+        return depot
     return null
 
 
@@ -1707,6 +1785,8 @@ func porter_sources() -> Array:
         if s.is_broken():
             continue
         out.append({"id": s.get_instance_id() * 4, "node": s, "item": s.logic.output_id, "count": s.logic.output_count})   # id 與 porter_dests 同一套(×4)
+    if depot != null and depot.stock() > 0:
+        out.append({"id": depot.get_instance_id() * 4, "node": depot, "item": "fish", "count": depot.stock()})   # 貨物放置區的魚(送去切魚台)
     return out
 
 
@@ -1778,6 +1858,8 @@ func _on_purchased(_id: String, effect: Dictionary) -> void:
             _refresh_shrine()
             EventBus.map_piece_bought.emit(GameState.map_pieces)
             EventBus.notice.emit(tr("NOTICE_MAP_FULL") if GameState.has_full_map() else tr("NOTICE_MAP_PIECE") % [GameState.map_pieces, GameState.MAP_PIECES])
+        "truck":
+            spawn_truck()
         "shrine":
             _refresh_shrine()
             EventBus.shrine_offered.emit()
@@ -1825,10 +1907,14 @@ func snapshot() -> Dictionary:
     var belts_d := {}
     for c in conveyors:
         belts_d[c.id] = c.snapshot()
+    var trucks_d := []
+    for t in trucks:
+        trucks_d.append(t.snapshot())
     return {
         "player": {"item": player.stack.item_id, "count": player.stack.count, "x": player.global_position.x, "z": player.global_position.z},
         "money": money_pad.cash, "stations": stations_d, "counters": counters_d, "pads": pads_d, "towers": towers_d,
-        "loot": loot_d, "traps": traps_d, "baits": baits_d, "belts": belts_d, "bear": bears.snapshot() if bears != null else {},
+        "loot": loot_d, "traps": traps_d, "baits": baits_d, "belts": belts_d, "trucks": trucks_d, "depot": depot.snapshot() if depot != null else {},
+        "bear": bears.snapshot() if bears != null else {},
         "income_rate": offline.rate(GameState.play_time) if offline != null else 0.0,
         "orders": orders.snapshot() if orders != null else {},
     }
@@ -1914,6 +2000,17 @@ func restore_world(d: Dictionary) -> void:
         for c in conveyors:
             if typeof(belts_d.get(c.id, null)) == TYPE_ARRAY:
                 c.restore(belts_d[c.id])
+    # 放置區的魚、雪地貨車(台數 = 牌買過幾次,車上的魚照存檔)
+    var depot_d = d.get("depot", {})
+    if depot != null and typeof(depot_d) == TYPE_DICTIONARY:
+        depot.restore(depot_d)
+    var tp: PricePad = price_pads.get("truck", null)
+    var trucks_d = d.get("trucks", [])
+    if tp != null:
+        for i in tp.logic.buys:
+            var t := spawn_truck(true)
+            if typeof(trucks_d) == TYPE_ARRAY and i < trucks_d.size() and typeof(trucks_d[i]) == TYPE_DICTIONARY:
+                t.restore(trucks_d[i])
     _refresh_tower_pads()
     _sync_map_pads()
     var od = d.get("orders", {})

@@ -30,6 +30,7 @@ func _run() -> void:
     await _repairman_section()
     await _tower_upgrade_section()
     await _guard_section()
+    await _truck_section()
     await _tower_strong_section()
     await _story_section()
     # 存檔 -> 重建 -> 還原(先貼一張送了一點的訂單、地圖 2 片,看存檔有沒有記)
@@ -114,7 +115,7 @@ func _run() -> void:
             and wp3.logic.max_buys == 4 and wp3.logic.is_exhausted() and not wp3.visible and _level.shop_sign.text.contains("1")
             and not (_level.price_pads["tooth_tower_1"] as PricePad).visible and not (_level.price_pads["tooth_tower_2"] as PricePad).visible,
             "重建關卡:強力守衛塔、武器店 Lv1(武器牌 4 級買滿)、毛皮 %d、地上 %d 個掉落物還原" % [pelts_saved, loot_saved])
-    _check(_level.conveyors.size() == 1 and _level.conveyor_by_id("belt_station_1") != null and not (_level.price_pads["belt_station_1"] as PricePad).visible
+    _check(_level.trucks.size() == 1 and _level.depot != null and _level.conveyors.size() == 1 and _level.conveyor_by_id("belt_station_1") != null and not (_level.price_pads["belt_station_1"] as PricePad).visible
             and (_level.price_pads["belt_grill"] as PricePad).visible and not _level.trap_by_id("trap_1").is_armed() and (_level.price_pads["trap_1"] as PricePad).visible
             and not _level.bait_by_id("bait_1").is_set() and (_level.price_pads["bait_1"] as PricePad).visible and GameState.upgrade_level("porter_cap") == 1
             and (_level.price_pads["upgrade_porter_cap"] as PricePad).logic.remaining == 160,
@@ -635,6 +636,62 @@ func _king_wreck_section(king: Bear) -> void:
 ## --- 修理工 ---
 ## 到武器店院子付 $300 僱修理工 -> 他站到崗位 -> 把 station_2 與 tower_1 設成廢墟(修復牌出現)-> 修理工走過去站 15 秒免費修好(錢包不動)->
 ## 再去修塔 -> 兩塊牌都消失
+## --- 雪地貨車 / 放置區 ---
+## 野外三座魚池有魚 -> 買貨車 $1500 -> 漁夫開出南缺口到魚最多的池撈滿 30 條 -> 開回來卸進放置區 -> 僱搬運工:到放置區拿魚送去切魚台
+func _truck_section() -> void:
+    var tp: PricePad = _level.price_pads["truck"]
+    var dp: FishDepot = _level.depot
+    var pond_fish := 0
+    for p in _level.ponds:
+        pond_fish += p.fish.size()
+    _check(tp.visible and tp.logic.current_cost() == 1500 and _level.ponds.size() == 3 and pond_fish >= 6 and dp != null and dp.stock() == 0
+            and _level.trucks.is_empty() and _level.ponds[0].wild and not _level.fish_areas.has(_level.ponds[0]),
+            "野外三座魚池有魚(%d)、貨車牌 $1500、放置區空的、還沒有貨車" % pond_fish)
+    GameState.add_wallet(1500)
+    await _go(Vector3(-0.5, 0, 8.8), 600)
+    var bought := await _pay_pad(tp)
+    await _step(3)
+    _check(bought and _level.trucks.size() == 1 and tp.visible and tp.logic.current_cost() == 2250, "買到貨車:停在車庫、牌留著下一台 $2250")
+    var truck: Truck = _level.trucks[0]
+    await _go(Vector3(-6.0, 0, 7.0), 300)
+    var fished := await _wait_until(func() -> bool: return truck.caught_total >= 30, 3000)
+    _check(fished and truck.pond_index >= 0 and truck.fish <= 30 and (truck.state == "to_depot" or truck.state == "unloading" or truck.state == "fishing"),
+            "貨車開到魚池撈滿 30 條(池 %d、狀態 %s)" % [truck.pond_index, truck.state])
+    var unloaded := await _wait_until(func() -> bool: return dp.received_total >= 30, 1200)
+    await _step(5)
+    _check(unloaded and truck.unloaded_total == 30 and truck.fish == 0 and truck.trips >= 1 and dp.stock() <= 30 and dp.stock() + dp.taken_total == 30,
+            "開回來把 30 條卸進放置區(庫存 %d、搬運工已拿 %d)" % [dp.stock(), dp.taken_total])
+    # 搬運工到放置區拿魚送去切魚台(漁夫先定住,不然切魚台的原料馬上被漁夫補滿,就輪不到放置區的魚)
+    if _find_helper("porter") == null:
+        GameState.add_wallet(600)
+        await _pay_pad(_level.price_pads["hire_porter"])
+        await _step(3)
+    var porter := _find_helper("porter")
+    var st1 := _level.station_at("station_1")
+    var fishers := []
+    for h in _level.helpers:
+        if h.role == "fisher":
+            h.set_physics_process(false)
+            fishers.append(h)
+    st1.logic.counts["fish"] = 0   # 切魚台原料清空、成品清空(沒塞住):放置區的魚是它唯一的來源,搬運工最優先補
+    st1.logic.output_count = 0
+    st1.refresh_piles()
+    if porter != null:
+        porter.stack.clear()
+        porter.job = {}
+        porter.state = "idle"
+        porter.takes_output = true
+    var plan := _level.find_porter_job(12)
+    _check(plan.get("from", null) == dp and plan.get("to", null) == st1 and str(plan.get("item", "")) == "fish",
+            "派工:放置區的魚 -> 原料空的切魚台(最優先;%s)" % str(plan.get("item", "")))
+    var taken := await _wait_until(func() -> bool: return dp.taken_total >= 1, 900)
+    var fed := await _wait_until(func() -> bool: return st1.logic.input_count_of("fish") >= 1, 900)
+    _check(porter != null and taken and fed, "搬運工到放置區拿魚(%d)送到切魚台(原料 %d)" % [dp.taken_total, st1.logic.input_count_of("fish")])
+    for h in fishers:
+        h.set_physics_process(true)
+    GameState.wallet = 0
+
+
 ## --- 守衛塔升級 ---
 ## 走到 tower_1 旁 -> 畫面下方出現「升級」鈕 -> 按了面板開(射速 / 傷害)-> 錢不夠按了不扣 -> 加錢升傷害、升射速:每箭傷害 / 間隔跟著變、各扣 $500 -> 走開鈕與面板都收
 func _tower_upgrade_section() -> void:

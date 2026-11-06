@@ -194,6 +194,14 @@
   有活熊(含王,Harbor.guard_target 最近的)就衝過去打(hits_total),不會被嚇呆(set_panic 忽略)、會被吃。
   同日追加(使用者點名):衛兵外觀套盔甲(頭盔 / 胸甲 / 肩甲方塊)+ 右手斧頭(武器 Lv2 模型)+ 頭上「衛兵」標籤(Helper._dress_guard;Kenney 套件沒有盔甲人物);
   價格牌付錢加速:payPerSec 15 -> 20、payScaleCost 100 -> 25($25 以上的牌都約 1.25 秒付清,payDelaySec 0.6 不變所以走過仍不付)。
+- 2026-11-06(使用者點名三項,沒開問題):1 野外三座魚池 Harbor.TRUCK_PONDS(村子南邊雪原:(-20, 22)、(20, 24)、(-2, 40) 各 8 × 6,FishArea wild,
+  在 ponds 不在 fish_areas 所以漁夫 / 提示 / 王不理,玩家可以去抓);2 雪地貨車:牌 truck $1500 ×1.5 最多 3 台在主村南排 GARAGE_SPOT (-0.5, 10.7)(也是停車位),
+  Truck(game/npc/truck.gd,無物理)漁夫人物坐駕駛艙:idle -> 挑魚最多的池(TruckLogic.pick_pond)-> 沿 Harbor.truck_route 出南缺口(南塊蓋了改走 x 8.5 車道到南塊南缺口)
+  到岸邊 dock -> 每 0.7 秒 FishArea.take_nearest 撈一條,滿 30 條或池空 12 秒就回 -> 停在車庫每秒卸 8 條進放置區(滿了等);
+  放置區 FishDepot(game/world/fish_depot.gd,Pad,DEPOT_SPOT (6, 10.7),cap 300)對搬運工長得像工作站輸出堆(logic / output_pad / take_back / pile_top),
+  只讓 role porter 站上來拿;3 porter_sources 多放置區一筆(item fish),PorterPlanner 自然會派去切魚台(原料空最優先);
+  Helper 的 job["from"] 改成不標型別(Station 或 FishDepot),find_station_with_output("fish") 回放置區。存檔 world.trucks[{fish, trips}] / depot{stock},
+  台數 = 牌 buys。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式

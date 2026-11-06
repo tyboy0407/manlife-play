@@ -14,6 +14,7 @@ var swim_speed := 1.6
 var fish: Array[Fish] = []
 var area: Area3D
 var catchable := true
+var wild := false              # 野外魚池(雪地貨車撈魚用;不在 Harbor.fish_areas 裡)
 
 const BASE_WATER_AREA := 112.0   # 主村水面 16 × 7,maxInWater 以它為準
 static var rare_auto := true     # 金魚自動出現(測試關掉,改用 spawn_rare 強制)
@@ -117,6 +118,18 @@ func _catch(c: Carrier, f: Fish) -> void:
     f.queue_free()
     EventBus.fish_caught.emit(c)
     EventBus.items_moved.emit("catch", "fish", from, c.stack_top(), 1)
+
+
+## 雪地貨車撈魚:拿掉離 pos 最近的一條(飛向 to);沒魚回 false
+func take_nearest(pos: Vector3, to: Vector3) -> bool:
+    var f := _nearest_fish(pos)
+    if f == null:
+        return false
+    fish.erase(f)
+    var from := f.global_position
+    f.queue_free()
+    EventBus.items_moved.emit("catch", "fish", from, to, 1)
+    return true
 
 
 ## 把一條魚拿掉(北極熊王吃掉)
