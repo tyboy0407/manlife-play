@@ -33,6 +33,7 @@ func _run() -> void:
     await _truck_section()
     await _tower_strong_section()
     await _story_section()
+    await _south_more_section()   # 第五 ~ 七次擴建放最後(前面的段落照四次擴建的版面走)
     # 存檔 -> 重建 -> 還原(先貼一張送了一點的訂單、地圖 2 片,看存檔有沒有記)
     _level.orders.generate({"fillet": 2, "grilled": 5}, 1, 1.0)
     _level.orders.deliver(_level.orders.wanted_items()[0], 2)
@@ -83,15 +84,15 @@ func _run() -> void:
     _check(not _level.hud.offline_open() and not get_tree().paused and _level.offline_sec < 60,
             "剛存的檔(離線 %d 秒不滿 1 分鐘):沒有離線收益面板、遊戲沒暫停" % _level.offline_sec)
     var tailor2 := _level.station_at("tailor")
-    _check(_level.stations.size() == 12 and grill2 != null and _level.counters.size() == 8 and _level.helpers.size() == hired_saved
-            and _level.expansion_level() == 4 and _level.has_south_block() and _level.south_walls.is_empty() and _level.station_at("kitchen") != null
+    _check(_level.stations.size() == 20 and grill2 != null and _level.counters.size() == 14 and _level.helpers.size() == hired_saved
+            and _level.expansion_level() == 7 and _level.has_south_block() and _level.south_walls.is_empty() and _level.station_at("kitchen") != null
             and _level.counter_by_id("soup_counter") != null and _level.fish_areas.size() == 4 and _level.east_gate == null and _level.station_at("grill_2") != null
             and _level.station_at("grill_5") != null and _level.station_at("grill_7") != null and tailor2 != null and tailor2.logic.input_per == 5
             and _level.counter_by_id("sweater_counter") != null
             and _level.annex_east_walls[0].is_empty() and _level.annex_east_walls[1].is_empty() and not _level.annex_east_walls[2].is_empty()
             and (_level.price_pads["tower_13"] as PricePad).visible and (_level.price_pads["tower_24"] as PricePad).visible
             and not (_level.price_pads["expand_village_2"] as PricePad).visible and not (_level.price_pads["expand_village_3"] as PricePad).visible,
-            "重建關卡:烤魚攤、烤魚櫃台、%d 個幫手、三塊擴建區(四個水區、十一座工作站含服飾店、七座櫃台、每塊的塔牌)都回來了" % hired_saved)
+            "重建關卡:烤魚攤、烤魚櫃台、%d 個幫手、三塊擴建區 + 四塊南塊(四個水區、二十座工作站含服飾店、十四座櫃台、每塊的塔牌)都回來了" % hired_saved)
     var belt2 := _level.conveyor_by_id("belt_station_1")
     var fillets_now := st2.logic.output_count + cnt2.logic.stock + (belt2.logic.count() if belt2 != null else 0)
     _check(_level.money_pad.cash == cash_saved and st2 != null and grill2.logic.output_count == grill_out and cnt2 != null
@@ -128,7 +129,7 @@ func _run() -> void:
     _check(_level.orders.has_order() and _level.orders.order["lines"].size() == order_lines_saved and is_equal_approx(_level.orders.progress(), order_prog_saved)
             and _level.hud.order_text() != "" and GameState.map_pieces == 2 and mc2.logic.buys == 2 and mf2.logic.buys == 2 and mc2.logic.remaining == 5000
             and repairman_saved == 1 and _find_helper("repairman") != null and _level.counter_by_id("fillet_counter").max_customers == 10
-            and _level.counter_by_id("fillet_counter").expansion == 4,
+            and _level.counter_by_id("fillet_counter").expansion == 7,
             "重建關卡:訂單(%d 種、進度 %.2f)、地圖 2 片(兩塊牌都在第三片)、修理工回來、顧客成長(主村櫃台 %d 位)(order %s / %d / %.2f hud [%s] map %d buys %d / %d rem %d repairman %d / %s exp %d)"
             % [order_lines_saved, order_prog_saved, _level.counter_by_id("fillet_counter").max_customers, str(_level.orders.has_order()), _level.orders.order.get("lines", {}).size(),
             _level.orders.progress(), _level.hud.order_text(), GameState.map_pieces, mc2.logic.buys, mf2.logic.buys, mc2.logic.remaining, repairman_saved, str(_find_helper("repairman") != null),
@@ -137,8 +138,9 @@ func _run() -> void:
     _level.orders.next_in = 9999.0
     _check(tower_alive_saved and tw2 != null and tw2.is_alive() and is_equal_approx(tw2.hp, tower_hp_saved) and tw2._built.visible
             and not (_level.price_pads["tower_1"] as PricePad).visible and _level.tower_by_id("tower_2").state == "none"
-            and fp2.logic.max_buys == 11 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 18,
-            "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、四次擴建後的僱用名額還原" % tower_hp_saved)
+            and fp2.logic.max_buys == 26 and (_level.price_pads["hire_porter"] as PricePad).logic.max_buys == 30 and _level.expansion_level() == 7
+            and _level.south_blocks.size() == 4 and _level.stations.size() == 20 and _level.counters.size() == 14 and _level.south_block_walls.size() >= 3,
+            "重建關卡:守衛塔 1 還在(血 %.0f)、沒蓋的還是地基、七次擴建後的僱用名額 / 四塊南塊還原(擴建 %d、站 %d、櫃台 %d)" % [tower_hp_saved, _level.expansion_level(), _level.stations.size(), _level.counters.size()])
     # 離線收益:把存檔的 savedAt 撥回 3 小時前、收入速率寫成 2 $/s -> 重建關卡時彈面板、遊戲暫停 -> 領取 $10800 進錢包
     _level.save_now()
     _level.set_physics_process(false)   # 關掉自動存檔
@@ -215,8 +217,8 @@ func _expand_section() -> void:
     var hf: PricePad = _level.price_pads["hire_fisher"]
     var hpp: PricePad = _level.price_pads["hire_porter"]
     var hc: PricePad = _level.price_pads["hire_cashier"]
-    _check(hf.logic.max_buys == 5 and hpp.logic.max_buys == 6 and hc.logic.max_buys == 4 and hf.visible and hpp.visible and hc.visible
-            and not hf.logic.is_exhausted() and not hpp.logic.is_exhausted() and not hc.logic.is_exhausted() and hf.label.text.contains("/5")
+    _check(hf.logic.max_buys == 8 and hpp.logic.max_buys == 6 and hc.logic.max_buys == 4 and hf.visible and hpp.visible and hc.visible
+            and not hf.logic.is_exhausted() and not hpp.logic.is_exhausted() and not hc.logic.is_exhausted() and hf.label.text.contains("/8")
             and (_level.price_pads["capacity_1"] as PricePad).logic.max_buys == 3,
             "擴建後僱用牌多開放名額:漁夫 5、搬運工 6、收銀員 4(其他牌不變)")
 
@@ -241,8 +243,8 @@ func _expand_section() -> void:
     var ev3: PricePad = _level.price_pads["expand_village_3"]
     _check((_level.price_pads["tower_13"] as PricePad).visible and (_level.price_pads["tower_18"] as PricePad).visible
             and not (_level.price_pads["tower_19"] as PricePad).visible
-            and _level.bears.logic.entries(_level.expansion_level())[1].x > 50.0 and hf.logic.max_buys == 7 and hpp.logic.max_buys == 10
-            and hc.logic.max_buys == 6 and hf.label.text.contains("/7") and ev3.visible and ev3.logic.current_cost() == 8000
+            and _level.bears.logic.entries(_level.expansion_level())[1].x > 50.0 and hf.logic.max_buys == 11 and hpp.logic.max_buys == 10
+            and hc.logic.max_buys == 6 and hf.label.text.contains("/11") and ev3.visible and ev3.logic.current_cost() == 8000
             and ev3.global_position.x > 31.6 and ev3.global_position.x < 50.2,
             "第二塊的六座塔牌出現(第三塊的還藏著)、熊的東邊入口在第二塊外、僱用名額 7 / 10 / 6;第三次擴建牌 $8000 在第二塊擴建區裡")
     await _third_expansion(ev3, hf, hpp, hc)
@@ -277,8 +279,8 @@ func _third_expansion(ev3: PricePad, hf: PricePad, hpp: PricePad, hc: PricePad) 
     _check(_level.annex_east_walls[1].is_empty() and not _level.annex_east_walls[2].is_empty(), "第二塊的東牆拆掉、第三塊的東牆還在")
     _check((_level.price_pads["tower_19"] as PricePad).visible and (_level.price_pads["tower_24"] as PricePad).visible
             and (_level.price_pads["tower_24"] as PricePad).global_position.x > 60.0
-            and _level.bears.logic.entries(_level.expansion_level())[1].x > 70.0 and hf.logic.max_buys == 9 and hpp.logic.max_buys == 14
-            and hc.logic.max_buys == 8 and hf.label.text.contains("/9"), "第三塊的六座塔牌出現、熊的東邊入口在第三塊外、僱用名額 9 / 14 / 8")
+            and _level.bears.logic.entries(_level.expansion_level())[1].x > 70.0 and hf.logic.max_buys == 14 and hpp.logic.max_buys == 14
+            and hc.logic.max_buys == 8 and hf.label.text.contains("/14"), "第三塊的六座塔牌出現、熊的東邊入口在第三塊外、僱用名額 9 / 14 / 8")
     # 毛皮放進服飾店:走過輸入格不會放(要站滿 0.8 秒),站著才一張張放
     GameState.pelts = 0   # 先前撿到的毛皮清掉,才能剛好做兩件
     GameState.add_resource("pelt", 10)
@@ -320,6 +322,61 @@ func _third_expansion(ev3: PricePad, hf: PricePad, hpp: PricePad, hc: PricePad) 
 
 ## --- 北極熊王 ---
 ## 把遊戲時間撥到 5 分鐘 -> 王出場(更大、血量 ×4)-> 盯上水裡的魚吃掉:回血、變大 -> 玩家用 Lv3 武器打到血條歸零 -> 王倒下、下一次在 5 分鐘後
+## --- 第五 ~ 七次擴建(往南疊三塊)---
+## $16000:切魚台 ×2 + 烤魚攤、魚片 / 烤魚櫃台 -> $32000:烤魚攤 ×2 + 廚房、烤魚 / 魚湯櫃台 -> $64000:廚房 ×2、兩座魚湯櫃台;
+## 每塊:南牆往南移、兩座塔牌、兩個捕熊夾、一個誘餌、傳送帶牌、僱用名額再開一輪、熊的南入口跟著南移
+func _south_more_section() -> void:
+    var hf: PricePad = _level.price_pads["hire_fisher"]
+    var hp: PricePad = _level.price_pads["hire_porter"]
+    var specs := [
+        {"pad": "expand_village_5", "cost": 16000, "level": 5, "stations": ["station_5", "station_6", "grill_8"], "counters": ["fillet_counter_4", "grill_counter_4"],
+            "tower": "tower_27", "trap": "trap_11", "bait": "bait_6", "belt": "belt_grill_8", "end": 48.6, "go": Vector3(-10.0, 0, 27.5)},
+        {"pad": "expand_village_6", "cost": 32000, "level": 6, "stations": ["grill_9", "grill_10", "kitchen_2"], "counters": ["grill_counter_5", "soup_counter_2"],
+            "tower": "tower_29", "trap": "trap_13", "bait": "bait_7", "belt": "belt_kitchen_2", "end": 66.6, "go": Vector3(-10.0, 0, 45.5)},
+        {"pad": "expand_village_7", "cost": 64000, "level": 7, "stations": ["kitchen_3", "kitchen_4"], "counters": ["soup_counter_3", "soup_counter_4"],
+            "tower": "tower_31", "trap": "trap_15", "bait": "bait_8", "belt": "belt_kitchen_4", "end": 84.6, "go": Vector3(-10.0, 0, 63.5)},
+    ]
+    _check((_level.price_pads["expand_village_5"] as PricePad).visible and not (_level.price_pads["expand_village_6"] as PricePad).visible
+            and (_level.price_pads["trap_9"] as PricePad).visible and (_level.price_pads["bait_5"] as PricePad).visible
+            and not (_level.price_pads["trap_11"] as PricePad).visible and not (_level.price_pads["tower_27"] as PricePad).visible
+            and Harbor.tower_area("tower_27") == 5 and Harbor.tower_area("tower_32") == 7 and Harbor.trap_area("trap_16") == 7 and Harbor.bait_area("bait_8") == 7
+            and is_equal_approx(_level.south_end(), 30.6), "南塊蓋好後:第五次擴建牌出現、南塊的夾子 / 誘餌牌開著,下一塊的還藏著;南界 30.6")
+    for sp in specs:
+        var pad: PricePad = _level.price_pads[sp["pad"]]
+        var st0 := _level.stations.size()
+        var ct0 := _level.counters.size()
+        var hf0 := hf.logic.max_buys
+        GameState.add_wallet(int(sp["cost"]))
+        await _go(Vector3(-10.0, 0, 12.0), 600)
+        await _go(sp["go"], 900)
+        var bought := await _pay_pad(pad)
+        await _step(3)
+        var ok := bought and _level.expansion_level() == int(sp["level"]) and _level.south_blocks.size() == int(sp["level"]) - 3
+        ok = ok and _level.stations.size() == st0 + (sp["stations"] as Array).size() and _level.counters.size() == ct0 + (sp["counters"] as Array).size()
+        for sid in sp["stations"]:
+            ok = ok and _level.station_at(str(sid)) != null and not _level.station_at(str(sid)).is_broken()
+        for cid in sp["counters"]:
+            var cn := _level.counter_by_id(str(cid))
+            ok = ok and cn != null and cn.max_customers >= 4 and cn.door.z > float(sp["end"]) - 18.0 and cn.door.z < float(sp["end"])
+        ok = ok and is_equal_approx(_level.south_end(), float(sp["end"])) and not _level.south_block_walls.is_empty()
+        ok = ok and (_level.price_pads[sp["tower"]] as PricePad).visible and (_level.price_pads[sp["trap"]] as PricePad).visible
+        ok = ok and (_level.price_pads[sp["bait"]] as PricePad).visible and (_level.price_pads[sp["belt"]] as PricePad).visible
+        ok = ok and hf.logic.max_buys == hf0 + 3 and _level.is_inside_village(Vector3(0, 0, float(sp["end"]) - 2.0))
+        ok = ok and not _level.is_inside_village(Vector3(0, 0, float(sp["end"]) + 2.0))
+        var entries := _level.bears.logic.entries(_level.expansion_level())
+        ok = ok and entries.size() == 3 and entries[2].z > float(sp["end"])
+        _check(ok, "%s $%d:第 %d 次擴建,南塊 %d 蓋好(南界 %.1f、工作站 %d、櫃台 %d、漁夫名額 %d、熊南入口 z %.0f)"
+                % [str(sp["pad"]), int(sp["cost"]), int(sp["level"]), _level.south_blocks.size(), _level.south_end(), _level.stations.size(), _level.counters.size(),
+                hf.logic.max_buys, entries[2].z if entries.size() == 3 else -1.0])
+    _check(hf.logic.max_buys == 26 and hp.logic.max_buys == 30 and (_level.price_pads["hire_cashier"] as PricePad).logic.max_buys == 16
+            and not (_level.price_pads["expand_village_7"] as PricePad).visible and _level.home_point(Vector3(0, 0, 90)).z > 84.6
+            and _level.truck_route(0, true)[2].z > 84.6 and _level.customer_door_for(Vector3(0, 0, 80)).z > 80.0,
+            "七次擴建後:漁夫 26 / 搬運工 30 / 收銀員 16、沒有更多擴建牌、回村點與貨車路線走最南的缺口、顧客門跟著那塊地")
+    await _go(Vector3(-10.0, 0, 12.0), 1200)
+    await _go(Vector3(-6.0, 0, 7.0), 400)
+    GameState.wallet = 0
+
+
 func _king_section() -> void:
     var bs: BearSpawner = _level.bears
     var fa: FishArea = _level.fish_areas[0]
@@ -846,7 +903,7 @@ func _south_section() -> void:
     var sc := _level.counter_by_id("soup_counter")
     _check(bought and _level.has_south_block() and _level.expansion_level() == 4 and _level.south_walls.is_empty() and kitchen != null and sc != null
             and sc.logic.price == 15 and (_level.price_pads["tower_25"] as PricePad).visible and (_level.price_pads["tower_26"] as PricePad).visible
-            and hf.logic.max_buys == max0 + 2 and hp.logic.max_buys == 18 and _level.bears.logic.entries(4).size() == 3
+            and hf.logic.max_buys == max0 + 3 and hp.logic.max_buys == 18 and _level.bears.logic.entries(4).size() == 3
             and _level.is_inside_village(Vector3(0, 0, 25)) and not pad.visible,
             "付清 $20000:南塊蓋好(南牆拆掉)、廚房 + 魚湯櫃台 $15、塔 25 / 26 的牌出現、僱用名額 %d / %d、熊多一個南入口" % [hf.logic.max_buys, hp.logic.max_buys])
     _check(kitchen.logic.is_multi_input() and kitchen.input_pads.size() == 2 and kitchen.input_pad_for("grilled") != kitchen.input_pad_for("fillet")

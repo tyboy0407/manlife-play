@@ -17,8 +17,8 @@ func _run() -> void:
     await _spawn_level()
     _check(_player != null and _level.fish_area != null and _level.stations.size() == 1 and _level.counters.size() == 1
             and _level.counters[0].def_id == "fillet_counter" and _level.money_pad != null and _level.trash_pad != null
-            and _level.price_pads.size() == 102 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、一百零一塊價格牌 + 切魚台的修復牌、沒有存檔")
-    _check(_level.traps.size() == 8 and _level.baits.size() == 4 and _level.conveyors.is_empty() and (_level.price_pads["trap_1"] as PricePad).visible
+            and _level.price_pads.size() == 137 and not _level.loaded_from_save, "關卡建好:玩家、水、切魚台、魚片櫃台、錢格、垃圾桶、一百三十六塊價格牌 + 切魚台的修復牌、沒有存檔")
+    _check(_level.traps.size() == 16 and _level.baits.size() == 8 and _level.conveyors.is_empty() and (_level.price_pads["trap_1"] as PricePad).visible
             and (_level.price_pads["bait_1"] as PricePad).visible and not (_level.price_pads["trap_3"] as PricePad).visible
             and not (_level.price_pads["bait_2"] as PricePad).visible and (_level.price_pads["belt_station_1"] as PricePad).visible
             and not (_level.price_pads["belt_station_2"] as PricePad).visible and not (_level.price_pads["belt_grill"] as PricePad).visible
@@ -27,7 +27,7 @@ func _run() -> void:
             "捕熊夾 / 誘餌 / 傳送帶:主村的夾子與誘餌牌出現(擴建區的藏著)、只有切魚台 -> 魚片櫃台的傳送帶牌出現、搬運工容量牌在")
     var t5: Tower = _level.tower_by_id("tower_5")
     var t6: Tower = _level.tower_by_id("tower_6")
-    _check(_level.towers.size() == 26 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
+    _check(_level.towers.size() == 32 and _level.tower_by_id("tower_4") != null and _level.towers[0].state == "none" and not _level.towers[0]._built.visible
             and not _level.towers[0]._rubble.visible and (_level.price_pads["tower_1"] as PricePad).visible and _level.alive_towers().is_empty()
             and t5 != null and t6 != null and t5.position == Vector3(-3.0, 0, -2.9) and t6.position == Vector3(3.0, 0, -2.9)
             and (_level.price_pads["tower_5"] as PricePad).visible and _level.tower_pad_for("tower_6").position == t6.position
@@ -45,7 +45,7 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 110, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 碼頭交貨格 / 貨物放置區 / 一百零一塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 145, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 碼頭交貨格 / 貨物放置區 / 一百三十六塊價格牌 / 修復牌(%d)" % pads)
     var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
     var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
     _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"

@@ -29,6 +29,7 @@
     ],
     "perExpansion": {
       "max": 1,
+      "maxExtra": 4,
       "intervalMult": 0.85,
       "wantShift": 1,
       "wantMax": 9
@@ -244,6 +245,9 @@
         34
       ]
     ],
+    "entriesExpanded5": [[-16, -8], [72.6, -8], [0, 52]],
+    "entriesExpanded6": [[-16, -8], [72.6, -8], [0, 70]],
+    "entriesExpanded7": [[-16, -8], [72.6, -8], [0, 88]],
     "length": 2.6,
     "drop": "pelt",
     "dropCount": [

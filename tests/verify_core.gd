@@ -94,8 +94,16 @@ func _test_data() -> void:
     costs_expected.append(3)   # 冰母的神龕:3 條稀有魚(結局)
     costs_expected.append(300)   # 衛兵 $300(固定價,可僱 4 位)
     costs_expected.append(1500)   # 雪地貨車 $1500 ×1.5(最多 3 台)
-    _check(shop.size() == 101 and costs == costs_expected,
-            "shop.json:一百零一塊牌(含搬運工容量 $80、四次擴建 $1000 / 2000 / 8000 / 20000、八個捕熊夾 $40、四堆誘餌 $30、十三條傳送帶 $150、二十六座守衛塔、熊王祭壇兩塊、修理工、商人三塊、神龕、衛兵、貨車)%s" % str(costs))
+    _check(shop.size() == 136, "shop.json:一百三十六塊牌(多了往南三次擴建 $16000 / 32000 / 64000、塔 27 ~ 32、捕熊夾 9 ~ 16、誘餌 5 ~ 8、八條傳送帶)(%d)" % shop.size())
+    var by_id := {}
+    for p in shop:
+        by_id[str(p["id"])] = int(p["cost"])
+    _check(by_id.get("expand_village_5") == 16000 and by_id.get("expand_village_6") == 32000 and by_id.get("expand_village_7") == 64000
+            and by_id.get("tower_32") == 200 and by_id.get("tooth_tower_32") == 1 and by_id.get("trap_16") == 40 and by_id.get("bait_8") == 30
+            and by_id.get("belt_kitchen_4") == 150 and by_id.get("truck") == 1500 and by_id.get("hire_guard") == 300 and by_id.get("shrine") == 3,
+            "shop.json:三次往南擴建的價格與新牌子都在")
+    var hf0 := GameData.purchase("hire_fisher")
+    _check(int(hf0.get("maxBuys", 0)) == 5 and int(hf0.get("expandBuys", 0)) == 3, "漁夫牌:一開始 5 位、每次擴建 +3")
     var hg := GameData.purchase("hire_guard")
     _check(str(hg.get("effect", {}).get("role", "")) == "guard" and int(hg.get("maxBuys", 0)) == 4 and is_equal_approx(float(hg.get("costMult", 0.0)), 1.0)
             and is_equal_approx(float(hg.get("rebuyMult", 0.0)), 1.5) and float(GameData.helper("guard").get("damage", 0.0)) > 0.0
@@ -122,7 +130,7 @@ func _test_data() -> void:
             and int(GameData.counter("sweater_counter").get("price", 0)) == 200 and str(GameData.counter("sweater_counter").get("item", "")) == "sweater"
             and GameData.item_name("sweater") != "ITEM_sweater" and GameData.item_color("sweater") != GameData.item_color("pelt"),
             "服飾店:5 張毛皮 -> 1 件毛衣;毛衣櫃台 $200;毛衣有名字與顏色")
-    _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 2 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
+    _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 3 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
             and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),
             "擴建後多開放的名額:漁夫 +2、搬運工 +4、收銀員 +2")
     _check(str(GameData.purchase("tower_3").get("effect", {}).get("type", "")) == "tower"
@@ -135,7 +143,7 @@ func _test_data() -> void:
             "武器牌:效果 weapon、三級")
     _check(bool(GameData.purchase("expand_table").get("buildSpot", false)) and GameData.purchase("nope").is_empty(),
             "建地牌旗標;未知購買回空")
-    _check(GameData.counters().size() == 8 and int(GameData.counter("soup_counter").get("price", 0)) == 15 and int(GameData.counter("grill_counter").get("price", 0)) == 5 and str(GameData.counter("grill_counter_3").get("item", "")) == "grilled"
+    _check(GameData.counters().size() == 14 and int(GameData.counter("soup_counter").get("price", 0)) == 15 and int(GameData.counter("soup_counter_4").get("price", 0)) == 15 and int(GameData.counter("grill_counter").get("price", 0)) == 5 and str(GameData.counter("grill_counter_3").get("item", "")) == "grilled"
             and str(GameData.counter("fillet_counter").get("item", "")) == "fillet" and str(GameData.counter("grill_counter_2").get("item", "")) == "grilled",
             "counters.json:魚片櫃台 $2、烤魚櫃台 $5、兩塊擴建區的第二、三組")
     _check(GameData.section("customers").get("wantWeights", []).size() == 5 and float(GameData.config().get("payScaleCost", 0.0)) > 0.0,
@@ -311,8 +319,10 @@ func _test_purchase() -> void:
     p.complete()
     _check(p.is_exhausted() and p.pay(5) == 0 and not p.is_paid(), "一次性牌 complete -> 買滿、不再收錢")
     # 可重複購買
-    var r := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
-    _check(r.repeatable and r.max_buys == 3 and r.current_cost() == 10 and r.remaining == 10, "漁夫牌:可買 3 次、第一次 $10")
+    var fdef := GameData.purchase("hire_fisher").duplicate()   # 下面的階梯 / 買回算式照舊用「最多 3 次」的版本(正式牌子現在 5 次)
+    fdef["maxBuys"] = 3
+    var r := PurchaseLogic.from_def(fdef)
+    _check(r.repeatable and r.max_buys == 3 and r.current_cost() == 10 and r.remaining == 10, "漁夫牌(3 次版):可買 3 次、第一次 $10")
     r.pay(10)
     _check(r.is_paid(), "付清第一次")
     r.complete()
@@ -324,7 +334,7 @@ func _test_purchase() -> void:
     r.pay(32)
     r.complete()
     _check(r.is_exhausted() and r.remaining == 0 and r.pay(1) == 0 and is_equal_approx(r.progress(), 1.0), "買滿三次:exhausted")
-    var r2 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    var r2 := PurchaseLogic.from_def(fdef)
     r2.restore(1, 5)
     _check(r2.buys == 1 and r2.remaining == 5 and r2.current_cost() == 18, "存檔還原:買過 1 次、這次剩 5")
     r2.restore(3, 0)
@@ -332,7 +342,7 @@ func _test_purchase() -> void:
     r2.restore(0, 0)
     _check(r2.buys == 0 and r2.remaining == 10, "存檔還原:剩 0 但沒買滿 -> 重設成整價")
     # 被吃掉買回:退一個名額,價格 = 該級 × 1.5,買回後回到正常階梯
-    var r3 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    var r3 := PurchaseLogic.from_def(fdef)
     _check(not r3.lose() and r3.buys == 0 and r3.lost == 0, "沒僱過就沒得退")
     r3.pay(10)
     r3.complete()
@@ -354,16 +364,17 @@ func _test_purchase() -> void:
     r3.complete()
     _check(r3.is_exhausted(), "買回 + 第三級 -> 買滿")
     _check(r3.lose() and not r3.is_exhausted() and r3.buys == 2 and r3.current_cost() == 49 and r3.remaining == 49, "買滿後被吃:牌子重新開放,第三級 $32.4 × 1.5 = $49")
-    var r4 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    var r4 := PurchaseLogic.from_def(fdef)
     r4.restore(1, 27, 1)
     _check(r4.buys == 1 and r4.lost == 1 and r4.current_cost() == 27 and r4.remaining == 27, "存檔還原:帶著待買回的名額")
     # 擴建村莊多開放名額:漁夫牌 +2(3 -> 5),買滿消失的牌重新開放、價格是下一級;只加一次
     var r5 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
-    r5.restore(3, 0)
-    _check(r5.is_exhausted() and r5.expand_buys == 2 and r5.expand() and not r5.is_exhausted() and r5.max_buys == 5 and r5.buys == 3
-            and r5.remaining == r5.current_cost() and r5.current_cost() == 58 and r5.expand() and r5.max_buys == 7 and r5.expand() and r5.max_buys == 9
-            and r5.expand() and r5.max_buys == 11 and not r5.expand() and r5.max_buys == 11,
-            "擴建:漁夫牌 3 -> 5 次,買滿的牌重開、第四次 $%d(10 × 1.8³)、四次擴建最多 11 次" % r5.current_cost())
+    r5.restore(5, 0)
+    _check(r5.is_exhausted() and r5.expand_buys == 3 and r5.expand() and not r5.is_exhausted() and r5.max_buys == 8 and r5.buys == 5
+            and r5.remaining == r5.current_cost() and r5.current_cost() == 189 and r5.expand() and r5.max_buys == 11 and r5.expand() and r5.max_buys == 14
+            and r5.expand() and r5.max_buys == 17 and r5.expand() and r5.max_buys == 20 and r5.expand() and r5.max_buys == 23
+            and r5.expand() and r5.max_buys == 26 and not r5.expand() and r5.max_buys == 26,
+            "擴建:漁夫牌 5 -> 8 次,買滿的牌重開、第六次 $%d(10 × 1.8⁵)、七次擴建最多 26 次" % r5.current_cost())
     var r6 := PurchaseLogic.from_def(GameData.purchase("hire_porter"))
     r6.pay(30)
     r6.complete()

@@ -202,6 +202,15 @@
   只讓 role porter 站上來拿;3 porter_sources 多放置區一筆(item fish),PorterPlanner 自然會派去切魚台(原料空最優先);
   Helper 的 job["from"] 改成不標型別(Station 或 FishDepot),find_station_with_output("fish") 回放置區。存檔 world.trucks[{fish, trips}] / depot{stock},
   台數 = 牌 buys。
+- 2026-11-09(使用者:再擴建三次 $16000 / 32000 / 64000,選 1a 往南疊、2a 混搭配方、3a 錢夠就能買;另要求漁夫名額加大):
+  SOUTH_RECTS 四塊(z 12.6 起每塊 18 深,到 84.6),_build_south_block(i) 一般化(south_blocks、最南那塊的南柵欄 / 南牆記在 south_block_walls 下一塊拆、
+  顧客門 south_door_z(i)、south_end());UNLOCKS village_6 / 7 / 8(annex 5 / 6 / 7 -> 南塊 2 / 3 / 4):切魚台 ×2 + 烤魚攤 + 魚片 / 烤魚櫃台、
+  烤魚攤 ×2 + 廚房 + 烤魚 / 魚湯櫃台、廚房 ×2 + 兩座魚湯櫃台(櫃台 maxCustomers 4、上架格貼西邊);每塊兩座塔(tower_27 ~ 32,TOWER_AREAS 查表)、
+  兩個捕熊夾 + 一個誘餌(trap_9 ~ 16 / bait_5 ~ 8,南柵欄邊;第一塊南塊也補上)、傳送帶牌;擴建牌 expand_village_5 ~ 7 在前一塊南塊的南柵欄邊 (-6.5, z0 + 16.4),
+  _refresh_tower_pads 以 MAX_EXPANSIONS 7 迴圈開關;PurchaseLogic max_expansions 7;熊入口 entriesExpanded5 ~ 7(南入口 z 52 / 70 / 88);
+  探險範圍 EXPLORE_RECT 延到 z 92、雪地加大、地標搬動、第三座魚池搬到西南 (-34, 32);貨車路線 / 回村點 / 巡邏點 / 地圖都吃 south_end()。
+  漁夫牌 maxBuys 3 -> 5、expandBuys 2 -> 3(七次擴建 26 位)。南塊 2 ~ 4 版面:工作站 x -8 / -1.5 / 5(z0 + 5.9)、櫃台 x -8.4 / 1.8(z0 + 13.9,隊伍兩排到 x 7.6)、
+  傳送帶牌 z0 + 9.9 放輸出格之間、x 7.8 ~ 9.2 留給貨車車道;顧客上限成長封頂 customers.perExpansion.maxExtra 4(兩排,第五次起只加快來客 / 多要幾件)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -215,7 +224,7 @@
 
 - `core/data/game_data.gd`:GameData(靜態載入 game.json / items.json / stations.json / counters.json / shop.json;`section(key)`、`helper(role)`、物品尺寸 / 顏色 / 翻譯名)
 - `core/economy/`:ItemStack(一疊同種物品,有容量)、StationLogic(原料堆(inputs 可多種,每種一堆 counts)-> 每批每種吃 input_per 個(inputPer,服飾店 5)-> 輸出堆,輸出滿停工,speed_mult,has_enough_input / missing_input;accepts / input_count_of / add_input_of / input_space_of,舊的 input_id / input_count 對應第一種)、PurchaseLogic(價格牌分期;repeatable / max_buys / cost_mult / buys,`complete()` 漲價、`restore(buys, remaining, lost)` 存檔還原;
-  僱用牌 `lose()` 退名額、lost / rebuy_mult 買回價、is_rebuy;expand_buys / `expand()` 擴建村莊多開放名額(每次擴建一次,expansions <= max_expansions 3);currency cash / pelt / tooth、costs 逐次價、
+  僱用牌 `lose()` 退名額、lost / rebuy_mult 買回價、is_rebuy;expand_buys / `expand()` 擴建村莊多開放名額(每次擴建一次,expansions <= max_expansions 7);currency cash / pelt / tooth、costs 逐次價、
   base_max_buys / `raise_max(n)` 武器店升級多開名額)、CounterLogic(庫存 / 售價 / 賣出;static roll_want(權重, roll) 顧客要幾件)、PorterPlanner(搬運工派工:need_of / plan / best_dest / best_source,吃字典清單;工作站原料區空且沒 blocked 回 EMPTY_INPUT_NEED 1.5 最優先)
 - `core/economy/order_logic.gd`:OrderLogic(訂單:interval(擴建) / time_limit / per_kind(擴建) / pool(menu) / generate(menu, 擴建, roll_rare) / need_of / wanted_items / deliver / is_complete / complete
   / progress / tick(delta, 擴建) 回 new | expired | "" / snapshot / restore;RARE_ITEM "rarefish";數值 game.json orders)
@@ -263,7 +272,7 @@
   玩法說明 show_help / help_open / help_tab_count、新版內容 show_changelog / changelog_open / changelog_text(panel_action help_close / changelog_close);選單多 map / help / changelog;三選一卡片面板(show_choice(title, body, [{title, desc, color}]) / choice_action(i) 發 action "choice:<i>" / choice_open / choice_count / choice_title)、統計分頁 stats_pages / stats_text / stats_tab_count、set_warning 紅字警告、通知排隊(show_notice 上一則不到 0.9 秒就排隊、同類只留最新)、離線收益面板(show_offline(cash, 離線秒, 算進的秒) 半透明遮罩 + 置中面板 + 領取鈕,offline_action("claim") 發 action "offline_claim";offline_open / offline_cash、income_rate 給統計)、錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
 - `game/ui/touch_joystick.gd`:TouchJoystick(鋪滿畫面最底層、mouse_filter IGNORE;_unhandled_input 收 ScreenTouch / ScreenDrag,按下點為中心、RADIUS 90、只跟第一根手指、exclusions 範圍不算;handle_event 給測試)
 - `game/ui/guide.gd`:Guide(Node3D,掛在關卡下):每 0.1 秒把關卡狀態餵 GuideLogic,推進教學(GameState.tutorial_step)、解析目標座標、畫玩家頭上箭頭 + 目標彈跳箭頭、餵 HUD 文字;toggle_hints(H)
-- `game/levels/harbor.gd` + `harbor.tscn`(主場景):SOUTH_RECT / south_walls / south_block / _build_south_block 第四次擴建(往南)、EXPLORE_RECT / EXIT_* / LANDMARKS / _build_exploration / _set_east_exit / exit_east_walls / is_inside_village / player_outside / home_point 村外探險、_gap_segments、customer_door_for、king_logic / king_eaten / king_wrecked / _king_slain(寶箱)/ chest_opened / _claim_chest / pending_chest、trophies / _refresh_trophies、_insured 保險券回來、ALTAR_SIGN 祭壇、offline(OfflineLogic,聽 sale_made 記收入;snapshot 多 income_rate、_load_save 算 _offline_pending 與 offline_sec,_ready 最後 _show_offline 暫停、_claim_offline 領取;_exit_tree 解除暫停)、星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
+- `game/levels/harbor.gd` + `harbor.tscn`(主場景):SOUTH_RECT / SOUTH_RECTS 四塊 / south_walls / south_block / south_blocks / south_block_walls / _build_south_block(i) / south_door_z(i) / south_end() 第四 ~ 七次擴建(往南疊)、MAX_EXPANSIONS 7、TOWER_AREAS(南塊塔的分區查表)、EXPLORE_RECT / EXIT_* / LANDMARKS / _build_exploration / _set_east_exit / exit_east_walls / is_inside_village / player_outside / home_point 村外探險、_gap_segments、customer_door_for、king_logic / king_eaten / king_wrecked / _king_slain(寶箱)/ chest_opened / _claim_chest / pending_chest、trophies / _refresh_trophies、_insured 保險券回來、ALTAR_SIGN 祭壇、offline(OfflineLogic,聽 sale_made 記收入;snapshot 多 income_rate、_load_save 算 _offline_pending 與 offline_sec,_ready 最後 _show_offline 暫停、_claim_offline 領取;_exit_tree 解除暫停)、星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;
   顧客門 CUSTOMER_DOOR_Z / customer_door(area) / area_of_x / _fence_segments / _add_doormat、西牆缺口 GATE_Z、_build_outside 村外武器店院子(店屋 WEAPON_SHOP、老闆 shopkeeper、武器牌 PAD_SPOTS.weapon)、bears(BearSpawner)、
   helper_eaten 結算被吃的幫手(hire_pad_for(role).on_lost);守衛塔 TOWER_SPOTS 主村六座 + 每塊擴建區六座(牌子位置直接取 TOWER_SPOTS;tower_area(id) 屬於哪塊地)、towers / _build_towers /
   tower_by_id / tower_pad_for / tooth_pad_for / alive_towers / tower_destroyed(牌 on_lost 修復價)/ _refresh_tower_pads(熊王牙牌只在塔完好未強化時開),_on_purchased "tower" 蓋 / 修、
@@ -302,8 +311,8 @@
   growHelper, growFish, maxScale, healFish, healHelper, drop}、drop)、tower(hp / damage / … / strong {hp, damage})、weapon(attackIntervalSec、shopBaseLevels、levels[] ×6 damage / range / model)、
   lootPickupRadius、payScaleCost、customers.wantWeights、
   (weapon.levels 見上);`data/items.json`(fish / fillet / grilled / cash;`model` {file, rotationDeg} 指定物品模型,目前只有 fish);`data/stations.json`(cutting_table、grill、tailor 毛皮 -> 毛衣 inputPer 5、kitchen 魚片 + 烤魚 -> 魚湯 5 秒);`data/counters.json`(fillet_counter $2、grill_counter $5,擴建區的 *_counter_2 / *_counter_3,第三塊的 sweater_counter $200 wantWeights [1]、南塊的 soup_counter $15);`data/shop.json`(九十四塊牌:熊王祭壇 altar_insurance / altar_ice;含村外的 weapon、$1000 / $2000 / $8000 / $20000 的 expand_village / _2 / _3 / _4、二十六座守衛塔 tower_1 ~ 26、收毛皮的 shop_upgrade、收熊王牙的 tooth_tower_1 ~ 26、十三條傳送帶;僱用牌 rebuyMult 1.5;頂層 repairStation 工作站修復價);
-  `data/items.json`(多 pelt / tooth 給飛行幽靈用、sweater 毛衣);shop.json 共九十八塊牌(多 hire_repairman $300、map_cash / map_fish 地圖碎片、merchant_pelts 毛皮補給);game.json 另有 upgrades.porter_cap(perLevel 4)、trap {damage, kingDamage, stunSec, radius, bait {radius, eatSec, fishCount}}、
-  conveyor {itemsPerSec, speed, spacing, height};shop.json 多 upgrade_porter_cap、trap_1 ~ 8、bait_1 ~ 4、belt_<工作站> ×12;`data/locale/strings.csv`
+  `data/items.json`(多 pelt / tooth 給飛行幽靈用、sweater 毛衣);shop.json 共一百三十六塊牌(多 expand_village_5 ~ 7 $16000 / 32000 / 64000、tower_27 ~ 32、tooth_tower_27 ~ 32、trap_9 ~ 16、bait_5 ~ 8、南塊的八條傳送帶、hire_repairman $300、map_cash / map_fish 地圖碎片、merchant_pelts 毛皮補給);game.json 另有 upgrades.porter_cap(perLevel 4)、trap {damage, kingDamage, stunSec, radius, bait {radius, eatSec, fishCount}}、
+  conveyor {itemsPerSec, speed, spacing, height};shop.json 多 upgrade_porter_cap、trap_1 ~ 16、bait_1 ~ 8、belt_<工作站> ×21;customers.perExpansion.maxExtra 4 顧客上限封頂;`data/counters.json` 多南塊 2 ~ 4 的 fillet_counter_4 / grill_counter_4 / grill_counter_5 / soup_counter_2 ~ 4;`data/locale/strings.csv`
 
 ## 世界慣例
 

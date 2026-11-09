@@ -114,13 +114,14 @@ func _ready() -> void:
     _level.player.input_provider = func() -> MoveInput: return MoveInput.new()
     GameState.tutorial_step = GuideLogic.tutorial_steps()
     for u in [["expand_table", "station_2"], ["unlock_grill", "grill_complex"], ["expand_village", "village_2"],
-            ["expand_village_2", "village_3"], ["expand_village_3", "village_4"], ["expand_village_4", "village_5"]]:
+            ["expand_village_2", "village_3"], ["expand_village_3", "village_4"], ["expand_village_4", "village_5"],
+            ["expand_village_5", "village_6"], ["expand_village_6", "village_7"], ["expand_village_7", "village_8"]]:
         GameState.apply_purchase(str(u[0]), {"type": "unlock", "target": str(u[1])})
         await _step(2)
     await _step(3)
-    _check(_level.expansion_level() == 4 and _level.stations.size() == 13 and _level.counters.size() == 8 and _level.towers.size() == 26 and _level.has_south_block()
-            and _level.south_walls.is_empty(),
-            "關卡擴建四次(含南塊):十三座工作站、八座櫃台、二十六座塔、主村南牆拆了(擴建 %d 次、%d 站、%d 櫃台、%d 塔)" % [_level.expansion_level(), _level.stations.size(), _level.counters.size(), _level.towers.size()])
+    _check(_level.expansion_level() == 7 and _level.stations.size() == 21 and _level.counters.size() == 14 and _level.towers.size() == 32 and _level.has_south_block()
+            and _level.south_walls.is_empty() and _level.south_blocks.size() == 4 and is_equal_approx(_level.south_end(), 84.6),
+            "關卡擴建七次(含四塊南塊):二十一座工作站、十四座櫃台、三十二座塔、主村南牆拆了(擴建 %d 次、%d 站、%d 櫃台、%d 塔)" % [_level.expansion_level(), _level.stations.size(), _level.counters.size(), _level.towers.size()])
     var kitchen := _level.station_at("kitchen")
     _check(kitchen != null and kitchen.input_pads.size() == 2 and kitchen.input_pad_for("grilled") != kitchen.input_pad_for("fillet")
             and kitchen.input_pad_for("fillet").global_position.x < kitchen.input_pad_for("grilled").global_position.x,
@@ -178,7 +179,8 @@ func _ready() -> void:
         var d := c.spawn_point()
         var ok := d == c.exit_point() and d.x > c.global_position.x
         if c.global_position.z > 12.6:
-            ok = ok and is_equal_approx(d.x, Harbor.SOUTH_RECT.end.x + 1.5) and absf(d.z - 28.5) < 0.01
+            var want_z := Harbor.customer_door_for(c.global_position).z
+            ok = ok and is_equal_approx(d.x, Harbor.SOUTH_RECT.end.x + 1.5) and absf(d.z - want_z) < 0.01 and absf(want_z - c.global_position.z) < 18.0
         else:
             var area := Harbor.area_of_x(c.global_position.x)
             var fence_x := 12.6 if area == 0 else (Harbor.ANNEX_RECTS[area - 1] as Rect2).end.x
@@ -203,7 +205,7 @@ func _ready() -> void:
         if absf(wr.get_center().y - r.end.y) < 0.3 and wr.size.x > r.size.x - 1.0:
             bounds += 1
     _check(bounds == 4, "探險範圍四面空氣牆都在(%d)" % bounds)
-    var exits := [Vector2(-23.4, 2.0), Vector2((Harbor.ANNEX_RECTS[2] as Rect2).end.x, 0.5), Vector2(0.0, Harbor.SOUTH_RECT.end.y)]
+    var exits := [Vector2(-23.4, 2.0), Vector2((Harbor.ANNEX_RECTS[2] as Rect2).end.x, 0.5), Vector2(0.0, _level.south_end())]
     var blocked := 0
     for e in exits:
         for f in fps:
@@ -212,8 +214,9 @@ func _ready() -> void:
                 print("    exit blocked: %s by %s" % [str(e), str(f["rect"])])
     _check(blocked == 0, "西 / 東 / 南三個探險缺口都沒有牆擋著")
     _check(_level.is_inside_village(Vector3(0, 0, 0)) and _level.is_inside_village(Vector3(-18, 0, 2)) and _level.is_inside_village(Vector3(60, 0, 5))
-            and _level.is_inside_village(Vector3(0, 0, 25)) and not _level.is_inside_village(Vector3(-30, 0, 2)) and not _level.is_inside_village(Vector3(0, 0, 40))
-            and _level.home_point(Vector3(-30, 0, 2)).x < -23.4 and _level.home_point(Vector3(0, 0, 45)).z > Harbor.SOUTH_RECT.end.y,
+            and _level.is_inside_village(Vector3(0, 0, 25)) and _level.is_inside_village(Vector3(0, 0, 80)) and not _level.is_inside_village(Vector3(-30, 0, 2))
+            and not _level.is_inside_village(Vector3(0, 0, 90)) and not _level.is_inside_village(Vector3(-20, 0, 40))
+            and _level.home_point(Vector3(-30, 0, 2)).x < -23.4 and _level.home_point(Vector3(0, 0, 95)).z > _level.south_end(),
             "村裡 / 村外判斷與最近的回村入口")
     _check(Harbor.customer_door(0) == Vector3(14.1, 0, 10.2) and Harbor.customer_door(3) == Vector3(70.3, 0, 10.2)
             and Harbor.area_of_x(12.0) == 0 and Harbor.area_of_x(13.0) == 1 and Harbor.area_of_x(60.0) == 3, "顧客門座標與分區")
@@ -224,11 +227,11 @@ func _ready() -> void:
     var fc := _level.counter_by_id("fillet_counter")
     var fc2 := _level.counter_by_id("fillet_counter_2")
     var sw := _level.counter_by_id("sweater_counter")
-    _check(fc.max_customers == 10 and fc2.max_customers == 8 and sw.max_customers == 10 and fc.expansion == 4
+    _check(fc.max_customers == 10 and fc2.max_customers == 8 and sw.max_customers == 10 and fc.expansion == 7
             and is_equal_approx(fc.slot_position(6).z, fc.slot_position(0).z - 1.2) and is_equal_approx(fc.slot_position(6).x, fc.slot_position(0).x)
-            and is_equal_approx(fc.spawn_interval, 2.0 * pow(0.85, 4)) and fc.want_weights.size() == 9 and int(fc.want_weights[0]) == 0
-            and CounterLogic.roll_want(fc.want_weights, 0.0) == 5 and sw.want_weights.size() == 1 and int(sw.want_weights[0]) == 1,
-            "顧客成長:主村櫃台 %d 位(第 7 位排第二排)、擴建區 %d 位、間隔 %.2f 秒、要 5 ~ 9 件;毛衣櫃台仍一次一件" % [fc.max_customers, fc2.max_customers, fc.spawn_interval])
+            and is_equal_approx(fc.spawn_interval, 2.0 * pow(0.85, 7)) and fc.want_weights.size() == 9 and int(fc.want_weights[0]) == 0
+            and CounterLogic.roll_want(fc.want_weights, 0.0) == 8 and sw.want_weights.size() == 1 and int(sw.want_weights[0]) == 1,
+            "顧客成長(七次擴建,上限 +4 兩排):主村櫃台 %d 位(第 7 位排第二排)、擴建區 %d 位、間隔 %.2f 秒、要 8 ~ 9 件;毛衣櫃台仍一次一件" % [fc.max_customers, fc2.max_customers, fc.spawn_interval])
     # 碼頭 / 旅行商人營地在村外,修理工牌在武器店院子裡
     _check(_level.dock != null and not _level.is_inside_village(_level.dock.global_position) and _level.dock.global_position.x < -23.4
             and not _level.is_inside_village(Harbor.MERCHANT_CAMP) and Harbor.MERCHANT_CAMP.x > (Harbor.ANNEX_RECTS[2] as Rect2).end.x + 2.0

@@ -5,14 +5,14 @@
       "name": "SHOP_hire_fisher",
       "cost": 10,
       "repeatable": true,
-      "maxBuys": 3,
+      "maxBuys": 5,
       "costMult": 1.8,
       "rebuyMult": 1.5,
       "effect": {
         "type": "hire",
         "role": "fisher"
       },
-      "expandBuys": 2
+      "expandBuys": 3
     },
     {
       "id": "hire_porter",
@@ -158,6 +158,33 @@
       }
     },
     {
+      "id": "expand_village_5",
+      "name": "SHOP_expand_village_5",
+      "cost": 16000,
+      "effect": {
+        "type": "unlock",
+        "target": "village_6"
+      }
+    },
+    {
+      "id": "expand_village_6",
+      "name": "SHOP_expand_village_6",
+      "cost": 32000,
+      "effect": {
+        "type": "unlock",
+        "target": "village_7"
+      }
+    },
+    {
+      "id": "expand_village_7",
+      "name": "SHOP_expand_village_7",
+      "cost": 64000,
+      "effect": {
+        "type": "unlock",
+        "target": "village_8"
+      }
+    },
+    {
       "id": "trap_1",
       "name": "SHOP_trap",
       "cost": 40,
@@ -238,6 +265,86 @@
       }
     },
     {
+      "id": "trap_9",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_9"
+      }
+    },
+    {
+      "id": "trap_10",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_10"
+      }
+    },
+    {
+      "id": "trap_11",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_11"
+      }
+    },
+    {
+      "id": "trap_12",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_12"
+      }
+    },
+    {
+      "id": "trap_13",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_13"
+      }
+    },
+    {
+      "id": "trap_14",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_14"
+      }
+    },
+    {
+      "id": "trap_15",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_15"
+      }
+    },
+    {
+      "id": "trap_16",
+      "name": "SHOP_trap",
+      "cost": 40,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "trap",
+        "target": "trap_16"
+      }
+    },
+    {
       "id": "bait_1",
       "name": "SHOP_bait",
       "cost": 30,
@@ -275,6 +382,46 @@
       "effect": {
         "type": "bait",
         "target": "bait_4"
+      }
+    },
+    {
+      "id": "bait_5",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_5"
+      }
+    },
+    {
+      "id": "bait_6",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_6"
+      }
+    },
+    {
+      "id": "bait_7",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_7"
+      }
+    },
+    {
+      "id": "bait_8",
+      "name": "SHOP_bait",
+      "cost": 30,
+      "rebuyMult": 1.0,
+      "effect": {
+        "type": "bait",
+        "target": "bait_8"
       }
     },
     {
@@ -392,6 +539,78 @@
       "effect": {
         "type": "conveyor",
         "target": "belt_kitchen"
+      }
+    },
+    {
+      "id": "belt_station_5",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_station_5"
+      }
+    },
+    {
+      "id": "belt_station_6",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_station_6"
+      }
+    },
+    {
+      "id": "belt_grill_8",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_8"
+      }
+    },
+    {
+      "id": "belt_grill_9",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_9"
+      }
+    },
+    {
+      "id": "belt_grill_10",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_grill_10"
+      }
+    },
+    {
+      "id": "belt_kitchen_2",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_kitchen_2"
+      }
+    },
+    {
+      "id": "belt_kitchen_3",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_kitchen_3"
+      }
+    },
+    {
+      "id": "belt_kitchen_4",
+      "name": "SHOP_conveyor",
+      "cost": 150,
+      "effect": {
+        "type": "conveyor",
+        "target": "belt_kitchen_4"
       }
     },
     {
@@ -652,6 +871,66 @@
       "effect": {
         "type": "tower",
         "target": "tower_26"
+      }
+    },
+    {
+      "id": "tower_27",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_27"
+      }
+    },
+    {
+      "id": "tower_28",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_28"
+      }
+    },
+    {
+      "id": "tower_29",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_29"
+      }
+    },
+    {
+      "id": "tower_30",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_30"
+      }
+    },
+    {
+      "id": "tower_31",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_31"
+      }
+    },
+    {
+      "id": "tower_32",
+      "name": "SHOP_tower",
+      "cost": 200,
+      "rebuyMult": 0.5,
+      "effect": {
+        "type": "tower",
+        "target": "tower_32"
       }
     },
     {
@@ -929,6 +1208,66 @@
       "effect": {
         "type": "tower_upgrade",
         "target": "tower_26"
+      }
+    },
+    {
+      "id": "tooth_tower_27",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_27"
+      }
+    },
+    {
+      "id": "tooth_tower_28",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_28"
+      }
+    },
+    {
+      "id": "tooth_tower_29",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_29"
+      }
+    },
+    {
+      "id": "tooth_tower_30",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_30"
+      }
+    },
+    {
+      "id": "tooth_tower_31",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_31"
+      }
+    },
+    {
+      "id": "tooth_tower_32",
+      "name": "SHOP_tower_strong",
+      "cost": 1,
+      "currency": "tooth",
+      "effect": {
+        "type": "tower_upgrade",
+        "target": "tower_32"
       }
     },
     {

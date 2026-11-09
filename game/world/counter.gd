@@ -96,7 +96,7 @@ func apply_expansion(n: int) -> void:
     var pe = GameData.section("customers").get("perExpansion", {})
     if typeof(pe) != TYPE_DICTIONARY:
         pe = {}
-    max_customers = base_max_customers + int(pe.get("max", 1)) * expansion
+    max_customers = base_max_customers + mini(int(pe.get("max", 1)) * expansion, int(pe.get("maxExtra", 4)))   # 最多加 maxExtra 位(兩排),之後只加快來客 / 多要幾件
     spawn_interval = maxf(base_spawn_interval * pow(clampf(float(pe.get("intervalMult", 0.85)), 0.1, 1.0), float(expansion)), 0.1)
     if fixed_want:
         want_weights = base_want_weights

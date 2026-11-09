@@ -66,6 +66,60 @@
       "item": "soup",
       "price": 15,
       "stockCap": 16
+    },
+    {
+      "id": "fillet_counter_4",
+      "name": "COUNTER_fillet",
+      "item": "fillet",
+      "price": 2,
+      "stockCap": 30,
+      "maxCustomers": 4,
+      "queueSpacing": 1.2
+    },
+    {
+      "id": "grill_counter_4",
+      "name": "COUNTER_grill",
+      "item": "grilled",
+      "price": 5,
+      "stockCap": 24,
+      "maxCustomers": 4,
+      "queueSpacing": 1.2
+    },
+    {
+      "id": "grill_counter_5",
+      "name": "COUNTER_grill",
+      "item": "grilled",
+      "price": 5,
+      "stockCap": 24,
+      "maxCustomers": 4,
+      "queueSpacing": 1.2
+    },
+    {
+      "id": "soup_counter_2",
+      "name": "COUNTER_soup",
+      "item": "soup",
+      "price": 15,
+      "stockCap": 16,
+      "maxCustomers": 4,
+      "queueSpacing": 1.2
+    },
+    {
+      "id": "soup_counter_3",
+      "name": "COUNTER_soup",
+      "item": "soup",
+      "price": 15,
+      "stockCap": 16,
+      "maxCustomers": 4,
+      "queueSpacing": 1.2
+    },
+    {
+      "id": "soup_counter_4",
+      "name": "COUNTER_soup",
+      "item": "soup",
+      "price": 15,
+      "stockCap": 16,
+      "maxCustomers": 4,
+      "queueSpacing": 1.2
     }
   ]
 }

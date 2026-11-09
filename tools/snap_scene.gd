@@ -233,6 +233,22 @@ func _run() -> void:
     level.player.global_position = Vector3(2.5, 0, 8.0)
     await _frames(40)
     await _shot("19_truck_depot")
+    # 往南疊四塊(第四 ~ 七次擴建),鏡頭停在南塊 2 的櫃台排
+    for k in [4, 5, 6, 7]:
+        GameState.apply_purchase("expand_village_%d" % k, {"type": "unlock", "target": "village_%d" % (k + 1)})
+        (level.price_pads["expand_village_%d" % k] as PricePad).restore_state(1, 0)
+        await _frames(2)
+    level.player.global_position = Vector3(0.0, 0, 41.0)
+    await _frames(40)
+    level.story.refresh()
+    level.hud.panel_action("story_close")   # 南邊擴建會解鎖新章節,短文先關掉
+    await _frames(40)
+    await _shot("20_south_blocks")
+    level.player.global_position = Vector3(0.0, 0, 76.0)
+    await _frames(70)
+    level.hud.panel_action("story_close")
+    await _frames(5)
+    await _shot("21_south_block4")
     tk.set_physics_process(true)
     level.player.global_position = Vector3(0.0, 0, 1.5)
     await _frames(5)

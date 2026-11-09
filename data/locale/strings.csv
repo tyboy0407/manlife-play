@@ -338,3 +338,6 @@ SHOP_truck,Snow truck,雪地貨車
 TRUCK_LABEL,Snow truck,雪地貨車
 SIGN_DEPOT,Fish depot\nfish %d/%d,貨物放置區\n魚 %d/%d
 NOTICE_TRUCK_BOUGHT,A snow truck! The fisher drives to the wild ponds and brings back 30 fish per trip,雪地貨車來了!漁夫會開去野外的魚池，每趟載 30 條魚回放置區
+SHOP_expand_village_5,Expand south (5th),往南擴建村莊（第五次）
+SHOP_expand_village_6,Expand south (6th),往南擴建村莊（第六次）
+SHOP_expand_village_7,Expand south (7th),往南擴建村莊（第七次）
