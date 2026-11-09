@@ -230,6 +230,10 @@
   村外招牌 VisualFactory.keep)。5 底部操作提示 30 秒後淡出(HINT_SEC,hint_visible());通知改置中 toast(_toast CenterContainer + 深底 PanelContainer,淡出用 _toast.modulate);
   目標文字 / 警告 / toast 位置 150 / 200 / 236 錯開。6 觸控回饋:UiTheme.press_fx 按下縮 96% + tap 音效(assets/sfx/tap.wav,gen_sfx 新增),attach_press_fx 掃整個 HUD;
   守衛塔「升級」鈕脈動。
+  同日(使用者:用 ui-ux-pro-max 這個 skill;帳號有啟用但沒同步進桌機 session,改成把官方 repo nextlevelbuilder/ui-ux-pro-max-skill 抓到暫存目錄照它的流程跑):
+  `--design-system` 輸出存在 notes/design-system/manlife/MASTER.md(Claymorphism + 「獎勵金」CTA #F59E0B + Destructive #DC2626 + Fredoka/Nunito),套用與取捨記在 notes/ui_design_decisions.md:
+  UiTheme 改黏土風(面板圓角 18 / 邊 2 / 陰影、按鈕圓角 14 / 厚邊 3、primary / danger 有陰影按下收掉、press 0.2 秒)、PRIMARY 換 #F59E0B、DANGER #DC2626、
+  面板內文 16 / 小籤 14、toast 3.5 秒(NOTICE_SEC)、錢包千分位(UiTheme.fmt_int,HUD_WALLET 改 %s)、清單間距 8;字型 / 粉紫配色 / GSAP / reduced-motion 沒採用(原因在 notes)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式

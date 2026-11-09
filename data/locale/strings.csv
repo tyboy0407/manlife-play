@@ -12,7 +12,7 @@ PAD_MONEY,Cash,現金
 NOTICE_PURCHASED,%s unlocked!,%s 完成!
 HUD_CARRY,Carrying: %s x%d / %d,背上:%s ×%d / %d
 HUD_EMPTY,Carrying: nothing,背上:空
-HUD_WALLET,Wallet $%d,錢包 $%d
+HUD_WALLET,Wallet $%s,錢包 $%s
 ITEM_grilled,Grilled fish,烤魚
 STATION_grill,Grill,烤魚攤
 COUNTER_fillet,Fillet counter,魚片櫃台

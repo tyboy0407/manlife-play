@@ -122,7 +122,7 @@ func _ready() -> void:
     _notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _notice.custom_minimum_size = Vector2(300, 0)
     _toast_panel.add_child(_notice)
-    _hint = _make_label(14, Color(0.8, 0.85, 0.95))
+    _hint = _make_label(15, Color(0.85, 0.9, 0.98))
     _hint.anchor_left = 0.0
     _hint.anchor_right = 1.0
     _hint.anchor_top = 1.0
@@ -201,7 +201,7 @@ func _build_hud_box() -> void:
     chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
     box.add_child(chips)
     for kind in CHIP_COLORS:
-        var c := UiTheme.chip("", CHIP_COLORS[kind])
+        var c := UiTheme.chip("", CHIP_COLORS[kind], 14)
         c.name = "Chip_" + str(kind)
         chips.add_child(c)
         _res_chips[kind] = c
@@ -211,7 +211,7 @@ func _build_hud_box() -> void:
     _order_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _order_card.visible = false
     box.add_child(_order_card)
-    _order = _make_label(14, Color(0.82, 0.93, 1.0))
+    _order = _make_label(15, Color(0.84, 0.94, 1.0))
     _order.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _order.custom_minimum_size = Vector2(280, 0)
     _order_card.add_child(_order)
@@ -371,7 +371,7 @@ func _build_stats_panel() -> void:
     _tabs.custom_minimum_size = Vector2(392, 0)
     box.add_child(_tabs)
     for key in ["TAB_economy", "TAB_helpers", "TAB_king"]:
-        var l := _plain(15, UiTheme.TEXT)
+        var l := _plain(16, UiTheme.TEXT)
         l.name = tr(key)
         l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         l.custom_minimum_size = Vector2(380, 0)
@@ -496,7 +496,7 @@ func _build_map_panel() -> void:
     _map_canvas.draw.connect(_draw_map)
     box.add_child(_map_canvas)
     _map_hint = Label.new()
-    _map_hint.add_theme_font_size_override("font_size", 15)
+    _map_hint.add_theme_font_size_override("font_size", 16)
     _map_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _map_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     box.add_child(_map_hint)
@@ -610,7 +610,7 @@ func _build_changelog_panel() -> void:
     _changelog_title = parts["title"]
     var box: VBoxContainer = parts["box"]
     _changelog_body = Label.new()
-    _changelog_body.add_theme_font_size_override("font_size", 15)
+    _changelog_body.add_theme_font_size_override("font_size", 16)
     _changelog_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _changelog_body.custom_minimum_size = Vector2(380, 0)
     box.add_child(_changelog_body)
@@ -719,7 +719,7 @@ func _build_tower_panel() -> void:
     tower_panel = parts["panel"]
     var box: VBoxContainer = parts["box"]
     _tower_body = Label.new()
-    _tower_body.add_theme_font_size_override("font_size", 15)
+    _tower_body.add_theme_font_size_override("font_size", 16)
     _tower_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _tower_body.custom_minimum_size = Vector2(340, 0)
     box.add_child(_tower_body)
@@ -825,12 +825,12 @@ func _build_legacy_panel() -> void:
     legacy_panel = parts["panel"]
     var box: VBoxContainer = parts["box"]
     _legacy_body = Label.new()
-    _legacy_body.add_theme_font_size_override("font_size", 15)
+    _legacy_body.add_theme_font_size_override("font_size", 16)
     _legacy_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _legacy_body.custom_minimum_size = Vector2(380, 0)
     box.add_child(_legacy_body)
     _legacy_box = VBoxContainer.new()
-    _legacy_box.add_theme_constant_override("separation", 6)
+    _legacy_box.add_theme_constant_override("separation", 8)   # 觸控目標之間至少 8px
     box.add_child(_legacy_box)
     _legacy_rebirth_btn = Button.new()
     _legacy_rebirth_btn.name = "RebirthButton"
@@ -921,7 +921,7 @@ func _legacy_row_button(idx: int) -> Button:
     var nm := _plain(16, UiTheme.TEXT)
     nm.name = "Name"
     col.add_child(nm)
-    var sub := _plain(13, UiTheme.TEXT_DIM)
+    var sub := _plain(14, UiTheme.TEXT_DIM)
     sub.name = "Sub"
     col.add_child(sub)
     var cost := _plain(16, UiTheme.PRIMARY.lightened(0.25))
@@ -1225,7 +1225,7 @@ func bind_player(p: Player) -> void:
 
 
 ## 通知:上一則顯示不到 NOTICE_HOLD 秒就排隊,等它顯示夠久再換;排隊中同一類(前 8 個字相同,例如撿毛皮的累計)只留最新的
-const NOTICE_SEC := 2.6
+const NOTICE_SEC := 3.5   # toast 3 ~ 5 秒自動消失(UX 準則 toast-notifications)
 const NOTICE_HOLD := 0.9
 
 
@@ -1340,7 +1340,7 @@ func _process(delta: float) -> void:
             _fps.text = "FPS %d" % Engine.get_frames_per_second()
     if GameState.wallet != _wallet_shown:   # 文字只在數字變了才重排(每幀重排 Label 在手機上很貴)
         _wallet_shown = GameState.wallet
-        _wallet.text = tr("HUD_WALLET") % GameState.wallet
+        _wallet.text = tr("HUD_WALLET") % UiTheme.fmt_int(GameState.wallet)
     if player == null or not is_instance_valid(player):
         return
     var key := "%s/%d/%d/%d/%d/%d/%d" % [player.stack.item_id, player.stack.count, player.stack.capacity, GameState.pelts, GameState.teeth, GameState.rarefish, GameState.weapon_level]

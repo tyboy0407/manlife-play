@@ -138,6 +138,15 @@ func _ready() -> void:
     hud.set_order("Order: fillet 2/6")
     _check(hud._order_card.visible and hud.order_text() == "Order: fillet 2/6", "有訂單小卡才出現")
     hud.set_order("")
+    # ui-ux-pro-max 設計系統的調整:千分位、主動作鈕有陰影與厚邊、toast 3.5 秒、面板文字 >= 16
+    GameState.wallet = 1234567
+    hud._process(0.01)
+    var pstyle := hud._legacy_rebirth_btn.get_theme_stylebox("normal") as StyleBoxFlat
+    _check(UiTheme.fmt_int(1234567) == "1,234,567" and UiTheme.fmt_int(999) == "999" and UiTheme.fmt_int(-1000) == "-1,000" and hud._wallet.text.contains("1,234,567")
+            and pstyle != null and pstyle.shadow_size > 0 and pstyle.get_border_width(SIDE_LEFT) == UiTheme.BORDER_BUTTON and pstyle.corner_radius_top_left == UiTheme.RADIUS_BUTTON
+            and is_equal_approx(Hud.NOTICE_SEC, 3.5) and hud._legacy_body.get_theme_font_size("font_size") >= 16,
+            "設計系統:錢包千分位、主動作鈕厚邊 + 陰影 + 圓角 14、toast 3.5 秒、面板內文 16")
+    GameState.wallet = 0
     hud.free()
     if _fails == 0:
         print("VERIFY UI: ALL OK")
