@@ -219,6 +219,7 @@ const LABEL_FADE_NEAR := 7.5            # 玩家這個距離內的格子 / 建�
 const LABEL_FADE_FAR := 11.5            # 超過這個距離全暗(價格牌與招牌 meta keep 不淡)
 const LABEL_FADE_SEC := 0.15
 var bonfire: BonfirePad = null          # 火堆:玩家站滿 1 秒開過冬面板
+var juice: Juice = null                 # 打擊感(相機震動 / 停格 / 數字彈出 / 彈跳 / 閃光)
 var south_walls: Array[Node3D] = []     # 主村南牆(隱形牆 + 柵欄),往南擴建時拆
 var south_block: StaticBatch = null     # 第一塊南塊布景(蓋了才有)
 var south_blocks: Array[StaticBatch] = []   # 每塊南塊的布景(依序,最多 SOUTH_RECTS.size())
@@ -315,6 +316,10 @@ func _ready() -> void:
     camera.name = "Camera"
     camera.target = player
     add_child(camera)
+    juice = Juice.new()
+    juice.name = "Juice"
+    juice.level = self
+    add_child(juice)
     hud = Hud.new()
     hud.name = "Hud"
     hud.bind_player(player)

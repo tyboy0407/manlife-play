@@ -1,0 +1,66 @@
+{
+ "name": "tap",
+ "description": "UI 按鈕:噪音 tick + 短三角波下滑(無尾音、高通避免悶)",
+ "layers": [
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.001,
+    "release": 0.006,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "highpass",
+     "cutoff": 3000,
+     "q": 0.707
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 9000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -6
+  },
+  {
+   "wave": "triangle",
+   "freq": [
+    [
+     0,
+     2000
+    ],
+    [
+     0.03,
+     1700
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.002,
+    "release": 0.025,
+    "curve": 3
+   }
+  }
+ ],
+ "master": {
+  "lufs": -21,
+  "peak_db": -1,
+  "highpass": 300
+ },
+ "vary": {
+  "pitch": 0.5,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.015,
+   0.06
+  ],
+  "centroid": [
+   1000,
+   5000
+  ]
+ }
+}

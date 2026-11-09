@@ -4,10 +4,10 @@ extends Node
 ## 純表現層:headless 測試時照常呼叫(Dummy 音訊驅動),用 played 計數驗證。
 
 const SFX_DIR := "res://assets/sfx/"
-const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "hit", "arrow", "crash", "warn", "chest", "card", "tap", "ambient_waves"]
+const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "hit", "arrow", "crash", "warn", "chest", "card", "tap", "ambient_waves", "bgm_harbor"]
 const MIN_GAP := {"coin": 0.05, "pay": 0.05, "drop": 0.04, "pick": 0.04, "catch": 0.06, "sale": 0.1, "roar": 0.5, "chomp": 0.3, "hit": 0.1, "arrow": 0.08, "crash": 0.4, "tap": 0.05}
 const VOLUMES := {"coin": -6.0, "pay": -8.0, "drop": -4.0, "pick": -6.0, "catch": -3.0, "trash": -4.0, "roar": -2.0, "chomp": -2.0, "hit": -3.0, "arrow": -9.0, "crash": -2.0,
-    "tap": -12.0, "ambient_waves": -16.0}
+    "tap": -12.0, "ambient_waves": -16.0, "bgm_harbor": -20.0}
 const POOL := 10
 
 var enabled := true
@@ -17,6 +17,7 @@ var played := {}   # name -> 播放次數
 var _streams := {}
 var _players: Array[AudioStreamPlayer] = []
 var _ambient: AudioStreamPlayer
+var _music: AudioStreamPlayer   # 背景 chiptune 循環(assets/sfx/bgm_harbor.wav,retro-audio mml.py 算的)
 var _last := {}
 
 
@@ -33,6 +34,8 @@ func _ready() -> void:
         _players.append(p)
     _ambient = AudioStreamPlayer.new()
     add_child(_ambient)
+    _music = AudioStreamPlayer.new()
+    add_child(_music)
     _start_ambient()
     EventBus.items_moved.connect(_on_items_moved)
     EventBus.purchased.connect(func(_id: String, effect: Dictionary) -> void:
@@ -66,8 +69,14 @@ func has(name: String) -> bool:
 
 ## 環境音:匯入預設不循環,執行期複製一份把 loop 打開
 func _start_ambient() -> void:
-    var s = _streams.get("ambient_waves", null)
-    if s == null:
+    _start_loop(_ambient, "ambient_waves")
+    _start_loop(_music, "bgm_harbor")
+
+
+## 把一個 WAV 當成無縫循環放在指定的 player 上(執行期開 loop,不動匯入設定)
+func _start_loop(player: AudioStreamPlayer, name: String) -> void:
+    var s = _streams.get(name, null)
+    if s == null or player == null:
         return
     if s is AudioStreamWAV:
         var w: AudioStreamWAV = (s as AudioStreamWAV).duplicate()
@@ -75,11 +84,11 @@ func _start_ambient() -> void:
         w.loop_mode = AudioStreamWAV.LOOP_FORWARD
         w.loop_begin = 0
         w.loop_end = int(w.data.size() / bytes_per_frame)
-        _ambient.stream = w
+        player.stream = w
     else:
-        _ambient.stream = s
-    _ambient.volume_db = float(VOLUMES.get("ambient_waves", -16.0))
-    _ambient.play()
+        player.stream = s
+    player.volume_db = float(VOLUMES.get(name, -16.0))
+    player.play()
 
 
 func _on_items_moved(kind: String, _item: String, _from: Vector3, _to: Vector3, _count: int) -> void:
@@ -118,7 +127,11 @@ func play(name: String, pitch_jitter := 0.08) -> bool:
     return true
 
 
-## 音效總開關(選單):關掉就全停(含環境音),打開重放環境音
+func music_playing() -> bool:
+    return _music != null and _music.playing
+
+
+## 音效總開關(選單):關掉就全停(含環境音 / 音樂),打開重放
 func set_enabled(on: bool) -> void:
     if on == enabled:
         return
@@ -134,6 +147,9 @@ func stop_all() -> void:
     for p in _players:
         p.stop()
         p.stream = null
+    if _music != null:
+        _music.stop()
+        _music.stream = null
     if _ambient != null:
         _ambient.stop()
         _ambient.stream = null

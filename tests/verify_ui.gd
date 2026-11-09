@@ -116,10 +116,18 @@ func _ready() -> void:
     # UI 整理:選單分組(四格開關 / 六格頁面 / 紅色重新開始)、統計自己的面板、面板樣式、提示淡出、toast
     var pages := hud.menu_panel.get_node_or_null("Box/Pages")
     var toggles := hud.menu_panel.get_node_or_null("Box/Toggles")
-    _check(pages != null and pages.get_child_count() == 6 and toggles != null and toggles.get_child_count() == 4
+    _check(pages != null and pages.get_child_count() == 6 and toggles != null and toggles.get_child_count() == 5
             and UiTheme.button_kind(hud._hints_btn) == "toggle_on" and hud._hints_btn.text.begins_with(tr("MENU_T_HINTS"))
             and UiTheme.button_kind(hud._new_game_btn) == "danger" and UiTheme.button_kind(hud.menu_button) == "secondary",
-            "選單:四格開關(提示開著是綠底)、六格頁面、重新開始紅色")
+            "選單:五格開關(提示開著是綠底)、六格頁面、重新開始紅色")
+    var fx0 := Settings.fx_on
+    hud.menu_action("fx")
+    _check(Settings.fx_on != fx0 and UiTheme.button_kind(hud._fx_btn) == ("toggle_on" if Settings.fx_on else "toggle_off"), "特效開關切換 Settings.fx_on 並換顏色")
+    hud.menu_action("fx")
+    hud.flash(Color(1, 1, 1, 0.5), 0.2)
+    _check(hud.flash_alpha() > 0.4, "閃光:一開始有透明度、之後淡掉")
+    hud.pop_wallet()
+    _check(hud._wallet.scale.x > 1.1, "收錢時錢包數字彈一下")
     hud.menu_action("toggle")
     hud.menu_action("stats")
     _check(hud.stats_open() and not hud.menu_panel.visible and hud.stats_tab_count() == 3, "選單「統計」開自己的面板(三個分頁)")

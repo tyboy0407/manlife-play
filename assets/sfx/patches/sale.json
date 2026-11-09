@@ -1,0 +1,119 @@
+{
+ "name": "sale",
+ "description": "顧客買單:木琴兩音(C6 -> E6)往上,帶一點小房間",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     1047
+    ],
+    [
+     0.1,
+     1047
+    ],
+    [
+     0.1,
+     1319
+    ]
+   ],
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.1,
+    "release": 0.22,
+    "curve": 2.5
+   }
+  },
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     2094
+    ],
+    [
+     0.1,
+     2094
+    ],
+    [
+     0.1,
+     2638
+    ]
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.1,
+    "release": 0.12,
+    "curve": 3
+   },
+   "gain_db": -16
+  },
+  {
+   "wave": "noise",
+   "at": [
+    0.0,
+    0.1
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.001,
+    "release": 0.01,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 2500,
+     "q": 1.5
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 7000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -16
+  }
+ ],
+ "master": {
+  "lufs": -16,
+  "peak_db": -1,
+  "highpass": 200,
+  "reverb": {
+   "mix": 0.12,
+   "decay": 0.4
+  }
+ },
+ "vary": {
+  "pitch": 0.5,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.25,
+   0.8
+  ],
+  "centroid": [
+   800,
+   4000
+  ]
+ }
+}

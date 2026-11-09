@@ -1,0 +1,99 @@
+{
+ "name": "trash",
+ "description": "丟進垃圾桶:悶木桶聲 + 紙屑噪音拖一下",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     150
+    ],
+    [
+     0.08,
+     70
+    ]
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.01,
+    "release": 0.12,
+    "curve": 2.5
+   },
+   "drive": 1.2
+  },
+  {
+   "wave": "sine",
+   "freq": 240,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.003,
+    "release": 0.07,
+    "curve": 3
+   },
+   "gain_db": -2
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.002,
+    "hold": 0.03,
+    "release": 0.14,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "lowpass",
+     "cutoff": 1500,
+     "q": 0.707
+    },
+    {
+     "type": "highpass",
+     "cutoff": 200,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -10
+  }
+ ],
+ "master": {
+  "lufs": -18,
+  "peak_db": -1,
+  "highpass": 60,
+  "reverb": {
+   "mix": 0.08,
+   "decay": 0.3
+  }
+ },
+ "vary": {
+  "pitch": 1.0,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.12,
+   0.45
+  ],
+  "centroid": [
+   120,
+   1800
+  ]
+ }
+}

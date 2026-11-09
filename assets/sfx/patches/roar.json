@@ -1,0 +1,123 @@
+{
+ "name": "roar",
+ "description": "北極熊吼:低頻厚音往下滑(倍頻 + 驅動)+ 帶通噪音的喉音,顫音 8 Hz",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     120
+    ],
+    [
+     0.5,
+     85
+    ],
+    [
+     0.8,
+     60
+    ]
+   ],
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2,
+     -4,
+     0.9
+    ],
+    [
+     3,
+     -8,
+     0.8
+    ],
+    [
+     5,
+     -14,
+     0.6
+    ]
+   ],
+   "vibrato": {
+    "rate": 8,
+    "depth": 0.6
+   },
+   "env": {
+    "attack": 0.03,
+    "hold": 0.45,
+    "release": 0.35,
+    "curve": 2
+   },
+   "drive": 1.5
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.03,
+    "hold": 0.45,
+    "release": 0.3,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 320,
+     "q": 1.5
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 2500,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -6
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.02,
+    "hold": 0.1,
+    "release": 0.2,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 900,
+     "q": 1.0
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 4000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -14
+  }
+ ],
+ "master": {
+  "lufs": -13,
+  "peak_db": -1,
+  "highpass": 45,
+  "reverb": {
+   "mix": 0.1,
+   "decay": 0.5
+  }
+ },
+ "vary": {
+  "pitch": 1.0,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.6,
+   1.4
+  ],
+  "centroid": [
+   100,
+   1200
+  ]
+ }
+}

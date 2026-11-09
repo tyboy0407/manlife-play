@@ -187,6 +187,7 @@ func _spawn_level() -> void:
     _player = _level.player
     _player.input_provider = _provide
     _level.bears.enabled = false   # 北極熊只在測試指定的時候出現(不然 45 秒後會自己來吃幫手)
+    _level.juice.hitstop_enabled = false   # 停格會動 Engine.time_scale,計時的檢查別受影響(震動 / 彈出照常)
     _level.orders.next_in = 1.0e9  # 訂單 / 金魚也只在測試指定時出現(搬運工跑去碼頭、通知蓋掉別的會干擾檢查)
     FishArea.rare_auto = false
 

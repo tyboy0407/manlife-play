@@ -1,0 +1,94 @@
+{
+ "name": "catch",
+ "description": "抓到魚:水面「啵」一聲(往下的圓音 + 短噴濺噪音 + 一顆往上的小泡泡)",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     420
+    ],
+    [
+     0.12,
+     170
+    ]
+   ],
+   "env": {
+    "attack": 0.002,
+    "hold": 0.02,
+    "release": 0.16,
+    "curve": 2.5
+   },
+   "drive": 0.6
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.001,
+    "hold": 0.01,
+    "release": 0.07,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 2200,
+     "q": 1.2
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 6500,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -10
+  },
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     900
+    ],
+    [
+     0.08,
+     1500
+    ]
+   ],
+   "env": {
+    "attack": 0.002,
+    "hold": 0.0,
+    "release": 0.08,
+    "curve": 3
+   },
+   "at": [
+    0.06
+   ],
+   "gain_db": -14
+  }
+ ],
+ "master": {
+  "lufs": -16,
+  "peak_db": -1,
+  "highpass": 120,
+  "reverb": {
+   "mix": 0.08,
+   "decay": 0.3
+  }
+ },
+ "vary": {
+  "pitch": 1.0,
+  "gain_db": 1.5
+ },
+ "expect": {
+  "duration": [
+   0.15,
+   0.5
+  ],
+  "centroid": [
+   300,
+   3000
+  ]
+ }
+}

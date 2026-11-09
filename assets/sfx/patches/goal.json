@@ -1,0 +1,133 @@
+{
+ "name": "goal",
+ "description": "教學完成一步:三音亮木琴 E5 G5 B5 + 一點星光",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": 659,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.04,
+    "release": 0.25,
+    "curve": 2.5
+   },
+   "at": [
+    0.0
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 784,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.04,
+    "release": 0.25,
+    "curve": 2.5
+   },
+   "at": [
+    0.08
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 988,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.1,
+    "release": 0.4,
+    "curve": 2.5
+   },
+   "at": [
+    0.16
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 1976,
+   "env": {
+    "attack": 0.002,
+    "hold": 0.05,
+    "release": 0.3,
+    "curve": 3
+   },
+   "at": [
+    0.16
+   ],
+   "gain_db": -16
+  }
+ ],
+ "master": {
+  "lufs": -15,
+  "peak_db": -1,
+  "highpass": 200,
+  "reverb": {
+   "mix": 0.12,
+   "decay": 0.5
+  }
+ },
+ "vary": {
+  "pitch": 0.3,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.4,
+   1.0
+  ],
+  "centroid": [
+   600,
+   3500
+  ]
+ }
+}

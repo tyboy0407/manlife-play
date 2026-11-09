@@ -1,0 +1,144 @@
+{
+ "name": "crash",
+ "description": "塔塌 / 工作站被拆:低頻撞擊 + 碎片噪音拖長 + 木板斷裂",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     95
+    ],
+    [
+     0.3,
+     45
+    ]
+   ],
+   "env": {
+    "attack": 0.002,
+    "hold": 0.05,
+    "release": 0.45,
+    "curve": 2
+   },
+   "drive": 1.5
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.003,
+    "hold": 0.08,
+    "release": 0.55,
+    "curve": 1.8
+   },
+   "filters": [
+    {
+     "type": "lowpass",
+     "cutoff": [
+      [
+       0,
+       2500
+      ],
+      [
+       0.6,
+       300
+      ]
+     ],
+     "q": 0.707
+    },
+    {
+     "type": "highpass",
+     "cutoff": 80,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -3
+  },
+  {
+   "wave": "sine",
+   "freq": 260,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "at": [
+    0.0,
+    0.07,
+    0.16
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.003,
+    "release": 0.1,
+    "curve": 3
+   },
+   "gain_db": -8,
+   "jitter": {
+    "time": 0.01,
+    "pitch": 2,
+    "gain_db": 2
+   }
+  },
+  {
+   "wave": "noise",
+   "at": [
+    0.15,
+    0.3
+   ],
+   "env": {
+    "attack": 0.002,
+    "hold": 0.02,
+    "release": 0.15,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 1200,
+     "q": 1.0
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 4000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -12
+  }
+ ],
+ "master": {
+  "lufs": -12,
+  "peak_db": -1,
+  "highpass": 40,
+  "reverb": {
+   "mix": 0.12,
+   "decay": 0.6
+  }
+ },
+ "vary": {
+  "pitch": 1.0,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.5,
+   1.4
+  ],
+  "centroid": [
+   100,
+   1500
+  ]
+ }
+}

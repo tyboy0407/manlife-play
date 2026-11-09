@@ -35,6 +35,7 @@ func _ready() -> void:
     _test_save()
     _test_state()
     _test_legacy()
+    _test_juice()
     if _fails == 0:
         print("VERIFY CORE: ALL OK")
     else:
@@ -1339,7 +1340,7 @@ func _test_sfx() -> void:
         if not (s is AudioStreamWAV) or (s as AudioStreamWAV).data.size() == 0:
             missing.append(n)
     _check(missing.is_empty(), "音效檔都能載入(%d 個)" % Sfx.NAMES.size() if missing.is_empty() else "缺音效:%s" % str(missing))
-    _check(Sfx.has("sale") and Sfx.has("ambient_waves"), "Sfx 載入了結帳與環境音")
+    _check(Sfx.has("sale") and Sfx.has("ambient_waves") and Sfx.has("bgm_harbor") and Sfx.music_playing(), "Sfx 載入了結帳、環境音與背景音樂(音樂循環播放中)")
     var before := Sfx.played_total
     _check(Sfx.play("goal") and Sfx.played_total == before + 1 and int(Sfx.played.get("goal", 0)) >= 1, "Sfx.play 有播(headless 用 Dummy 音訊)")
     _check(not Sfx.play("goal"), "同一音效太密集不重播")
@@ -1418,4 +1419,24 @@ func _test_legacy() -> void:
     o.bonus_sec = 3600.0
     _check(o.counted_seconds(40000.0) == 28800 + 3600 and o.earnings(1.0, 40000.0) == int(floor(32400.0 * 0.5)) and is_equal_approx(o.cap_sec(), 32400.0),
             "離線上限火種:8 小時 + 1 小時")
+
+
+## 打擊感規則:事件分級、trauma 距離衰減 / 累加 / 衰減、震幅平方、平滑雜訊、hit-stop 只有 medium / large
+func _test_juice() -> void:
+    var j := JuiceLogic.from_config({})
+    _check(JuiceLogic.tier_of("bear_hit") == "medium" and JuiceLogic.tier_of("king_defeated") == "large" and JuiceLogic.tier_of("fish_caught") == "small"
+            and JuiceLogic.tier_of("nope") == "", "事件分級:打熊 medium、打死王 large、抓魚 small、沒列的沒有")
+    _check(is_equal_approx(j.trauma_for("bear_hit", 0.0), 0.4) and is_equal_approx(j.trauma_for("bear_hit", 12.0), 0.2) and is_zero_approx(j.trauma_for("bear_hit", 30.0))
+            and is_zero_approx(j.hitstop_for("fish_caught")) and is_equal_approx(j.hitstop_for("king_defeated"), 0.12) and is_equal_approx(j.pop_for("nope"), 1.0)
+            and is_equal_approx(j.pop_for("fish_caught"), 1.12), "trauma 依距離衰減(6 內全額、12 一半、18 外 0);hit-stop 只有 medium / large;彈跳倍率")
+    var t := JuiceLogic.add_trauma(0.0, 0.4)
+    t = JuiceLogic.add_trauma(t, 0.4)
+    t = JuiceLogic.add_trauma(t, 0.4)
+    _check(is_equal_approx(t, 1.0) and is_equal_approx(j.decay_trauma(1.0, 0.5), 0.35) and is_zero_approx(j.decay_trauma(0.1, 1.0))
+            and is_equal_approx(JuiceLogic.shake_amount(0.5), 0.25) and j.shake_offset(0.0, 1.0) == Vector3.ZERO and j.shake_offset(1.0, 0.3).length() > 0.0
+            and absf(JuiceLogic.smooth_noise(0.37, 0.0)) <= 1.0 and j.shake_offset(1.0, 0.3).length() <= 1.0,
+            "trauma 累加封頂 1、每秒掉 1.3;震幅 = trauma²;平滑雜訊在 ±1 內、位移不超過上限")
+    var j2 := JuiceLogic.from_config({"decay": 2.0, "maxOffset": [1.0, 0.5], "tiers": {"small": {"trauma": 0.3}}})
+    _check(is_equal_approx(j2.decay, 2.0) and j2.max_offset == Vector2(1.0, 0.5) and is_equal_approx(j2.trauma_for("fish_caught"), 0.3)
+            and is_equal_approx(j2.trauma_for("bear_hit"), 0.4), "game.json juice 可蓋過衰減 / 位移 / 分級數值")
 

@@ -13,6 +13,7 @@ const SCALE_SMOOTH := 0.75
 var path := DEFAULT_PATH
 var quality := FINE
 var show_fps := false
+var fx_on := true          # 特效(相機震動 / 閃光 / 停格);關掉給怕晃的人,數字彈出與彈跳照舊
 var seen_version := ""   # 看過哪一版的「新版內容」(data/changelog.json 的 version);更新後第一次開才彈面板
 
 
@@ -38,6 +39,7 @@ func scaling_3d() -> float:
 func load_settings() -> void:
     quality = SMOOTH if is_touch_device() else FINE
     show_fps = false
+    fx_on = true
     seen_version = ""
     if not FileAccess.file_exists(path):
         return
@@ -48,6 +50,7 @@ func load_settings() -> void:
     if q == SMOOTH or q == FINE:
         quality = q
     show_fps = bool(parsed.get("show_fps", false))
+    fx_on = bool(parsed.get("fx_on", true))
     seen_version = str(parsed.get("seen_version", ""))
 
 
@@ -55,7 +58,7 @@ func save_settings() -> bool:
     var file := FileAccess.open(path, FileAccess.WRITE)
     if file == null:
         return false
-    file.store_string(JSON.stringify({"quality": quality, "show_fps": show_fps, "seen_version": seen_version}, "\t"))
+    file.store_string(JSON.stringify({"quality": quality, "show_fps": show_fps, "seen_version": seen_version, "fx_on": fx_on}, "\t"))
     file.close()
     return true
 
@@ -70,6 +73,14 @@ func set_quality(q: String) -> void:
 
 func toggle_quality() -> void:
     set_quality(FINE if is_smooth() else SMOOTH)
+
+
+func set_fx(on: bool) -> void:
+    if on == fx_on:
+        return
+    fx_on = on
+    save_settings()
+    changed.emit()
 
 
 func set_show_fps(on: bool) -> void:

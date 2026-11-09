@@ -30,6 +30,8 @@ var _hints_btn: Button
 var _sound_btn: Button
 var _quality_btn: Button
 var _fps_btn: Button
+var _fx_btn: Button                        # 特效開關(震動 / 閃光 / 停格)
+var _flash_rect: ColorRect                 # 大事件的全畫面閃光(Juice 叫 flash)
 var _new_game_btn: Button
 var _fps: Label
 var _stats: Label            # 詳細統計(收進選單面板)
@@ -97,6 +99,12 @@ func _ready() -> void:
     joystick = TouchJoystick.new()
     joystick.name = "Joystick"
     add_child(joystick)
+    _flash_rect = ColorRect.new()
+    _flash_rect.name = "Flash"
+    _flash_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _flash_rect.color = Color(1, 1, 1, 0)
+    add_child(_flash_rect)
     _build_hud_box()
     _fps = _make_label(15, Color(0.6, 1.0, 0.6))
     _fps.position = Vector2(14, 164)
@@ -226,6 +234,25 @@ func _plain(font_size: int, color: Color) -> Label:
     return l
 
 
+## 大事件的全畫面閃光(Juice:王倒下);sec 秒內淡掉
+func flash(color: Color, sec: float) -> void:
+    _flash_rect.color = color
+    var tw := _flash_rect.create_tween()
+    tw.tween_property(_flash_rect, "color:a", 0.0, maxf(sec, 0.05)).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func flash_alpha() -> float:
+    return _flash_rect.color.a
+
+
+## 收到錢:錢包數字彈一下(TRANS_BACK 回到 1)
+func pop_wallet() -> void:
+    _wallet.pivot_offset = Vector2(0, _wallet.size.y / 2.0)
+    _wallet.scale = Vector2(1.18, 1.18)
+    var tw := _wallet.create_tween()
+    tw.tween_property(_wallet, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
 ## 背包那行 + 四個資源小籤(測試用)
 func info_text() -> String:
     var parts: Array[String] = [_info.text]
@@ -293,7 +320,7 @@ func _make_button(text: String, id: String, width: float = 240.0, font_size: int
 func _toggle_button(id: String) -> Button:
     var b := Button.new()
     b.name = "Toggle_" + id
-    b.custom_minimum_size = Vector2(54, 56)
+    b.custom_minimum_size = Vector2(50, 56)
     UiTheme.style_button(b, "toggle_off", 13)
     b.pressed.connect(menu_action.bind(id))
     return b
@@ -316,9 +343,9 @@ func _build_menu() -> void:
     add_child(menu_button)
     menu_panel = PanelContainer.new()
     menu_panel.name = "MenuPanel"
-    menu_panel.custom_minimum_size = Vector2(268, 0)   # 比內容寬一點,面板不用靠自動長大就放得下
+    menu_panel.custom_minimum_size = Vector2(300, 0)   # 比內容寬一點(五格開關 5 × 50 + 4 × 8),面板不用靠自動長大就放得下
     menu_panel.add_theme_stylebox_override("panel", UiTheme.panel_style())
-    _top_right(menu_panel, 268, 0, 80, 14)
+    _top_right(menu_panel, 300, 0, 80, 14)
     menu_panel.visible = false
     add_child(menu_panel)
     var box := VBoxContainer.new()
@@ -327,14 +354,15 @@ func _build_menu() -> void:
     menu_panel.add_child(box)
     var toggles := GridContainer.new()
     toggles.name = "Toggles"
-    toggles.columns = 4
+    toggles.columns = 5
     toggles.add_theme_constant_override("h_separation", 8)
     box.add_child(toggles)
     _hints_btn = _toggle_button("hints")
     _sound_btn = _toggle_button("sound")
+    _fx_btn = _toggle_button("fx")
     _quality_btn = _toggle_button("quality")
     _fps_btn = _toggle_button("fps")
-    for b in [_hints_btn, _sound_btn, _quality_btn, _fps_btn]:
+    for b in [_hints_btn, _sound_btn, _fx_btn, _quality_btn, _fps_btn]:
         toggles.add_child(b)
     box.add_child(UiTheme.divider())
     var pages := GridContainer.new()
@@ -344,18 +372,19 @@ func _build_menu() -> void:
     pages.add_theme_constant_override("v_separation", 8)
     box.add_child(pages)
     for e in [["MENU_MAP", "map"], ["MENU_HELP", "help"], ["MENU_JOURNAL", "journal"], ["MENU_STATS", "stats"], ["MENU_LEGACY", "legacy"], ["MENU_CHANGELOG", "changelog"]]:
-        pages.add_child(_make_button(tr(e[0]), e[1], 116, 16))
+        pages.add_child(_make_button(tr(e[0]), e[1], 132, 16))
     box.add_child(UiTheme.divider())
-    _new_game_btn = _make_button("", "new_game", 240, 16)
+    _new_game_btn = _make_button("", "new_game", 272, 16)
     UiTheme.style_button(_new_game_btn, "danger", 16)
     box.add_child(_new_game_btn)
-    box.add_child(_make_button(tr("MENU_CLOSE"), "close", 240, 18))
+    box.add_child(_make_button(tr("MENU_CLOSE"), "close", 272, 18))
     _refresh_menu_labels()
 
 
 func _refresh_menu_labels() -> void:
     _set_toggle(_hints_btn, tr("MENU_T_HINTS"), GameState.hints_on, tr("MENU_ON") if GameState.hints_on else tr("MENU_OFF"))
     _set_toggle(_sound_btn, tr("MENU_T_SOUND"), Sfx.enabled, tr("MENU_ON") if Sfx.enabled else tr("MENU_OFF"))
+    _set_toggle(_fx_btn, tr("MENU_T_FX"), Settings.fx_on, tr("MENU_ON") if Settings.fx_on else tr("MENU_OFF"))
     _set_toggle(_quality_btn, tr("MENU_T_QUALITY"), not Settings.is_smooth(), tr("MENU_Q_SMOOTH") if Settings.is_smooth() else tr("MENU_Q_FINE"))
     _set_toggle(_fps_btn, tr("MENU_T_FPS"), Settings.show_fps, tr("MENU_ON") if Settings.show_fps else tr("MENU_OFF"))
     _new_game_btn.text = tr("MENU_NEW_GAME_CONFIRM") if _confirm_new_game else tr("MENU_NEW_GAME")
@@ -1194,6 +1223,8 @@ func menu_action(id: String) -> void:
         "fps":
             Settings.set_show_fps(not Settings.show_fps)
             _fps.visible = Settings.show_fps
+        "fx":
+            Settings.set_fx(not Settings.fx_on)
         "hints":
             action.emit("hints")
         "map":

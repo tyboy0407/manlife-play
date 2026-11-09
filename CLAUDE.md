@@ -234,6 +234,21 @@
   `--design-system` 輸出存在 notes/design-system/manlife/MASTER.md(Claymorphism + 「獎勵金」CTA #F59E0B + Destructive #DC2626 + Fredoka/Nunito),套用與取捨記在 notes/ui_design_decisions.md:
   UiTheme 改黏土風(面板圓角 18 / 邊 2 / 陰影、按鈕圓角 14 / 厚邊 3、primary / danger 有陰影按下收掉、press 0.2 秒)、PRIMARY 換 #F59E0B、DANGER #DC2626、
   面板內文 16 / 小籤 14、toast 3.5 秒(NOTICE_SEC)、錢包千分位(UiTheme.fmt_int,HUD_WALLET 改 %s)、清單間距 8;字型 / 粉紫配色 / GSAP / reduced-motion 沒採用(原因在 notes)。
+- 2026-11-09(使用者從我網路搜尋列的清單挑五個 skill 導入,各 repo 抓到 session 暫存區照它們的 SKILL.md 跑;沒有加進專案,只留產物與 vendored 腳本):
+  1 game-balancer(LazyIsEfficient/agentic-os,MIT):tools/balance_model.py 當「試算表模型」(讀 data/ JSON,算每階段供需 / $/分 / 三種玩家到達天數 / 僱用階梯 / 傳承點數 / ±20% 敏感度),
+  報告與建議在 notes/balance_pass_2026-11-09.md;照 skill 的規矩只給數字建議、不動規則,改數值要使用者裁示。
+  2 game-feel(gamedev-skills/awesome-gamedev-agent-skills,Apache-2.0):core/fx/juice_logic.gd(JuiceLogic:事件分級 small / medium / large、trauma 距離衰減 6 ~ 18 格 / 累加封頂 / 每秒掉 1.3、
+  震幅 = trauma²、疊加正弦當平滑雜訊;數值 game.json juice 可蓋)+ game/fx/juice.gd(Juice 掛關卡下:聽 EventBus → FollowCamera.add_trauma(相機只動視覺位置,lerp 目標不變)、
+  hit-stop(Engine.time_scale 0.08 持續 0.05 / 0.12 秒,real-time 計時器還原,只有最新一次能還原;測試 world_test_base 設 hitstop_enabled = false)、Label3D 數字彈出物件池
+  (打熊 -N、訂單 +$N、王 Lv)、模型 squash & stretch(抓魚 / 撿掉落物只縮 model 不縮 CharacterBody)、王倒下 HUD 白閃 Hud.flash、收錢 Hud.pop_wallet);
+  Settings.fx_on(選單第五格「特效」,存 settings.json;關掉只剩數字與彈跳),選單面板 268 → 300 寬。
+  3 game-sfx(GhazaGG/Game-Sound-Effect-for-Claude,MIT):assets/sfx/SOUND_STYLE.md 音效聖經(cartoon / casual、材質、響度階梯、決策)、assets/sfx/patches/*.json 二十個分層 patch
+  (瞬態 + 主體 + 尾巴,木琴 / FM 鈴 / 驅動悶響 / 帶通噪音),tools/sfx_synth/(vendored sfx.py + doctor.py + LICENSE)、tools/render_sfx.py 重算全部並印 doctor(全部 OK;
+  舊占位的 coin 100% 能量在 2-5 kHz、pay / sale / warn / ambient 起迄不在零點都解掉);tools/gen_sfx.py 要加 --legacy 才會跑(免得蓋掉新音效)。
+  4 retro-audio(melodic-software/claude-code-plugins,MIT):背景音樂 assets/sfx/bgm_harbor.wav(MML 存 bgm_harbor.mml:Game Boy 音色、C 大調 80 BPM、四部 16 拍 12 秒循環,
+  mml.py --rate 22050 算完再去 DC / 30 Hz 高通 / 8 ms 淡入淡出 / -12 dBFS),Sfx._start_loop 與環境音同一套循環播放(VOLUMES -20,music_playing() 給測試),音效總開關一起關。
+  5 create-game-assets(awesome-gamedev):notes/art_direction_brief.md(遊戲框架 / 視覺系統含色票 / 技術合約 / 現況與缺口)、notes/asset-manifest.json(每個資產的來源 / 授權 / 狀態 / 候選替換),
+  asset_report.py 檢查四個圖示與啟動畫面(尺寸 / alpha 全 PASS);沒有影像生成工具所以不產新圖,熊 / 食物模型與圖示重畫列為候選。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -256,6 +271,8 @@
   static offline_seconds(savedAt, now)、earnings(速率, 離線秒) = 速率 × min(秒, maxSec) × rateMult(不滿 minSec 回 0)、counted_seconds、static split_duration -> {h, m};數值 game.json offline)
 - `core/legacy/legacy_logic.gd`:LegacyLogic(傳承 / 過冬:score(inputs) 四項明細 / king_score / points_for(total) sqrt ÷ 10 / low_points、perks 清單 perk_ids / max_level / perk_cost(id, level) / per_level / bonus(id, level) / can_buy、
   static total_levels;數值 game.json legacy)
+- `core/fx/juice_logic.gd`:JuiceLogic(打擊感規則:TIERS / EVENT_TIER、tier_of / tier_value / falloff(distance) / trauma_for(event, distance) / hitstop_for / pop_for、
+  static add_trauma / shake_amount / smooth_noise、decay_trauma / shake_offset(trauma, t) → (x, y, roll);from_config(game.json juice))
 - `core/input/move_input.gd`:MoveInput(螢幕方向 -> 世界 XZ;from_actions 鍵盤手把 + 觸控搖桿(static touch_dir,有推就以搖桿為準)、toward 合成輸入)
 - `core/guidance/guide_logic.gd`:GuideLogic(教學七步的完成條件與指向、教學後的提示 hint();吃世界狀態字典,回 {kind, target, text, arg};
   北極熊在村裡(state.bear)最優先:沒武器指武器牌 WEAPON_PAD、有武器 kind "bear")
@@ -279,6 +296,8 @@
   `bear.gd`(Bear:king_level / king_logic 王的等級(血 / 體型 / 咬建築 / Lv 標籤);從 entry 進來,hunting 盯最近的幫手 -> 靠到 panicRadius 幫手嚇呆 -> biteRadius 內 biting 咬 biteSec 秒 -> Harbor.helper_eaten -> 找下一個;
   hp / hp_max = BearLogic.hp(play_time),take_hit 扣血閃紅、頭上血條,歸零 defeat 逃回 entry(fleeing);沒人可吃 leaving;is_king:體型 size_scale、
   連 Fish 也當獵物、_feast 回血變大、沒獵物就在村中間等;白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
+- `game/fx/juice.gd`:Juice(掛關卡下的打擊感:聽 EventBus 事件 → 相機 trauma / hit-stop / Label3D 數字彈出池 / 模型彈跳 / HUD 閃光與錢包彈跳;
+  hitstop_enabled、pops_total / shakes_total / hitstops_total / pooled() 給測試;Settings.fx_on 關掉不震不閃不停格)
 - `game/world/bonfire_pad.gd`:BonfirePad(火堆,Pad:石圈 + 木柴 + 會閃的火焰;玩家站滿 1 秒叫 Harbor.legacy_prompt 開過冬面板,走開再站才再開)
 - `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad(item 指定收哪種原料;原料是資源(GameState.is_resource:pelt / tooth)時 _resource_input:玩家站滿 resourceInputDelaySec 才從 GameState 扣)、Station(`Station.create(def)`;每種原料一個 StationPad(item)與堆:input_pads / input_piles / input_pad_for / pile_top_for;id kitchen 畫大鍋、tailor 畫衣架 + 毛衣,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea(max_fish = maxInWater × 面積 / BASE_WATER_AREA)、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json(maxCustomers / queueSpacing 可蓋過 customers.max 與 1.3 間距);door 顧客門(spawn_point / exit_point);上架格 DepositPad + 收銀格 ServicePad + 排隊位 slot_position;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包,速度 max(cashPickupPerSec, 堆 × cashPickupFrac);set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
   on_lost 退名額重新開放並標「買回 ×1.5」(守衛塔牌標「修復」)、expand() 擴建多開名額、raise_max(n)、set_open(開關)、is_tower_pad / is_repair_pad、restore_state;
@@ -293,7 +312,7 @@
   整群走光才 next_cooldown(遊戲時間越久越密);一次 pack_size 隻從同一入口排開;bears / has_bear / has_pack / first_bear / nearest_bear / targeted_ids;
   王:king / king_next_sec,play_time 到 king.atSec 自動 spawn_king,打死後 respawnSec 再來;spawn(prefer) / spawn_pack(n) / spawn_king() 強制出現、
   enabled 給測試關掉;snapshot / restore 記冷卻秒數(熊在場時存 8 秒)與 kingNextSec)
-- `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z);直式(高 >= 寬)KEEP_WIDTH、fov 40、偏移 (0, 13.5, 9.5),橫式 KEEP_HEIGHT、fov 42、偏移 (0, 17, 11.5),視窗轉向時重算
+- `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z);trauma / add_trauma(amount) / max_trauma_seen,每幀 lerp 後再疊 JuiceLogic.shake_offset 的位移與滾轉;直式(高 >= 寬)KEEP_WIDTH、fov 40、偏移 (0, 13.5, 9.5),橫式 KEEP_HEIGHT、fov 42、偏移 (0, 17, 11.5),視窗轉向時重算
 - `game/ui/hud.gd`:Hud(class_name):左上角 HUD 區塊 _build_hud_box(錢包 / 背包 / 資源小籤 _chips / 訂單小卡 _order_card,info_text())、選單四格開關 + 六格頁面 + 紅色重新開始、
   統計面板 stats_panel(show_stats / stats_open)、toast 通知 _toast、操作提示淡出 hint_visible()、火種兩欄列 _legacy_row_button;訂單一行 set_order / order_text;地圖頁 show_map / map_open / map_home_visible(map_source 由關卡給 map_data,_draw_map 畫;panel_action map_home / map_close)、
   玩法說明 show_help / help_open / help_tab_count、新版內容 show_changelog / changelog_open / changelog_text(panel_action help_close / changelog_close);選單多 map / help / changelog;三選一卡片面板(show_choice(title, body, [{title, desc, color}]) / choice_action(i) 發 action "choice:<i>" / choice_open / choice_count / choice_title)、統計分頁 stats_pages / stats_text / stats_tab_count、set_warning 紅字警告、通知排隊(show_notice 上一則不到 0.9 秒就排隊、同類只留最新)、離線收益面板(show_offline(cash, 離線秒, 算進的秒) 半透明遮罩 + 置中面板 + 領取鈕,offline_action("claim") 發 action "offline_claim";offline_open / offline_cash、income_rate 給統計)、錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
@@ -311,11 +330,14 @@
 - `autoload/event_bus.gd`:king_warning(sec) / chest_opened / chest_claimed / king_leveled / helper_insured / offline_claimed(cash, sec)/ fish_caught / items_processed / sale_made / cash_collected / purchase_progress / purchased / helper_hired / notice / items_moved(kind, item, from, to, count)/ tutorial_step_done / tutorial_finished /
   bear_appeared / bear_biting / bear_hit(bear, damage, hp_left)/ bear_defeated / bear_left(reason fled | no_prey)/ helper_eaten(role, helper)/ fish_eaten / bear_fed /
   tower_built / tower_shot / tower_damaged / tower_destroyed / station_destroyed / station_repaired / loot_dropped(kind, pos)/ loot_collected(kind, total)/ shop_upgraded(level)/ tower_upgraded(tower)
-- `autoload/settings.gd`:Settings(裝置偏好,user://settings.json 與存檔分開:quality smooth / fine、show_fps、seen_version(看過的新版內容版本,mark_version_seen);沒檔案時觸控裝置預設 smooth;is_touch_device、scaling_3d、toggle_quality、changed 訊號)
-- `autoload/sfx.gd`:Sfx(聽事件播 assets/sfx/<name>.wav,10 個 player 輪播、每種最短間隔、環境音執行期開 loop;played 計數給測試;
+- `autoload/settings.gd`:Settings(裝置偏好,user://settings.json 與存檔分開:quality smooth / fine、show_fps、fx_on(特效:震動 / 閃光 / 停格,set_fx)、seen_version(看過的新版內容版本,mark_version_seen);沒檔案時觸控裝置預設 smooth;is_touch_device、scaling_3d、toggle_quality、changed 訊號)
+- `autoload/sfx.gd`:Sfx(聽事件播 assets/sfx/<name>.wav,10 個 player 輪播、每種最短間隔、環境音與背景音樂 bgm_harbor 用 _start_loop 執行期開 loop(music_playing());played 計數給測試;
+  音檔由 assets/sfx/patches/*.json + tools/render_sfx.py 產生,設計原則在 assets/sfx/SOUND_STYLE.md;
   北極熊 roar(出現 / 被打跑)、chomp(吃掉幫手 / 魚)、hit(打到熊)、arrow(守衛塔射箭)、crash(塔塌 / 工作站被拆)、pick(撿掉落物)、unlock(武器店升級 / 塔強化)、warn(王預告)、chest(開箱)、card(選卡))
 - `autoload/fly_fx.gd`:Fx(聽 items_moved 生物品幽靈拋物線飛,掛在自己底下,幽靈節點物件池 _pool / pooled();kind "cash" 交給 HUD)
-- `tools/gen_sfx.py`:純 Python 合成占位音效(正弦 / 噪音 / 包絡),輸出 assets/sfx/*.wav(22050 Hz 16-bit mono);命令列給名字只產生那幾個(`python tools/gen_sfx.py warn chest card`)
+- `tools/render_sfx.py`:把 assets/sfx/patches/*.json 算成 assets/sfx/<name>.wav 並印 doctor 報告(`python tools/render_sfx.py [名字...] [--png]`);合成器在 `tools/sfx_synth/`
+  (game-sfx skill 的 sfx.py / doctor.py,MIT,純標準庫)。`tools/gen_sfx.py` 是最早的單層占位合成器,現在要加 --legacy 才跑
+- `tools/balance_model.py`:經濟 / 進度模型(game-balancer skill 的試算表):每階段供需 / 收入、三種玩家到達天數、僱用階梯、傳承點數、敏感度;`python tools/balance_model.py [--json]`
 - `tools/gen_icons.py`:Pillow 畫占位圖示(assets/icons/icon_128 / 144 / 180 / 512.png)與啟動畫面 splash.png
 - `tools/inspect_models.gd`:headless 印出模型場景結構(節點、網格 AABB、材質、骨架 rest 位置、動畫清單);
   `godot --headless --path . --script tools/inspect_models.gd -- res://assets/models/game/characters/character-male-a.glb`

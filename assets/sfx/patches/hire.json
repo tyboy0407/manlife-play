@@ -1,0 +1,98 @@
+{
+ "name": "hire",
+ "description": "僱到幫手:兩聲口哨(帶顫音的正弦)往上 E5 -> A5",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     600
+    ],
+    [
+     0.05,
+     660
+    ],
+    [
+     0.16,
+     660
+    ],
+    [
+     0.16,
+     880
+    ],
+    [
+     0.34,
+     880
+    ]
+   ],
+   "vibrato": {
+    "rate": 6,
+    "depth": 0.3
+   },
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2,
+     -14,
+     0.6
+    ]
+   ],
+   "env": {
+    "attack": 0.01,
+    "hold": 0.3,
+    "release": 0.18,
+    "curve": 2
+   }
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.005,
+    "hold": 0.3,
+    "release": 0.1,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 2800,
+     "q": 2.0
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 6000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -22
+  }
+ ],
+ "master": {
+  "lufs": -15,
+  "peak_db": -1,
+  "highpass": 250,
+  "reverb": {
+   "mix": 0.1,
+   "decay": 0.4
+  }
+ },
+ "vary": {
+  "pitch": 0.5,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.4,
+   0.9
+  ],
+  "centroid": [
+   500,
+   2500
+  ]
+ }
+}

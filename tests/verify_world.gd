@@ -508,6 +508,8 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
             and _player.hits_total == hits_needed and _count("bear_hit") == hits_needed and bear.hp == 0.0
             and _player.model != null and _player.model.current() == "attack-melee-right",
             "Lv1 每下 10:打了 %d 下血條歸零才逃、玩家揮武器" % (bear.hits_taken if is_instance_valid(bear) else -1))
+    _check(_level.camera.max_trauma_seen >= 0.3 and _level.juice.shakes_total >= 1 and _level.juice.pops_total >= 1 and is_equal_approx(Engine.time_scale, 1.0),
+            "打擊感:打熊時相機有震(trauma 最高 %.2f、%d 次)、傷害數字彈出 %d 次;時間比例回 1" % [_level.camera.max_trauma_seen, _level.juice.shakes_total, _level.juice.pops_total])
     var gone := await _wait_until(func() -> bool: return not bs.has_bear(), 600)
     _check(gone and _count("bear_left_fled") == 1 and bs.cooldown >= 33.0 and bs.cooldown <= 55.0 and _level.helpers.size() == GameState.hired_total(),
             "熊逃到地圖邊緣消失,下一群 %.0f 秒後再來,沒有再損失幫手(gone %s、fled %d、幫手 %d / %d、events %s)" % [bs.cooldown, str(gone), _count("bear_left_fled"), _level.helpers.size(), helpers_before - 1, str(_roles_and_hires())])

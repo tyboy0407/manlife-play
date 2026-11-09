@@ -1,0 +1,66 @@
+{
+ "name": "pay",
+ "description": "價格牌分期付款的 tick:很短的噪音點 + 一顆下滑正弦",
+ "layers": [
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.001,
+    "release": 0.005,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "highpass",
+     "cutoff": 2500,
+     "q": 0.707
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 8000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -6
+  },
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     1300
+    ],
+    [
+     0.025,
+     950
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.003,
+    "release": 0.02,
+    "curve": 3
+   }
+  }
+ ],
+ "master": {
+  "lufs": -21,
+  "peak_db": -1,
+  "highpass": 300
+ },
+ "vary": {
+  "pitch": 0.7,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.015,
+   0.08
+  ],
+  "centroid": [
+   700,
+   4500
+  ]
+ }
+}

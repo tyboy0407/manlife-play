@@ -1,0 +1,226 @@
+{
+ "name": "chest",
+ "description": "熊王寶箱:木栓喀一聲 + 上行閃亮琶音 C6 E6 G6 C7 + 星光",
+ "layers": [
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.004,
+    "release": 0.03,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 1200,
+     "q": 1.2
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 6000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -4
+  },
+  {
+   "wave": "sine",
+   "freq": 300,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.003,
+    "release": 0.08,
+    "curve": 3
+   },
+   "gain_db": -4
+  },
+  {
+   "wave": "sine",
+   "freq": 1047,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.4,
+     -4,
+     0.8
+    ],
+    [
+     5.95,
+     -10,
+     0.5
+    ]
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.05,
+    "release": 0.4,
+    "curve": 2.5
+   },
+   "at": [
+    0.08
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 1319,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.4,
+     -4,
+     0.8
+    ],
+    [
+     5.95,
+     -10,
+     0.5
+    ]
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.05,
+    "release": 0.4,
+    "curve": 2.5
+   },
+   "at": [
+    0.16
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 1568,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.4,
+     -4,
+     0.8
+    ],
+    [
+     5.95,
+     -10,
+     0.5
+    ]
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.05,
+    "release": 0.4,
+    "curve": 2.5
+   },
+   "at": [
+    0.24
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 2094,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.4,
+     -4,
+     0.8
+    ],
+    [
+     5.95,
+     -10,
+     0.5
+    ]
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.12,
+    "release": 0.6,
+    "curve": 2.5
+   },
+   "at": [
+    0.32
+   ]
+  },
+  {
+   "wave": "noise",
+   "at": [
+    0.32,
+    0.4,
+    0.48
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.0,
+    "release": 0.05,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "highpass",
+     "cutoff": 6000,
+     "q": 0.707
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 12000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -22
+  }
+ ],
+ "master": {
+  "lufs": -14,
+  "peak_db": -1,
+  "highpass": 150,
+  "reverb": {
+   "mix": 0.18,
+   "decay": 0.7
+  }
+ },
+ "vary": {
+  "pitch": 0.3,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.7,
+   1.6
+  ],
+  "centroid": [
+   700,
+   4500
+  ]
+ }
+}

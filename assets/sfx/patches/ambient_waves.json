@@ -1,0 +1,107 @@
+{
+ "name": "ambient_waves",
+ "description": "環境:海浪 + 風,8 秒循環(低通噪音慢慢起伏,兩層錯開)",
+ "duration": 8.0,
+ "layers": [
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.01,
+    "hold": 7.98,
+    "release": 0.01,
+    "curve": 1
+   },
+   "filters": [
+    {
+     "type": "lowpass",
+     "cutoff": [
+      [
+       0,
+       250
+      ],
+      [
+       2.0,
+       900
+      ],
+      [
+       4.0,
+       250
+      ],
+      [
+       6.0,
+       900
+      ],
+      [
+       8.0,
+       250
+      ]
+     ],
+     "q": 0.8
+    },
+    {
+     "type": "highpass",
+     "cutoff": 60,
+     "q": 0.707
+    }
+   ]
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.01,
+    "hold": 7.98,
+    "release": 0.01,
+    "curve": 1
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": [
+      [
+       0,
+       500
+      ],
+      [
+       3.0,
+       220
+      ],
+      [
+       5.5,
+       500
+      ],
+      [
+       8.0,
+       500
+      ]
+     ],
+     "q": 1.2
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 1500,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -10
+  }
+ ],
+ "master": {
+  "lufs": -24,
+  "peak_db": -3,
+  "highpass": 50
+ },
+ "vary": {
+  "pitch": 0,
+  "gain_db": 0
+ },
+ "expect": {
+  "duration": [
+   7.5,
+   8.5
+  ],
+  "centroid": [
+   150,
+   1200
+  ]
+ }
+}

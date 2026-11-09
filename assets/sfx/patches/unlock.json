@@ -1,0 +1,188 @@
+{
+ "name": "unlock",
+ "description": "買到 / 解鎖:木琴四音上行琶音 C5 E5 G5 C6 + 高八度閃光",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": 523,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.05,
+    "release": 0.35,
+    "curve": 2.5
+   },
+   "at": [
+    0.0
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 659,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.05,
+    "release": 0.35,
+    "curve": 2.5
+   },
+   "at": [
+    0.1
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 784,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.05,
+    "release": 0.35,
+    "curve": 2.5
+   },
+   "at": [
+    0.2
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 1047,
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2.76,
+     -8,
+     0.5
+    ],
+    [
+     5.4,
+     -16,
+     0.3
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.12,
+    "release": 0.5,
+    "curve": 2.5
+   },
+   "at": [
+    0.3
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": 2094,
+   "env": {
+    "attack": 0.002,
+    "hold": 0.1,
+    "release": 0.4,
+    "curve": 3
+   },
+   "at": [
+    0.3
+   ],
+   "gain_db": -14
+  },
+  {
+   "wave": "noise",
+   "at": [
+    0.3
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.0,
+    "release": 0.06,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "highpass",
+     "cutoff": 7000,
+     "q": 0.707
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 12000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -22
+  }
+ ],
+ "master": {
+  "lufs": -14,
+  "peak_db": -1,
+  "highpass": 180,
+  "reverb": {
+   "mix": 0.15,
+   "decay": 0.6
+  }
+ },
+ "vary": {
+  "pitch": 0.3,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.6,
+   1.4
+  ],
+  "centroid": [
+   600,
+   3500
+  ]
+ }
+}

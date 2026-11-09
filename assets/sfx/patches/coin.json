@@ -1,0 +1,99 @@
+{
+ "name": "coin",
+ "description": "收錢(每秒多次,要輕):柔和 FM 小鈴 A5 -> E6,低通 7 kHz 不刺耳",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     880
+    ],
+    [
+     0.05,
+     880
+    ],
+    [
+     0.05,
+     1320
+    ]
+   ],
+   "fm": {
+    "ratio": 2,
+    "index": [
+     [
+      0,
+      1.6
+     ],
+     [
+      0.2,
+      0.2
+     ]
+    ]
+   },
+   "env": {
+    "attack": 0.001,
+    "hold": 0.05,
+    "release": 0.16,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "lowpass",
+     "cutoff": 7000,
+     "q": 0.707
+    }
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     1760
+    ],
+    [
+     0.05,
+     1760
+    ],
+    [
+     0.05,
+     2640
+    ]
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.05,
+    "release": 0.08,
+    "curve": 3
+   },
+   "gain_db": -16,
+   "filters": [
+    {
+     "type": "lowpass",
+     "cutoff": 7000,
+     "q": 0.707
+    }
+   ]
+  }
+ ],
+ "master": {
+  "lufs": -19,
+  "peak_db": -1,
+  "highpass": 300
+ },
+ "vary": {
+  "pitch": 0.6,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.12,
+   0.4
+  ],
+  "centroid": [
+   800,
+   3500
+  ]
+ }
+}

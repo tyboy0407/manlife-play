@@ -1,0 +1,122 @@
+{
+ "name": "warn",
+ "description": "北極熊王來襲預告:兩聲金屬鈴(FM 1.4 比)往下 A4 -> G4,帶尾音",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     440
+    ],
+    [
+     0.22,
+     440
+    ],
+    [
+     0.22,
+     392
+    ]
+   ],
+   "fm": {
+    "ratio": 1.4,
+    "index": [
+     [
+      0,
+      2.0
+     ],
+     [
+      0.5,
+      0.4
+     ]
+    ]
+   },
+   "env": {
+    "attack": 0.005,
+    "hold": 0.4,
+    "release": 0.3,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "lowpass",
+     "cutoff": 6000,
+     "q": 0.707
+    }
+   ]
+  },
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     880
+    ],
+    [
+     0.22,
+     880
+    ],
+    [
+     0.22,
+     784
+    ]
+   ],
+   "env": {
+    "attack": 0.005,
+    "hold": 0.4,
+    "release": 0.2,
+    "curve": 2
+   },
+   "gain_db": -14
+  },
+  {
+   "wave": "noise",
+   "at": [
+    0.0,
+    0.22
+   ],
+   "env": {
+    "attack": 0.001,
+    "hold": 0.002,
+    "release": 0.03,
+    "curve": 3
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 3000,
+     "q": 1.5
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 8000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -18
+  }
+ ],
+ "master": {
+  "lufs": -14,
+  "peak_db": -1,
+  "highpass": 150,
+  "reverb": {
+   "mix": 0.15,
+   "decay": 0.6
+  }
+ },
+ "vary": {
+  "pitch": 0.2,
+  "gain_db": 1
+ },
+ "expect": {
+  "duration": [
+   0.5,
+   1.2
+  ],
+  "centroid": [
+   400,
+   2500
+  ]
+ }
+}

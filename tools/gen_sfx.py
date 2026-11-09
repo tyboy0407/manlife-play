@@ -65,7 +65,12 @@ def normalize(samples, peak=0.8):
     return [v / m * peak for v in samples]
 
 
-ONLY = set(sys.argv[1:])   # 命令列給了名字就只寫那幾個(例如 python tools/gen_sfx.py warn chest card)
+ONLY = set(a for a in sys.argv[1:] if not a.startswith("--"))   # 命令列給了名字就只寫那幾個(例如 python tools/gen_sfx.py --legacy warn chest card)
+# 2026-11-09 起正式音效由 assets/sfx/patches/*.json + tools/render_sfx.py 產生(分層合成、doctor 檢查);這支是最早的單層占位合成器,
+# 要重跑它得加 --legacy,免得把新音效蓋掉。
+if "--legacy" not in sys.argv and __name__ == "__main__":
+    print("音效現在由 assets/sfx/patches + tools/render_sfx.py 產生;要用這支舊的占位合成器請加 --legacy")
+    sys.exit(0)
 
 
 def write(name, samples):

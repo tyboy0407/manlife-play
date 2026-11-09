@@ -1,0 +1,108 @@
+{
+ "name": "arrow",
+ "description": "守衛塔射箭:弓弦彈一下(帶倍頻的正弦往下)+ 空氣「咻」(帶通噪音往下掃)",
+ "layers": [
+  {
+   "wave": "sine",
+   "freq": [
+    [
+     0,
+     900
+    ],
+    [
+     0.06,
+     400
+    ]
+   ],
+   "partials": [
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2,
+     -10,
+     0.6
+    ],
+    [
+     3,
+     -18,
+     0.4
+    ]
+   ],
+   "env": {
+    "attack": 0.0005,
+    "hold": 0.005,
+    "release": 0.07,
+    "curve": 3
+   },
+   "gain_db": -4
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.005,
+    "hold": 0.03,
+    "release": 0.09,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 1800,
+     "q": 1.5
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 7000,
+     "q": 0.707
+    }
+   ]
+  },
+  {
+   "wave": "noise",
+   "env": {
+    "attack": 0.02,
+    "hold": 0.0,
+    "release": 0.08,
+    "curve": 2
+   },
+   "filters": [
+    {
+     "type": "bandpass",
+     "cutoff": 700,
+     "q": 1.5
+    },
+    {
+     "type": "lowpass",
+     "cutoff": 4000,
+     "q": 0.707
+    }
+   ],
+   "gain_db": -8,
+   "at": [
+    0.03
+   ]
+  }
+ ],
+ "master": {
+  "lufs": -17,
+  "peak_db": -1,
+  "highpass": 200
+ },
+ "vary": {
+  "pitch": 1.0,
+  "gain_db": 1.5
+ },
+ "expect": {
+  "duration": [
+   0.08,
+   0.3
+  ],
+  "centroid": [
+   500,
+   3500
+  ]
+ }
+}
