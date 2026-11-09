@@ -86,7 +86,7 @@ func _run() -> void:
     var tailor2 := _level.station_at("tailor")
     _check(_level.stations.size() == 20 and grill2 != null and _level.counters.size() == 14 and _level.helpers.size() == hired_saved
             and _level.expansion_level() == 7 and _level.has_south_block() and _level.south_walls.is_empty() and _level.station_at("kitchen") != null
-            and _level.counter_by_id("soup_counter") != null and _level.fish_areas.size() == 4 and _level.east_gate == null and _level.station_at("grill_2") != null
+            and _level.counter_by_id("soup_counter") != null and _level.fish_areas.size() == 5 and _level.east_gate == null and _level.station_at("grill_2") != null
             and _level.station_at("grill_5") != null and _level.station_at("grill_7") != null and tailor2 != null and tailor2.logic.input_per == 5
             and _level.counter_by_id("sweater_counter") != null
             and _level.annex_east_walls[0].is_empty() and _level.annex_east_walls[1].is_empty() and not _level.annex_east_walls[2].is_empty()
@@ -340,7 +340,9 @@ func _south_more_section() -> void:
             and (_level.price_pads["trap_9"] as PricePad).visible and (_level.price_pads["bait_5"] as PricePad).visible
             and not (_level.price_pads["trap_11"] as PricePad).visible and not (_level.price_pads["tower_27"] as PricePad).visible
             and Harbor.tower_area("tower_27") == 5 and Harbor.tower_area("tower_32") == 7 and Harbor.trap_area("trap_16") == 7 and Harbor.bait_area("bait_8") == 7
-            and is_equal_approx(_level.south_end(), 30.6), "南塊蓋好後:第五次擴建牌出現、南塊的夾子 / 誘餌牌開著,下一塊的還藏著;南界 30.6")
+            and is_equal_approx(_level.south_end(), 30.6) and _level.fish_areas.size() == 5 and _level.fish_areas[4].rect.position.y > 12.6
+            and _level.fish_areas[4].fish.size() >= 3 and not _level.ponds.has(_level.fish_areas[4]),
+            "南塊蓋好後:第五次擴建牌出現、南塊的夾子 / 誘餌牌開著,下一塊的還藏著;南界 30.6;南塊水區有魚(%d 條)" % _level.fish_areas[4].fish.size())
     for sp in specs:
         var pad: PricePad = _level.price_pads[sp["pad"]]
         var st0 := _level.stations.size()

@@ -249,6 +249,11 @@ func _run() -> void:
     level.hud.panel_action("story_close")
     await _frames(5)
     await _shot("21_south_block4")
+    level.player.global_position = Vector3(-3.0, 0, 21.0)   # 南塊 1 的水區
+    await _frames(70)
+    level.hud.panel_action("story_close")
+    await _frames(5)
+    await _shot("22_south_water")
     tk.set_physics_process(true)
     level.player.global_position = Vector3(0.0, 0, 1.5)
     await _frames(5)

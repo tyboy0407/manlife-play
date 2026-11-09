@@ -221,8 +221,9 @@ func _ready() -> void:
     _check(Harbor.customer_door(0) == Vector3(14.1, 0, 10.2) and Harbor.customer_door(3) == Vector3(70.3, 0, 10.2)
             and Harbor.area_of_x(12.0) == 0 and Harbor.area_of_x(13.0) == 1 and Harbor.area_of_x(60.0) == 3, "顧客門座標與分區")
     # 魚群上限按水面面積:主村 16 × 7 = 18 條,擴建區 11 × 7 = 12 條
-    _check(_level.fish_areas.size() == 4 and _level.fish_areas[0].max_fish == 18 and _level.fish_areas[1].max_fish == 12 and _level.fish_areas[3].max_fish == 12,
-            "魚群上限按面積:主村 %d、擴建區 %d" % [_level.fish_areas[0].max_fish, _level.fish_areas[1].max_fish])
+    _check(_level.fish_areas.size() == 5 and _level.fish_areas[0].max_fish == 18 and _level.fish_areas[1].max_fish == 12 and _level.fish_areas[3].max_fish == 12
+            and _level.fish_areas[4].max_fish == 14 and _level.fish_areas[4].rect == Harbor.SOUTH_WATER_RECT and _level.nearest_fish_area(Vector3(-8, 0, 36)) == _level.fish_areas[4],
+            "魚群上限按面積:主村 %d、擴建區 %d、南塊水區 %d(南塊的切魚台最近的水區是它)" % [_level.fish_areas[0].max_fish, _level.fish_areas[1].max_fish, _level.fish_areas[4].max_fish])
     # 顧客成長:擴建四次後主村櫃台 6 + 4 = 10 位(第二排在北側 1.2 格)、擴建區櫃台 4 + 4 = 8;毛衣櫃台仍一次一件;生成間隔 × 0.85⁴
     var fc := _level.counter_by_id("fillet_counter")
     var fc2 := _level.counter_by_id("fillet_counter_2")

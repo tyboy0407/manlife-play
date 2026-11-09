@@ -34,7 +34,7 @@ const STATION_SPOTS := {"station_1": Vector3(-6.0, 0, 0), "station_2": Vector3(0
     "station_3": Vector3(18.0, 0, 0), "grill_2": Vector3(25.0, 0, 0),
     "station_4": Vector3(33.4, 0, 0), "grill_3": Vector3(38.4, 0, 0), "grill_4": Vector3(43.4, 0, 0), "grill_5": Vector3(48.4, 0, 0),   # 第二塊:切魚台 + 三座烤魚攤
     "grill_6": Vector3(53.5, 0, 0), "grill_7": Vector3(59.5, 0, 0), "tailor": Vector3(64.5, 0, 0),   # 第三塊:兩座烤魚攤 + 服飾店
-    "kitchen": Vector3(0.0, 0, 18.5),   # 南塊:魚湯廚房(兩個輸入格:魚片 / 烤魚)
+    "kitchen": Vector3(2.0, 0, 18.5),   # 南塊:魚湯廚房(兩個輸入格:魚片 / 烤魚);西邊讓給南塊水區
     "station_5": Vector3(-8.0, 0, 36.5), "station_6": Vector3(-1.5, 0, 36.5), "grill_8": Vector3(5.0, 0, 36.5),   # 第五次(南塊 2):切魚台 ×2 + 烤魚攤(x 7.8 ~ 9.2 留給貨車車道)
     "grill_9": Vector3(-8.0, 0, 54.5), "grill_10": Vector3(-1.5, 0, 54.5), "kitchen_2": Vector3(5.0, 0, 54.5),   # 第六次(南塊 3):烤魚攤 ×2 + 廚房
     "kitchen_3": Vector3(-5.0, 0, 72.5), "kitchen_4": Vector3(5.0, 0, 72.5)}   # 第七次(南塊 4):廚房 ×2
@@ -60,7 +60,7 @@ const PAD_SPOTS := {
     "shop_upgrade": Vector3(-15.5, 0, 4.6),
     "altar_insurance": Vector3(-21.9, 0, 4.6), "altar_ice": Vector3(-15.5, 0, 1.5),   # 熊王祭壇(收熊王牙):武器店院子裡
     "hire_repairman": Vector3(-15.5, 0, -1.5),   # 修理工的僱用牌:武器店院子東北角
-    "hire_guard": Vector3(-8.0, 0, 20.0),   # 衛兵的僱用牌:南塊(第四次擴建後才出現),魚湯廚房西邊
+    "hire_guard": Vector3(-10.0, 0, 26.0),   # 衛兵的僱用牌:南塊(第四次擴建後才出現),南塊水區南邊、魚湯櫃台西側
     "expand_village_5": Vector3(-6.5, 0, 29.0), "expand_village_6": Vector3(-6.0, 0, 47.0), "expand_village_7": Vector3(-6.0, 0, 65.0),   # 第五 ~ 七次(往南):牌在前一塊南塊的南柵欄邊(收銀格東側)
     "map_cash": Vector3(77.5, 0, -1.0), "map_fish": Vector3(80.5, 0, -1.0), "merchant_pelts": Vector3(83.5, 0, -1.0),   # 旅行商人營地(村外東邊雪原)
     "shrine": Vector3(86.0, 0, -9.0),   # 冰母的神龕(雪原東北角,三片地圖拼齊才出現;收 3 條稀有魚 = 結局)
@@ -110,7 +110,7 @@ const CONVEYORS := {
     "belt_grill_6": {"from": "grill_6", "to": "grill_counter_3", "pad": Vector3(53.5, 0, 5.0)},
     "belt_grill_7": {"from": "grill_7", "to": "grill_counter_3", "pad": Vector3(59.5, 0, 5.0)},
     "belt_tailor": {"from": "tailor", "to": "sweater_counter", "pad": Vector3(64.5, 0, 5.0)},
-    "belt_kitchen": {"from": "kitchen", "to": "soup_counter", "pad": Vector3(4.0, 0, 22.5)},
+    "belt_kitchen": {"from": "kitchen", "to": "soup_counter", "pad": Vector3(6.0, 0, 22.5)},
     "belt_station_5": {"from": "station_5", "to": "fillet_counter_4", "pad": Vector3(-5.0, 0, 40.9)},   # 南塊 2 ~ 4 的牌子放在輸出格之間、隊伍北邊
     "belt_station_6": {"from": "station_6", "to": "fillet_counter_4", "pad": Vector3(1.5, 0, 40.9)},
     "belt_grill_8": {"from": "grill_8", "to": "grill_counter_4", "pad": Vector3(10.5, 0, 40.9)},
@@ -140,6 +140,8 @@ const SOUTH_RECT := Rect2(-12.6, 12.6, 25.2, 18.0)
 # 往南可以疊四塊(第四 ~ 七次擴建),每塊 25.2 × 18;SOUTH_RECT 是第一塊
 const SOUTH_RECTS := [Rect2(-12.6, 12.6, 25.2, 18.0), Rect2(-12.6, 30.6, 25.2, 18.0), Rect2(-12.6, 48.6, 25.2, 18.0), Rect2(-12.6, 66.6, 25.2, 18.0)]
 const MAX_EXPANSIONS := 7
+# 南塊 1 的水區(西半邊,8 × 10.5 = 84 -> 14 條魚):南邊的切魚台 / 廚房才有自己的魚
+const SOUTH_WATER_RECT := Rect2(-10.0, 14.0, 8.0, 10.5)
 const SOUTH_DOOR_Z := Vector2(27.5, 29.5)      # 南塊東柵欄上的顧客門
 # 村外雪原(探險):空氣牆圍住 EXPLORE_RECT,村的西(武器店院子)/ 東(最東那面牆)/ 南(南牆)各一個缺口;北邊是海,沒有出口
 const EXPLORE_RECT := Rect2(-40.0, -12.0, 130.0, 104.0)   # 南邊延到 z 92,四塊南塊(到 84.6)外還有雪原
@@ -766,6 +768,12 @@ func _build_south_block(i: int = 1) -> void:
     world.add_child(batch)
     var fence := Color(0.8, 0.62, 0.42)
     batch.add_box(Vector3(rect.size.x, 0.06, rect.size.y + 0.8), Color(0.88, 0.76, 0.6), Vector3(rect.get_center().x, -0.02, rect.get_center().y - 0.4))
+    if i == 1:   # 南塊水區:水面 + 西 / 北兩側的矮木欄(像擴建區的魚欄)
+        var wc := SOUTH_WATER_RECT.get_center()
+        batch.add_box(Vector3(SOUTH_WATER_RECT.size.x, 0.12, SOUTH_WATER_RECT.size.y), Color(0.2, 0.45, 0.85), Vector3(wc.x, -0.04, wc.y))
+        for j in int(SOUTH_WATER_RECT.size.y) + 1:
+            batch.add_cylinder(0.14, 1.1, fence, Vector3(SOUTH_WATER_RECT.position.x - 0.4, 0.55, SOUTH_WATER_RECT.position.y + float(j)))
+        batch.add_box(Vector3(0.3, 0.3, SOUTH_WATER_RECT.size.y), fence, Vector3(SOUTH_WATER_RECT.position.x - 0.4, 0.95, wc.y))
     # 西柵欄整面、東柵欄留顧客門;南柵欄 + 南牆留探險缺口,另外記著(再往南擴建時拆)
     batch.add_box(Vector3(0.25, 0.9, rect.size.y), fence, Vector3(rect.position.x + 0.2, 0.45, rect.get_center().y))
     for seg in _gap_segments(rect.position.y, rect.end.y, door):
@@ -783,6 +791,11 @@ func _build_south_block(i: int = 1) -> void:
     south_blocks.append(batch)
     if i == 1:
         south_block = batch
+        var fa := FishArea.new()
+        fa.name = "FishAreaSouth"
+        fa.rect = SOUTH_WATER_RECT
+        world.add_child(fa)
+        fish_areas.append(fa)
     annexes.append(batch)   # 每塊南塊都算一次擴建(expansion_level:塔牌、熊的南入口、僱用名額、顧客成長)
     _apply_quality()
     _refresh_tower_pads()
