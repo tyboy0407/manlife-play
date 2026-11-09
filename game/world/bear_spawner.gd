@@ -103,8 +103,8 @@ func _physics_process(delta: float) -> void:
         return
     if king_warning_active() or GameState.play_time < calm_until:
         return   # 王來襲預告期間 / 平靜券生效中,一般熊不來(冷卻暫停)
-    if GameState.play_time < logic.first_at_sec():
-        return   # 開局前幾分鐘不來(firstAtSec),讓玩家先把經濟做起來
+    if GameState.play_time < logic.first_at_sec() + GameState.legacy_bonus("bear_delay"):
+        return   # 開局前幾分鐘不來(firstAtSec + 熊延後火種),讓玩家先把經濟做起來
     if cooldown < 0.0:
         cooldown = logic.first_delay()
     cooldown -= delta

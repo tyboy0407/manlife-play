@@ -262,6 +262,16 @@ func _run() -> void:
     await _frames(5)
     await _shot("12_menu_stats")
     level.hud.menu_action("close")
+    # 火堆 + 過冬面板(傳承):玩家站到火堆旁,面板列本輪分數與八項火種
+    level.player.global_position = Harbor.BONFIRE_SPOT + Vector3(1.6, 0, 0.6)
+    await _frames(30)
+    await _shot("23_bonfire")
+    GameState.legacy["points"] = 4
+    level.buy_perk("start_cash")
+    level.legacy_prompt()
+    await _frames(5)
+    await _shot("24_legacy_panel")
+    level.hud.panel_action("legacy_close")
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()

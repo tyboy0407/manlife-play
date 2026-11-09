@@ -175,6 +175,7 @@ const MONEY_SPOT := Vector3(-4.0, 0, 10.7)
 const TRASH_SPOT := Vector3(9.0, 0, 10.7)
 const HELPER_SPAWN := Vector3(0.0, 0, -3.0)
 const PLAYER_SPAWN := Vector3(0.0, 0, 7.0)
+const BONFIRE_SPOT := Vector3(10.8, 0, 2.9)   # 火堆(傳承 / 過冬的觸發點):主村東側走道,烤魚攤傳送帶牌東邊、堆疊上限牌北邊(四角有塔、中央有傳送帶牌)
 const GATE_Z := Vector2(1.2, 3.8)             # 西牆缺口(z 範圍),通往村外
 const WEAPON_SHOP := Vector3(-19.5, 0, -1.4)  # 武器店店屋中心
 const SHOPKEEPER_SPOT := Vector3(-19.5, 0, 0.6)
@@ -212,6 +213,8 @@ var autosave_sec := 10.0
 var loaded_from_save := false
 var offline: OfflineLogic               # 離線收益:在線記收入速率、讀檔時算離線收益
 var king_logic: KingLogic               # 北極熊王獎勵循環
+var legacy: LegacyLogic                 # 傳承 / 過冬(評分、點數、火種)
+var bonfire: BonfirePad = null          # 火堆:玩家站滿 1 秒開過冬面板
 var south_walls: Array[Node3D] = []     # 主村南牆(隱形牆 + 柵欄),往南擴建時拆
 var south_block: StaticBatch = null     # 第一塊南塊布景(蓋了才有)
 var south_blocks: Array[StaticBatch] = []   # 每塊南塊的布景(依序,最多 SOUTH_RECTS.size())
@@ -292,6 +295,10 @@ func _ready() -> void:
     _build_traps()
     _build_ponds()
     _build_depot()
+    bonfire = BonfirePad.new()
+    bonfire.level = self
+    bonfire.position = BONFIRE_SPOT
+    world.add_child(bonfire)
     player = Player.new()
     player.name = "Player"
     player.position = PLAYER_SPAWN
@@ -315,6 +322,8 @@ func _ready() -> void:
     offline = OfflineLogic.from_config(GameData.section("offline"))
     king_logic = KingLogic.from_config(GameData.section("bear").get("king", {}))
     bears.king_logic = king_logic
+    legacy = GameState.legacy_rules()
+    GameState.changed.connect(func() -> void: offline.bonus_sec = GameState.legacy_bonus("offline_max"))
     _load_save()
     _refresh_trophies()
     _apply_shop_level()
@@ -341,6 +350,7 @@ func _ready() -> void:
     add_child(story)
     EventBus.purchased.connect(_on_purchased)
     EventBus.purchased.connect(func(_id: String, _effect: Dictionary) -> void: save_now())
+    _maybe_show_legacy_intro()
 
 
 ## --- 場景 ---
@@ -1601,7 +1611,7 @@ func _king_slain(b: Bear) -> void:
     var g := king_logic.grade(king_eaten, king_wrecked)
     var reward := king_logic.chest(g, GameState.king_streak, GameState.king_level, offline.rate(GameState.play_time), randf())
     reward["streak"] = king_logic.next_streak(GameState.king_streak, g)
-    var milestone := GameState.king_slain(int(reward["streak"]), king_logic)
+    var milestone := GameState.king_slain(int(reward["streak"]), king_logic, g == "perfect")
     drop_loot("chest", b.global_position, reward)
     _refresh_trophies()
     EventBus.king_leveled.emit(GameState.king_level)
@@ -1999,6 +2009,8 @@ func snapshot() -> Dictionary:
 
 
 func restore_world(d: Dictionary) -> void:
+    if d.is_empty():
+        return   # 過冬後的存檔只有 GameState,世界用預設的
     var pl = d.get("player", {})
     if typeof(pl) == TYPE_DICTIONARY:
         if pl.has("x") and pl.has("z"):   # 存檔時站哪(村外探險也記)
@@ -2115,6 +2127,7 @@ func _load_save() -> void:
     if typeof(state) == TYPE_DICTIONARY:
         GameState.from_dict(state)
         Sfx.set_enabled(GameState.sound_on)
+        offline.bonus_sec = GameState.legacy_bonus("offline_max")   # 離線上限火種要在算離線收益之前套上
     for target in UNLOCKS:
         if GameState.is_unlocked(str(target)):
             _spawn_unlock(str(target))
@@ -2178,6 +2191,76 @@ func _notification(what: int) -> void:
         save_now()   # 網頁版切到背景 / 自動更新重新整理前也存
 
 
+## --- 傳承 / 過冬(規則 LegacyLogic,數值 game.json legacy)---
+
+## 本輪評分用的數字(LegacyLogic.score 吃):章節只算「這一輪的條件成立的」,前人留下的不重複計分
+func legacy_inputs() -> Dictionary:
+    var alive_stations := 0
+    for s in stations:
+        if is_instance_valid(s) and not s.is_broken():
+            alive_stations += 1
+    var chapters := 0
+    if story != null and story.logic != null:
+        chapters = story.logic.unlocked_chapters(story.state()).size()
+    return {"cash_earned": GameState.cash_earned, "expansions": expansion_level(), "towers": alive_towers().size(), "stations": alive_stations,
+        "counters": counters.size(), "belts": conveyors.size(), "bears_fled": GameState.bears_fled, "king_kills": GameState.king_kills,
+        "king_perfects": GameState.king_perfects, "chapters": chapters, "ending": GameState.is_unlocked("shrine")}
+
+
+## 過冬面板的資料(Hud.show_legacy 吃):{generation, points, score {income, build, battle, story, total}, gain, low, perks [{id, level, max, cost, per, affordable}]}
+func legacy_data() -> Dictionary:
+    var sc := legacy.score(legacy_inputs())
+    var gain := legacy.points_for(int(sc["total"]))
+    var perks: Array = []
+    for id in legacy.perk_ids():
+        var lv := GameState.legacy_level(id)
+        perks.append({"id": id, "level": lv, "max": legacy.max_level(id), "cost": legacy.perk_cost(id, lv), "per": legacy.per_level(id),
+            "affordable": legacy.can_buy(GameState.legacy_points(), id, lv)})
+    return {"generation": GameState.generation(), "points": GameState.legacy_points(), "score": sc, "gain": gain, "low": gain < legacy.low_points(), "perks": perks}
+
+
+## 開過冬面板(火堆站滿 1 秒 / 選單「火種 / 過冬」)
+func legacy_prompt() -> void:
+    hud.show_legacy(legacy_data())
+
+
+## 花傳承點數點亮火種(馬上生效:GameState.changed 讓工作站 / 櫃台 / 幫手 / 玩家重算),面板開著就刷新
+func buy_perk(id: String) -> bool:
+    if not GameState.buy_perk(id, legacy):
+        return false
+    EventBus.notice.emit(tr("NOTICE_LEGACY_PERK") % tr("LEGACY_PERK_%s" % id))
+    save_now()
+    if hud.legacy_open():
+        hud.show_legacy(legacy_data())
+    return true
+
+
+## 過冬:結算本輪 -> GameState.rebirth(只留火種 / 點數 / 歷史 / 已讀章節,教學跳過)-> 寫存檔(world 空的 = 預設村子)。回傳這次的紀錄;winter_rebirth 再重載場景
+func prepare_rebirth() -> Dictionary:
+    var sc := legacy.score(legacy_inputs())
+    var gain := legacy.points_for(int(sc["total"]))
+    var record := {"gen": GameState.generation(), "total": int(sc["total"]), "points": gain, "playTime": GameState.play_time, "cash": GameState.cash_earned}
+    GameState.rebirth(gain, record)
+    SaveManager.write({"state": GameState.to_dict(), "world": {}})
+    return record
+
+
+func winter_rebirth() -> void:
+    prepare_rebirth()
+    get_tree().reload_current_scene()
+
+
+## 新一代剛開局:用章節面板彈「第 N 代」(前一代分數 / 留下的點數 / 手上的點數),只彈一次
+func _maybe_show_legacy_intro() -> void:
+    if not GameState.clear_legacy_intro():
+        return
+    var hist = GameState.legacy.get("history", [])
+    var last: Dictionary = hist[hist.size() - 1] if typeof(hist) == TYPE_ARRAY and not hist.is_empty() else {}
+    hud.show_chapter(tr("LEGACY_INTRO_TITLE") % GameState.generation(),
+        tr("LEGACY_INTRO_TEXT") % [int(last.get("total", 0)), int(last.get("points", 0)), GameState.legacy_points()])
+    save_now()
+
+
 ## HUD 選單:提示箭頭開關、重新開始(手機沒有 H / F9)
 func _on_hud_action(id: String) -> void:
     match id:
@@ -2186,6 +2269,10 @@ func _on_hud_action(id: String) -> void:
                 guide.toggle_hints()
         "new_game":
             new_game()
+        "legacy_open":
+            legacy_prompt()
+        "legacy_rebirth":
+            winter_rebirth()
         "offline_claim":
             _claim_offline()
         "map_home":
@@ -2201,6 +2288,8 @@ func _on_hud_action(id: String) -> void:
         _:
             if id.begins_with("choice:"):
                 _claim_chest(int(id.trim_prefix("choice:")))
+            elif id.begins_with("legacy_buy:"):
+                buy_perk(id.trim_prefix("legacy_buy:"))
 
 
 func _unhandled_input(event: InputEvent) -> void:

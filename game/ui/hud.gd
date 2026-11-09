@@ -59,6 +59,13 @@ var _tower_body: Label
 var _tower_rate_btn: Button
 var _tower_dmg_btn: Button
 var _upgrade_btn: Button                   # 走到守衛塔旁出現的「升級」鈕(畫面下方中央)
+var legacy_panel: PanelContainer = null    # 傳承 / 過冬面板(火堆或選單開):本輪分數、火種清單、過冬鈕(按兩次)
+var _legacy_body: Label
+var _legacy_box: VBoxContainer
+var _legacy_buttons: Array[Button] = []
+var _legacy_rebirth_btn: Button
+var _legacy_cache := {}
+var _confirm_rebirth := false
 var _map_cache := {}                # 上次 show_map 拿到的地圖資料
 var _notice_timer := 0.0
 var _notice_queue: Array[String] = []   # 一秒內連來好幾則通知(撿毛皮 ×3)時排隊,不把前一則蓋掉
@@ -134,6 +141,7 @@ func _ready() -> void:
     _build_story_panel()
     _build_journal_panel()
     _build_tower_panel()
+    _build_legacy_panel()
     _upgrade_btn = Button.new()
     _upgrade_btn.name = "UpgradeButton"
     _upgrade_btn.text = tr("MENU_UPGRADE_TOWER")
@@ -201,7 +209,7 @@ func _make_label(font_size: int, color: Color) -> Label:
 func _make_button(text: String, id: String) -> Button:
     var b := Button.new()
     b.text = text
-    b.custom_minimum_size = Vector2(236, 56)
+    b.custom_minimum_size = Vector2(236, 50)   # 十一顆鈕 + 統計分頁要塞進 960 高的直式畫面
     b.add_theme_font_size_override("font_size", 20)
     b.pressed.connect(menu_action.bind(id))
     return b
@@ -252,6 +260,7 @@ func _build_menu() -> void:
     box.add_child(_make_button(tr("MENU_HELP"), "help"))
     box.add_child(_make_button(tr("MENU_CHANGELOG"), "changelog"))
     box.add_child(_make_button(tr("MENU_JOURNAL"), "journal"))
+    box.add_child(_make_button(tr("MENU_LEGACY"), "legacy"))
     _new_game_btn = _make_button("", "new_game")
     box.add_child(_new_game_btn)
     box.add_child(_make_button(tr("MENU_CLOSE"), "close"))
@@ -674,10 +683,143 @@ func panel_action(id: String) -> void:
             action.emit(id)
         "journal_close":
             journal_panel.visible = false
+        "legacy_close":
+            legacy_panel.visible = false
+            _confirm_rebirth = false
+        "legacy_rebirth":
+            if not _confirm_rebirth:
+                _confirm_rebirth = true
+                _refresh_rebirth_button()
+            else:
+                _confirm_rebirth = false
+                legacy_panel.visible = false
+                action.emit("legacy_rebirth")
         "map_home":
             if map_panel.visible and _map_home_btn.visible:
                 map_panel.visible = false
                 action.emit("map_home")
+        _:
+            if id.begins_with("legacy_buy:"):
+                action.emit(id)
+
+
+## --- 傳承 / 過冬面板 ---
+
+func _build_legacy_panel() -> void:
+    var parts := _centered_panel("LegacyPanel", 420, "LEGACY_TITLE")
+    legacy_panel = parts["panel"]
+    var box: VBoxContainer = parts["box"]
+    _legacy_body = Label.new()
+    _legacy_body.add_theme_font_size_override("font_size", 15)
+    _legacy_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _legacy_body.custom_minimum_size = Vector2(380, 0)
+    box.add_child(_legacy_body)
+    _legacy_box = VBoxContainer.new()
+    _legacy_box.add_theme_constant_override("separation", 6)
+    box.add_child(_legacy_box)
+    _legacy_rebirth_btn = Button.new()
+    _legacy_rebirth_btn.name = "RebirthButton"
+    _legacy_rebirth_btn.custom_minimum_size = Vector2(0, 56)
+    _legacy_rebirth_btn.add_theme_font_size_override("font_size", 18)
+    _legacy_rebirth_btn.pressed.connect(panel_action.bind("legacy_rebirth"))
+    box.add_child(_legacy_rebirth_btn)
+    box.add_child(_close_button("legacy_close"))
+
+
+## 火種數值的顯示:起始資金 $、熊延後秒、背包件、離線小時,其他百分比
+func legacy_fmt(id: String, v: float) -> String:
+    match id:
+        "start_cash":
+            return "+$%d" % int(round(v))
+        "bear_delay":
+            return tr("LEGACY_SEC") % int(round(v))
+        "capacity":
+            return tr("LEGACY_ITEMS") % int(round(v))
+        "offline_max":
+            return tr("LEGACY_HOURS") % (v / 3600.0)
+        _:
+            return "+%d%%" % int(round(v * 100.0))
+
+
+## d 見 Harbor.legacy_data:{generation, points, score, gain, low, perks}
+func show_legacy(d: Dictionary) -> void:
+    _legacy_cache = d.duplicate(true)
+    var sc: Dictionary = d.get("score", {})
+    var low := bool(d.get("low", false))
+    var text: String = tr("LEGACY_BODY") % [int(d.get("generation", 1)), int(d.get("points", 0)), int(sc.get("income", 0)), int(sc.get("build", 0)),
+            int(sc.get("battle", 0)), int(sc.get("story", 0)), int(sc.get("total", 0)), int(d.get("gain", 0))]
+    if low:
+        text += "\n" + tr("LEGACY_LOW")
+    _legacy_body.text = text
+    _legacy_body.add_theme_color_override("font_color", Color(1.0, 0.6, 0.55) if low else Color(0.95, 0.97, 1.0))
+    var perks: Array = d.get("perks", [])
+    while _legacy_buttons.size() < perks.size():
+        var b := Button.new()
+        b.custom_minimum_size = Vector2(0, 46)
+        b.add_theme_font_size_override("font_size", 14)
+        b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+        var idx := _legacy_buttons.size()
+        b.pressed.connect(func() -> void: legacy_action(idx))
+        _legacy_box.add_child(b)
+        _legacy_buttons.append(b)
+    for i in _legacy_buttons.size():
+        var b := _legacy_buttons[i]
+        b.visible = i < perks.size()
+        if i >= perks.size():
+            continue
+        var p: Dictionary = perks[i]
+        var id := str(p.get("id", ""))
+        var lv := int(p.get("level", 0))
+        var mx := int(p.get("max", 0))
+        var cost := int(p.get("cost", -1))
+        var per := float(p.get("per", 0.0))
+        var pname := tr("LEGACY_PERK_%s" % id)
+        if cost >= 0:
+            b.text = tr("LEGACY_PERK_ROW") % [pname, lv, mx, legacy_fmt(id, per * float(lv)), legacy_fmt(id, per), cost]
+        else:
+            b.text = tr("LEGACY_PERK_MAX") % [pname, lv, mx, legacy_fmt(id, per * float(lv))]
+        b.disabled = cost < 0 or not bool(p.get("affordable", false))
+    _confirm_rebirth = false
+    _refresh_rebirth_button()
+    menu_panel.visible = false
+    legacy_panel.visible = true
+
+
+func _refresh_rebirth_button() -> void:
+    _legacy_rebirth_btn.text = tr("LEGACY_REBIRTH_CONFIRM") if _confirm_rebirth else tr("LEGACY_REBIRTH") % int(_legacy_cache.get("gain", 0))
+
+
+## 按第 i 列火種:發 action "legacy_buy:<id>"(關卡扣點數後再 show_legacy 刷新)
+func legacy_action(i: int) -> void:
+    var perks: Array = _legacy_cache.get("perks", [])
+    if i < 0 or i >= perks.size():
+        return
+    panel_action("legacy_buy:%s" % str((perks[i] as Dictionary).get("id", "")))
+
+
+func legacy_open() -> bool:
+    return legacy_panel != null and legacy_panel.visible
+
+
+func legacy_perk_count() -> int:
+    var n := 0
+    for b in _legacy_buttons:
+        if b.visible:
+            n += 1
+    return n
+
+
+func confirming_rebirth() -> bool:
+    return _confirm_rebirth
+
+
+func legacy_text() -> String:
+    var parts: Array[String] = [_legacy_body.text]
+    for b in _legacy_buttons:
+        if b.visible:
+            parts.append(b.text)
+    parts.append(_legacy_rebirth_btn.text)
+    return "\n".join(parts)
 
 
 ## 碼頭訂單那一行("" = 隱藏)
@@ -858,7 +1000,8 @@ func stats_pages() -> Array[String]:
                 GameState.weapon_level, GameState.shop_level, GameState.helpers_lost, GameState.pelts],
         tr("HUD_STATS_KING") % [GameState.king_level, GameState.king_kills, GameState.king_streak, GameState.teeth, GameState.king_capacity_bonus]
                 + "\n" + tr("HUD_COUPONS") % [GameState.coupon("insurance"), GameState.coupon("calm"), GameState.coupon("upgrade")]
-                + "\n" + tr("HUD_STATS_MORE") % [GameState.orders_done, GameState.orders_cash, GameState.rarefish, GameState.map_pieces, GameState.MAP_PIECES],
+                + "\n" + tr("HUD_STATS_MORE") % [GameState.orders_done, GameState.orders_cash, GameState.rarefish, GameState.map_pieces, GameState.MAP_PIECES]
+                + "\n" + tr("HUD_LEGACY_LINE") % [GameState.generation(), GameState.legacy_points(), GameState.legacy_total_levels()],
     ]
 
 
@@ -914,6 +1057,9 @@ func menu_action(id: String) -> void:
         "journal":
             menu_panel.visible = false
             action.emit("journal")
+        "legacy":
+            menu_panel.visible = false
+            action.emit("legacy_open")
         "new_game":
             if not _confirm_new_game:
                 _confirm_new_game = true

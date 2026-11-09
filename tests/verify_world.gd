@@ -45,7 +45,7 @@ func _run() -> void:
     _check(_level.camera != null and _level.camera.current and _level.hud != null and _player.is_in_group("player")
             and _player.can_serve and _player.can_use_trash and _player.collects_cash and GameState.wallet == 0, "相機與 HUD、玩家分組與旗標、錢包 0")
     var pads := get_tree().get_nodes_in_group("pad").size()
-    _check(pads == 145, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 碼頭交貨格 / 貨物放置區 / 一百三十六塊價格牌 / 修復牌(%d)" % pads)
+    _check(pads == 146, "格子數:輸入 / 輸出 / 上架 / 收銀 / 錢 / 垃圾桶 / 碼頭交貨格 / 貨物放置區 / 火堆 / 一百三十六塊價格牌 / 修復牌(%d)" % pads)
     var tp0: PricePad = _level.price_pads.get("tooth_tower_1", null)
     var su0: PricePad = _level.price_pads.get("shop_upgrade", null)
     _check(tp0 != null and not tp0.visible and not tp0.logic.is_exhausted() and su0 != null and su0.visible and su0.logic.currency == "pelt"

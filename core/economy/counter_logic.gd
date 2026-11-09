@@ -6,6 +6,7 @@ var item_id := "fillet"
 var stock := 0
 var stock_cap := 30
 var price := 2
+var price_mult := 1.0   # 售價倍率(售價火種),算在整筆收入上四捨五入(單價 $2 的 +4% 才不會被整數吃掉)
 
 
 func space() -> int:
@@ -22,7 +23,7 @@ func add_stock(n: int = 1) -> int:
 func serve(want: int) -> Dictionary:
     var sold := mini(maxi(want, 0), stock)
     stock -= sold
-    return {"sold": sold, "cash": sold * price}
+    return {"sold": sold, "cash": int(round(float(sold * price) * price_mult))}
 
 
 ## 顧客要幾件:weights[i] 是「要 i + 1 件」的權重(customers.wantWeights),roll 0 ~ 1;沒權重就 1 件

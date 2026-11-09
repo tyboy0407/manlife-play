@@ -232,7 +232,7 @@ HELP_chain,Catch fish in the shallows -> cutting table makes fillets -> grill ma
 HELP_helpers,Fishers catch fish and feed the cutting tables. Porters move products to where stock is lowest. Cashiers serve a counter each.\nThe repairman fixes wrecked buildings for free.\nHelpers can be eaten by bears; buy them back at 1.5x (helper insurance coupons keep the slot).\nUpgrades: worker speed; pile capacity; porter capacity; backpack.,漁夫抓魚送切魚台；搬運工把成品送到最缺貨的地方；收銀員各守一座櫃台。\n修理工會免費修好被拆的建築。\n幫手會被熊吃掉，買回價 1.5 倍（幫手保險券可保住名額）。\n升級：工人速度、堆疊上限、搬運工容量、背包。
 HELP_bears,Polar bears arrive from the edges after 3 minutes and eat helpers. Buy a weapon at the shop outside the west gate and walk into bears to hit them.\nDefeated bears drop pelts: upgrade the weapon shop (more weapon levels) or make sweaters.\nGuard towers ($200) shoot arrows; bear traps and bait slow bears down.,3 分鐘後北極熊會從地圖邊緣進村吃幫手。到西門外的武器店買武器，走到熊旁邊就會自動攻擊。\n打跑的熊掉毛皮：升級武器店（買更強的武器）或做毛衣。\n守衛塔（$200）射箭；捕熊夾與誘餌能拖住熊。
 HELP_expand,Expand the village east three times and south once: more water; stations; counters and hire slots.\nEach expansion brings more customers who buy more per visit and queue in two rows.\nThe cargo ship at the northwest dock posts timed orders: deliver for double pay. Porters help deliver.\nThe traveling merchant on the east snowfield sells map pieces (cash or golden fish).,村莊可往東擴建三次、往南一次：更多水區、工作站、櫃台與僱用名額。\n每擴建一次顧客更多、每人買得更多、排成兩排。\n村外西北碼頭的貨船會貼限時訂單：送齊賺兩倍，搬運工也會幫忙送。\n東邊雪原的旅行商人賣地圖碎片（現金或金魚）。
-HELP_king,The Polar Bear King comes at 8 minutes (45 s warning). It wrecks buildings it chews for 10 s. Kill it for a chest: pick one of three cards.\nKing teeth reinforce towers or buy altar coupons. Each kill levels the King up.\nGolden fish appear in the water now and then: only you can catch them (stand beside one for 2 s).\nOffline: helpers earn at half your recent income rate for up to 8 hours.,北極熊王 8 分鐘後來（提前 45 秒預告），咬建築 10 秒就拆掉。打死牠掉寶箱，三選一。\n熊王牙可強化守衛塔或在祭壇買券。每打死一次王會升級。\n水裡偶爾出現金魚：只有你抓得到（站在旁邊 2 秒）。\n離線時幫手照最近收入的一半賺錢，最多 8 小時。
+HELP_king,The Polar Bear King comes at 8 minutes (45 s warning). It wrecks buildings it chews for 10 s. Kill it for a chest: pick one of three cards.\nKing teeth reinforce towers or buy altar coupons. Each kill levels the King up.\nGolden fish appear in the water now and then: only you can catch them (stand beside one for 2 s).\nOffline: helpers earn at half your recent income rate for up to 8 hours. Wintering (bonfire or menu): this run's score becomes legacy points; spend them on permanent embers for the next generation.,北極熊王 8 分鐘後來（提前 45 秒預告），咬建築 10 秒就拆掉。打死牠掉寶箱，三選一。\n熊王牙可強化守衛塔或在祭壇買券。每打死一次王會升級。\n水裡偶爾出現金魚：只有你抓得到（站在旁邊 2 秒）。\n離線時幫手照最近收入的一半賺錢，最多 8 小時。過冬（火堆或選單）：本輪評分換成傳承點數，買永久火種留給下一代。
 HUD_STATS_MORE,orders done %d ($%d) | golden fish %d | map %d/%d,訂單完成 %d（$%d）|金魚 %d|地圖 %d/%d
 MENU_JOURNAL,Journal,日誌
 JOURNAL_TITLE,Journal,日誌
@@ -341,3 +341,27 @@ NOTICE_TRUCK_BOUGHT,A snow truck! The fisher drives to the wild ponds and brings
 SHOP_expand_village_5,Expand south (5th),往南擴建村莊（第五次）
 SHOP_expand_village_6,Expand south (6th),往南擴建村莊（第六次）
 SHOP_expand_village_7,Expand south (7th),往南擴建村莊（第七次）
+MENU_LEGACY,Embers / winter,火種／過冬
+PAD_BONFIRE,Bonfire,火堆
+LEGACY_TITLE,Embers of the ancestors,前人的火種
+LEGACY_BODY,Generation %d | legacy points %d\nThis run: income %d + building %d + battle %d + story %d = %d\nWintering now grants %d legacy points,第 %d 代｜傳承點數 %d\n本輪評分：收入 %d＋建設 %d＋戰績 %d＋故事 %d＝%d\n現在過冬可得 %d 點傳承
+LEGACY_LOW,Too few points yet: keep building this run first,點數還少，建議這輪先多做一點再過冬
+LEGACY_PERK_ROW,%s Lv%d/%d | now %s | per level %s | %d pts,%s Lv%d/%d｜目前 %s｜每級 %s｜%d 點
+LEGACY_PERK_MAX,%s Lv%d/%d | now %s | maxed,%s Lv%d/%d｜目前 %s｜已滿
+LEGACY_SEC,+%d s,+%d 秒
+LEGACY_ITEMS,+%d items,+%d 件
+LEGACY_HOURS,+%.0f h,+%.0f 小時
+LEGACY_PERK_start_cash,Starting cash,起始資金
+LEGACY_PERK_worker_speed,Worker speed,工人速度
+LEGACY_PERK_helper_speed,Helper speed,幫手走速
+LEGACY_PERK_pile_cap,Stack limits,堆疊上限
+LEGACY_PERK_bear_delay,First bears later,熊延後出沒
+LEGACY_PERK_price,Sale prices,售價
+LEGACY_PERK_offline_max,Offline cap,離線收益上限
+LEGACY_PERK_capacity,Backpack,背包
+LEGACY_REBIRTH,Winter over (+%d pts): hand the village to the next generation,過冬（+%d 點）：把村子交給下一代
+LEGACY_REBIRTH_CONFIRM,Tap again: everything but the embers starts over,再按一次：火種以外全部重來
+LEGACY_INTRO_TITLE,Generation %d,第 %d 代
+LEGACY_INTRO_TEXT,The last generation scored %d and left %d legacy points. You hold %d points: spend them at the bonfire. The village is snow again but the embers still burn.,前一代評分 %d，留下 %d 點傳承。你手上共有 %d 點，可以在火堆旁把火種分給這一代。村子又回到一片雪白，但火種還燒著。
+NOTICE_LEGACY_PERK,Ember kindled: %s,火種點亮：%s
+HUD_LEGACY_LINE,Generation %d | legacy points %d | embers Lv%d,第 %d 代｜傳承點數 %d｜火種合計 Lv%d

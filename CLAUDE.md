@@ -213,6 +213,14 @@
   傳送帶牌 z0 + 9.9 放輸出格之間、x 7.8 ~ 9.2 留給貨車車道;顧客上限成長封頂 customers.perExpansion.maxExtra 4(兩排,第五次起只加快來客 / 多要幾件)。
 - 2026-11-09(使用者:南邊缺魚,在南塊加一個水區):SOUTH_WATER_RECT (-10, 14, 8 × 10.5) 在南塊 1 西半邊(FishAreaSouth,14 條魚,進 fish_areas 所以漁夫 / 提示 / 王都算它),
   _build_south_block(1) 蓋水面 + 西側木欄;魚湯廚房挪到 x 2、傳送帶牌 (6, 22.5)、衛兵牌挪到 (-10, 26) 讓位。漁夫從這裡抓的魚最近的切魚台是南塊 2 的 station_5 / 6。
+- 2026-11-09(傳承 / 過冬重生,使用者提議:本輪分數換傳承點數,「前人把火種留給下一代」;三題選 1a 2a 3a):規則 core/legacy/legacy_logic.gd(LegacyLogic,數值 game.json legacy)。
+  1a 四項加權分 + 開根號:收入(累積收入 / 100)+ 建設(擴建 300、塔 50、工作站 / 櫃台 30(起始那座不算)、傳送帶 20)+ 戰績(打跑熊 5、打死王第 i 次 200 × (min(i, 5) + 1)、perfect 100)
+  + 故事(本輪條件成立的章節 100(第一章不算)、結局 1000;前人留下的章節不重複算),點數 = floor(sqrt(總分) / 10)。2a 火種樹八項五級、逐級 1 / 2 / 3 / 4 / 5 點:起始資金 +$200、工人速度 +5%、
+  幫手走速 +5%、堆疊上限 +10%、熊延後 +30 秒、售價 +4%(CounterLogic.price_mult 整筆四捨五入)、離線上限 +1 小時(OfflineLogic.bonus_sec)、背包 +1;買了馬上生效(GameState.changed)。
+  3a 乾淨重來:GameState.rebirth 只留 legacy(generation / points / perks / history)、已讀章節與日誌(不再彈)、提示 / 音效設定;教學跳過、錢包 = 起始資金火種;
+  過冬面板(Hud.show_legacy:分數明細 + 八列火種鈕 + 過冬鈕按兩次,不暫停)從選單「火種 / 過冬」或站主村東側走道的火堆 BONFIRE_SPOT (10.8, 2.9)(烤魚攤傳送帶牌東邊、堆疊上限牌北邊)滿 1 秒開;低於 3 點標紅提醒。
+  我定的配套:存檔不升版(舊檔沒 legacy 當第 1 代);過冬寫 {state, world: {}}(restore_world 空字典直接回)再 reload_current_scene;新一代開局用章節面板彈「第 N 代」(legacy.intro 旗標只彈一次);
+  統計「王與券」頁多一行;GameState 多 bears_fled / king_perfects 統計;F9 新遊戲連傳承也清掉。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -233,6 +241,8 @@
 - `core/fishing/rare_fish_logic.gd`:RareFishLogic(稀有魚:next_interval(roll) / lifetime / catch_radius / catch_sec / speed_mult / tick_catch(progress, delta, in_range) / is_caught;ITEM "rarefish";數值 game.json rareFish)
 - `core/economy/offline_logic.gd`:OfflineLogic(離線收益:begin(t, 存檔速率) / record(t, cash) / rate(t) 最近 windowSec 的每秒收入(沒觀察到的部分用 seed_rate 補)、
   static offline_seconds(savedAt, now)、earnings(速率, 離線秒) = 速率 × min(秒, maxSec) × rateMult(不滿 minSec 回 0)、counted_seconds、static split_duration -> {h, m};數值 game.json offline)
+- `core/legacy/legacy_logic.gd`:LegacyLogic(傳承 / 過冬:score(inputs) 四項明細 / king_score / points_for(total) sqrt ÷ 10 / low_points、perks 清單 perk_ids / max_level / perk_cost(id, level) / per_level / bonus(id, level) / can_buy、
+  static total_levels;數值 game.json legacy)
 - `core/input/move_input.gd`:MoveInput(螢幕方向 -> 世界 XZ;from_actions 鍵盤手把 + 觸控搖桿(static touch_dir,有推就以搖桿為準)、toward 合成輸入)
 - `core/guidance/guide_logic.gd`:GuideLogic(教學七步的完成條件與指向、教學後的提示 hint();吃世界狀態字典,回 {kind, target, text, arg};
   北極熊在村裡(state.bear)最優先:沒武器指武器牌 WEAPON_PAD、有武器 kind "bear")
@@ -256,6 +266,7 @@
   `bear.gd`(Bear:king_level / king_logic 王的等級(血 / 體型 / 咬建築 / Lv 標籤);從 entry 進來,hunting 盯最近的幫手 -> 靠到 panicRadius 幫手嚇呆 -> biteRadius 內 biting 咬 biteSec 秒 -> Harbor.helper_eaten -> 找下一個;
   hp / hp_max = BearLogic.hp(play_time),take_hit 扣血閃紅、頭上血條,歸零 defeat 逃回 entry(fleeing);沒人可吃 leaving;is_king:體型 size_scale、
   連 Fish 也當獵物、_feast 回血變大、沒獵物就在村中間等;白方塊占位或 models.bear)、`customer.gd`(走到排隊位、等、買完原地 emote-yes 0.6 秒再離開,無物理;輪流用 models.customers 的人物模型,沒有就膠囊;泡泡顯示物品名 ×數量)
+- `game/world/bonfire_pad.gd`:BonfirePad(火堆,Pad:石圈 + 木柴 + 會閃的火焰;玩家站滿 1 秒叫 Harbor.legacy_prompt 開過冬面板,走開再站才再開)
 - `game/world/`:Pad(Area3D 基底,每幀對站著的 Carrier 呼叫 _on_carrier_stay,_budget 速率累加器)、StationPad(item 指定收哪種原料;原料是資源(GameState.is_resource:pelt / tooth)時 _resource_input:玩家站滿 resourceInputDelaySec 才從 GameState 扣)、Station(`Station.create(def)`;每種原料一個 StationPad(item)與堆:input_pads / input_piles / input_pad_for / pile_top_for;id kitchen 畫大鍋、tailor 畫衣架 + 毛衣,spot_id、apply_upgrades 吃 worker_speed / pile_cap、take_back 收回搬運工送不出去的成品;worker_model = models.worker 的人物,處理中播 interact-right)、FishArea(max_fish = maxInWater × 面積 / BASE_WATER_AREA)、Fish(水裡的魚:models.waterFish 的 FBX 模型 + 游泳動畫,縮到 length 長、頭朝 local +Z,被盯上蓋 material_overlay;沒模型就方塊)、Counter(`Counter.create(def)` 讀 counters.json(maxCustomers / queueSpacing 可蓋過 customers.max 與 1.3 間距);door 顧客門(spawn_point / exit_point);上架格 DepositPad + 收銀格 ServicePad + 排隊位 slot_position;顧客 want = roll_want(customers.wantWeights);`notify_server()` / `has_server()` 幀戳;cashier 指派;apply_upgrades)、CounterPad、ServicePad、MoneyPad(現金堆;收錢的 carrier 站上來收進錢包,速度 max(cashPickupPerSec, 堆 × cashPickupFrac);set_cash 還原)、PricePad(從錢包扣;_dwell 站滿 payDelaySec 才付,速率 × max(1, 價格 / payScaleCost);可重複牌、付清後需離開再踏上(_blocked)、
   on_lost 退名額重新開放並標「買回 ×1.5」(守衛塔牌標「修復」)、expand() 擴建多開名額、raise_max(n)、set_open(開關)、is_tower_pad / is_repair_pad、restore_state;
   currency 不是 cash 的牌從 GameState.resource 扣、標籤用 COST_<currency>)、Loot(掉落物 pelt / tooth / chest(熊王寶箱,data 存內容,踩到叫 Harbor.chest_opened):浮動旋轉,玩家走到 lootPickupRadius 內 collect -> GameState.add_resource、
@@ -302,7 +313,8 @@
 - `tools/deploy_web.py`:`--export-release Web` -> 同步到 `docs/`(Pages 從這裡發布)-> 只 commit docs/ -> push origin main;`--export-only` / `--no-export` / `--no-push`
 - `tools/setup_cloud.sh`:Linux / 雲端裝 Godot 4.7(~/godot/godot)+ 可選 `--templates` 匯出模板,並先 --import 兩次;`tools/run_tests.sh`:bash 版測試跑法(timeout 600 / 個)
 - `export_presets.cfg`:Web 預設(不開執行緒、PWA 開、直式、圖示指到 assets/icons);`assets/fonts/NotoSansTC-VF.ttf`(OFL,見 LICENSE.md)是遊戲內唯一的中文字型
-- `autoload/game_state.gd`:rarefish / map_pieces(MAP_PIECES 3,has_full_map)/ orders_done / orders_cash(complete_order 進錢包)、apply_purchase 多 map_piece / resource;king_level / king_kills / king_streak / king_capacity_bonus(total_capacity_bonus() = capacity 牌 + 里程碑)/ coupons(coupon / add_coupon / use_coupon,effect type coupon)/ king_slain(new_streak, logic)、wallet(add_wallet / spend / claim_offline 離線收益進錢包 + offline_earned 統計)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost / play_time /
+- `autoload/game_state.gd`:legacy(generation() / legacy_points() / legacy_level / legacy_bonus / legacy_mult / legacy_total_levels / buy_perk(id, logic) / rebirth(gain, record) / clear_legacy_intro;legacy_rules() 快取 LegacyLogic)、
+  bears_fled / king_perfects 統計(king_slain 多 perfect 參數)、total_capacity_bonus 含背包火種;rarefish / map_pieces(MAP_PIECES 3,has_full_map)/ orders_done / orders_cash(complete_order 進錢包)、apply_purchase 多 map_piece / resource;king_level / king_kills / king_streak / king_capacity_bonus(total_capacity_bonus() = capacity 牌 + 里程碑)/ coupons(coupon / add_coupon / use_coupon,effect type coupon)/ king_slain(new_streak, logic)、wallet(add_wallet / spend / claim_offline 離線收益進錢包 + offline_earned 統計)/ tutorial_step / hints_on / capacity_bonus / unlocked / hired / upgrades / weapon_level / helpers_lost / play_time /
   pelts / teeth / shop_level(resource(kind) / add_resource / spend_resource,kind cash / pelt / tooth)/ 統計(含 items_trashed);
   apply_purchase(effect type:capacity / hire / unlock / upgrade / weapon / shop_upgrade;tower / repair / tower_upgrade 只記 unlocked)、lose_helper(role)、upgrade_mult、to_dict / from_dict
 - `autoload/save_manager.gd`:存檔 IO(user://manlife_save.json,VERSION 2;has_save / write / read / delete;測試改 save_path)

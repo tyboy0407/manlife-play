@@ -149,8 +149,8 @@ func display_name_key() -> String:
 
 ## 工人速度 / 堆疊上限升級(GameState.changed 時重算)
 func apply_upgrades() -> void:
-    logic.speed_mult = GameState.upgrade_mult("worker_speed")
-    var m := GameState.upgrade_mult("pile_cap")
+    logic.speed_mult = GameState.upgrade_mult("worker_speed") * GameState.legacy_mult("worker_speed")   # 升級牌 × 火種
+    var m := GameState.upgrade_mult("pile_cap") * GameState.legacy_mult("pile_cap")
     logic.input_cap = maxi(int(round(float(def.get("inputCap", 12)) * m)), 1)
     logic.output_cap = maxi(int(round(float(def.get("outputCap", 24)) * m)), 1)
 

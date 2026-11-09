@@ -50,6 +50,7 @@ var _route: Array[Vector3] = []     # 去目的地要先經過的中途點(東�
 var _route_dest := Vector3(INF, 0, 0)
 var _stuck := 0.0                   # 走向目標卻沒前進的秒數
 var _base_capacity := 6
+var _base_speed := 4.5          # game.json helpers.<role>.speed(火種倍率另外乘)
 var _repair_ring: ProgressRing = null
 
 
@@ -60,7 +61,8 @@ func _ready() -> void:
     add_to_group("helper")
     add_to_group("helper_%s" % role)
     var cfg := GameData.helper(role)
-    speed = float(cfg.get("speed", 4.5))
+    _base_speed = float(cfg.get("speed", 4.5))
+    speed = _base_speed * GameState.legacy_mult("helper_speed")
     _base_capacity = int(cfg.get("capacity", 6))
     guard_damage = maxf(float(cfg.get("damage", 12.0)), 0.0)
     guard_interval = maxf(float(cfg.get("attackIntervalSec", 0.6)), 0.05)
@@ -85,6 +87,7 @@ func _ready() -> void:
 
 ## 背包容量 = 設定值 + 升級(只有搬運工有容量升級牌 porter_cap,+4 / 級;GameState.changed 時重算,現有的搬運工也吃到)
 func _apply_capacity() -> void:
+    speed = _base_speed * GameState.legacy_mult("helper_speed")   # 幫手走速火種(買了馬上生效)
     var cap := _base_capacity
     if role == "porter":
         cap += GameState.upgrade_bonus("porter_cap")

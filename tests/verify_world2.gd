@@ -172,6 +172,7 @@ func _run() -> void:
     _level.hud.offline_action("claim")
     _check(GameState.wallet == wallet_before + oc, "再按一次不會重複領")
     await _coupon_section()
+    await _legacy_section()
     # F9 新遊戲
     _level.clear_save_and_state()
     _check(GameState.weapon_level == 0 and GameState.helpers_lost == 0 and GameState.pelts == 0 and GameState.teeth == 0 and GameState.shop_level == 0,
@@ -180,6 +181,64 @@ func _run() -> void:
     _level.queue_free()
     await _step(2)
     DirAccess.remove_absolute(ProjectSettings.globalize_path(HANDOFF))
+
+
+## --- 傳承 / 過冬 ---
+## 面板資料(本輪分數 > 0、點數 = sqrt / 10)-> 選單開面板 -> 給 3 點買起始資金 + 工人速度(切魚台馬上 ×1.05)-> 過冬:存檔只剩 GameState、
+## 重建關卡是第 2 代:村子只剩起始建築、錢包 = 起始資金、火種生效、章節留著、教學跳過、開局彈「第 2 代」
+func _legacy_section() -> void:
+    var d := _level.legacy_data()
+    var sc: Dictionary = d["score"]
+    var gain := int(d["gain"])
+    _check(int(sc["total"]) > 0 and int(sc["build"]) >= 300 * 7 and int(sc["story"]) >= 100 and int(sc["battle"]) > 0 and gain == _level.legacy.points_for(int(sc["total"]))
+            and gain >= 3 and int(d["generation"]) == 1 and int(d["points"]) == 0 and (d["perks"] as Array).size() == 8 and not bool(d["low"]),
+            "過冬面板資料:第 1 代、0 點、本輪總分 %d(收入 %d / 建設 %d / 戰績 %d / 故事 %d)可換 %d 點" % [int(sc["total"]), int(sc["income"]), int(sc["build"]), int(sc["battle"]), int(sc["story"]), gain])
+    _level.hud.menu_action("toggle")
+    _level.hud.menu_action("legacy")
+    await _step(2)
+    _check(_level.hud.legacy_open() and _level.hud.legacy_perk_count() == 8 and not _level.hud.menu_panel.visible and _level.hud.legacy_text().contains(tr("LEGACY_BODY") % [1, 0, int(sc["income"]), int(sc["build"]), int(sc["battle"]), int(sc["story"]), int(sc["total"]), gain]),
+            "選單「火種 / 過冬」開面板:第 1 代、八項火種")
+    GameState.legacy["points"] = 3
+    var st := _level.station_at("station_1")
+    var speed0: float = st.logic.speed_mult
+    var cap0: int = st.logic.output_cap
+    _check(_level.buy_perk("start_cash") and _level.buy_perk("worker_speed") and not _level.buy_perk("start_cash"), "3 點:買起始資金(1 點)+ 工人速度(1 點),起始資金第二級 2 點買不起")
+    await _step(2)
+    _check(GameState.legacy_points() == 1 and GameState.legacy_level("start_cash") == 1 and GameState.legacy_level("worker_speed") == 1
+            and is_equal_approx(st.logic.speed_mult, speed0 * 1.05) and st.logic.output_cap == cap0 and _level.hud.legacy_text().contains(tr("LEGACY_PERK_ROW") % [tr("LEGACY_PERK_worker_speed"), 1, 5, "+5%", "+5%", 2]),
+            "剩 1 點;切魚台速度馬上 ×1.05(%.3f -> %.3f)、堆疊上限不變;面板刷新" % [speed0, st.logic.speed_mult])
+    var chapters0 := GameState.story_list("chapters").size()
+    _check(chapters0 >= 2, "本輪已解鎖 %d 章(過冬後要留著)" % chapters0)
+    _level.hud.panel_action("legacy_close")
+    var rec := _level.prepare_rebirth()
+    _check(int(rec["points"]) == gain and int(rec["gen"]) == 1 and GameState.generation() == 2 and GameState.legacy_points() == 1 + gain and GameState.wallet == 200
+            and GameState.hired_total() == 0 and GameState.weapon_level == 0 and GameState.unlocked.is_empty() and GameState.cash_earned == 0 and GameState.pelts == 0
+            and GameState.story_list("chapters").size() == chapters0 and GameState.tutorial_step == GuideLogic.tutorial_steps() and SaveManager.has_save()
+            and (SaveManager.read().get("world", {}) as Dictionary).is_empty(),
+            "過冬:第 2 代、點數 1 + %d、錢包 $200(起始資金 Lv1)、建築 / 幫手 / 武器 / 毛皮歸零、章節留著、教學跳過、存檔只有 GameState" % gain)
+    _level.queue_free()
+    await _step(3)
+    await _spawn_level()
+    await _step(3)
+    var st2 := _level.station_at("station_1")
+    _check(_level.loaded_from_save and GameState.generation() == 2 and _level.stations.size() == 1 and _level.counters.size() == 1 and _level.helpers.is_empty()
+            and _level.annexes.is_empty() and _level.alive_towers().is_empty() and _level.conveyors.is_empty() and GameState.wallet == 200 and _level.hud.story_open()
+            and _level.hud.story_text().begins_with(tr("LEGACY_INTRO_TITLE") % 2) and _level.hud.story_text().contains(tr("LEGACY_INTRO_TEXT") % [int(rec["total"]), gain, 1 + gain]) and not GameState.legacy.has("intro")
+            and GameState.legacy_level("worker_speed") == 1 and is_equal_approx(st2.logic.speed_mult, 1.05) and _level.bonfire != null
+            and not _level.hud.offline_open() and not get_tree().paused and _level.legacy_data()["generation"] == 2 and int(_level.legacy_data()["score"]["total"]) == 0,
+            "重建關卡:第 2 代的村子只剩起始建築、錢包 $200、開局彈「第 2 代」、火種生效(切魚台 ×1.05)、本輪分數從 0 起")
+    _level.hud.panel_action("story_close")
+    _level.hud.menu_action("toggle")
+    _check(_level.hud.stats_text().contains(tr("HUD_LEGACY_LINE") % [2, 1 + gain, 2]), "統計頁有第幾代 / 點數 / 火種合計")
+    _level.hud.menu_action("close")
+    # 火堆:站滿 1 秒開面板,走開再站才再開
+    await _go(Harbor.BONFIRE_SPOT)
+    await _step(70)
+    _check(_level.hud.legacy_open() and _level.hud.legacy_text().contains(tr("LEGACY_BODY").split("
+")[0] % [2, 1 + gain]), "站在火堆上 1 秒:過冬面板打開")
+    _level.hud.panel_action("legacy_close")
+    await _step(30)
+    _check(not _level.hud.legacy_open(), "關了面板、還站著不會再開")
 
 
 ## --- 擴建村莊 ---

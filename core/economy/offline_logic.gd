@@ -8,6 +8,7 @@ extends RefCounted
 var window_sec := 300.0
 var min_sec := 60.0
 var max_sec := 28800.0
+var bonus_sec := 0.0   # 離線上限加成(火種,秒);有效上限 cap_sec()
 var mult := 0.5
 var seed_rate := 0.0     # 讀檔帶進來的速率(每秒)
 var _samples: Array = []  # [t, cash]
@@ -68,12 +69,17 @@ static func offline_seconds(saved_at: int, now: int) -> int:
 func earnings(rate_per_sec: float, offline_sec: float) -> int:
     if offline_sec < min_sec or rate_per_sec <= 0.0:
         return 0
-    return int(floor(rate_per_sec * minf(offline_sec, max_sec) * mult))
+    return int(floor(rate_per_sec * minf(offline_sec, cap_sec()) * mult))
+
+
+## 有效上限秒數 = max_sec + 火種加成
+func cap_sec() -> float:
+    return max_sec + maxf(bonus_sec, 0.0)
 
 
 ## 算進收益的秒數(給面板顯示)
 func counted_seconds(offline_sec: float) -> int:
-    return int(minf(maxf(offline_sec, 0.0), max_sec))
+    return int(minf(maxf(offline_sec, 0.0), cap_sec()))
 
 
 ## 秒數拆成 {h, m}(給翻譯文字用;不滿 1 分鐘算 1 分鐘)

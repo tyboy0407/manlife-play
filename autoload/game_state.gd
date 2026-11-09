@@ -37,6 +37,11 @@ var map_pieces := 0            # 地圖碎片(旅行商人賣的,3 片拼成大�
 var orders_done := 0           # 完成的訂單數
 var orders_cash := 0           # 訂單賺的錢
 var story := {}                # 故事進度:chapters / journal / landmarks(id 清單)、flags {name: true}(Story 寫,存檔)
+var bears_fled := 0            # 打跑的一般熊數(傳承評分的戰績分)
+var king_perfects := 0         # 王 perfect 擊殺次數(傳承評分)
+var legacy := {}               # 傳承(過冬後留下):generation / points / perks {id: 等級} / history [{gen, total, points, playTime, cash}] / intro(新一代剛開局,HUD 彈一次)
+
+var _legacy_logic: LegacyLogic = null
 
 
 func _ready() -> void:
@@ -44,6 +49,9 @@ func _ready() -> void:
     EventBus.sale_made.connect(func(_item: String, count: int, cash: int) -> void:
         items_sold += count
         cash_earned += cash)
+    EventBus.bear_defeated.connect(func(b: Node3D, _by: Node3D) -> void:
+        if not (b is Bear and (b as Bear).is_king):
+            bears_fled += 1)
 
 
 func reset() -> void:
@@ -76,7 +84,97 @@ func reset() -> void:
     orders_done = 0
     story = {}
     orders_cash = 0
+    bears_fled = 0
+    king_perfects = 0
+    legacy = {}
     changed.emit()
+
+
+## --- 傳承 / 過冬(規則 LegacyLogic,數值 game.json legacy)---
+
+func legacy_rules() -> LegacyLogic:
+    if _legacy_logic == null:
+        _legacy_logic = LegacyLogic.from_config(GameData.section("legacy"))
+    return _legacy_logic
+
+
+func generation() -> int:
+    return maxi(int(legacy.get("generation", 1)), 1)
+
+
+func legacy_points() -> int:
+    return maxi(int(legacy.get("points", 0)), 0)
+
+
+func legacy_level(id: String) -> int:
+    var p = legacy.get("perks", {})
+    return maxi(int(p.get(id, 0)), 0) if typeof(p) == TYPE_DICTIONARY else 0
+
+
+## 火種加成(start_cash 元 / bear_delay 秒 / capacity 件 / offline_max 秒,其他是比例)
+func legacy_bonus(id: String) -> float:
+    return legacy_rules().bonus(id, legacy_level(id))
+
+
+func legacy_mult(id: String) -> float:
+    return 1.0 + legacy_bonus(id)
+
+
+func legacy_total_levels() -> int:
+    var p = legacy.get("perks", {})
+    return LegacyLogic.total_levels(p) if typeof(p) == TYPE_DICTIONARY else 0
+
+
+## 花傳承點數把火種升一級;點數不夠 / 滿級回 false
+func buy_perk(id: String, logic: LegacyLogic = null) -> bool:
+    if logic == null:
+        logic = legacy_rules()
+    var lv := legacy_level(id)
+    if not logic.can_buy(legacy_points(), id, lv):
+        return false
+    legacy["points"] = legacy_points() - logic.perk_cost(id, lv)
+    var p = legacy.get("perks", {})
+    if typeof(p) != TYPE_DICTIONARY:
+        p = {}
+    p[id] = lv + 1
+    legacy["perks"] = p
+    changed.emit()
+    return true
+
+
+## 過冬重生:本輪換到的點數進傳承、記一筆歷史,其他全部重來;留下火種 / 點數 / 歷史、已讀的章節與日誌(前人的記憶,不再彈)、提示與音效設定。
+## 新一代教學跳過(skip_tutorial)、錢包 = 起始資金火種、intro 旗標讓關卡開局彈一次「第 N 代」
+func rebirth(gain: int, record: Dictionary, skip_tutorial: bool = true) -> void:
+    var keep := legacy.duplicate(true)
+    var chapters := story_list("chapters").duplicate()
+    var journal := story_list("journal").duplicate()
+    var hints := hints_on
+    var sound := sound_on
+    reset()
+    legacy = keep
+    legacy["generation"] = generation() + 1
+    legacy["points"] = legacy_points() + maxi(gain, 0)
+    var hist = legacy.get("history", [])
+    if typeof(hist) != TYPE_ARRAY:
+        hist = []
+    hist.append(record.duplicate(true))
+    legacy["history"] = hist
+    legacy["intro"] = true
+    story = {"chapters": chapters, "journal": journal}
+    hints_on = hints
+    sound_on = sound
+    if skip_tutorial:
+        tutorial_step = GuideLogic.tutorial_steps()
+    wallet = maxi(int(round(legacy_bonus("start_cash"))), 0)
+    changed.emit()
+
+
+## 新一代開局的短文只彈一次:有旗標就清掉並回 true
+func clear_legacy_intro() -> bool:
+    if bool(legacy.get("intro", false)):
+        legacy.erase("intro")
+        return true
+    return false
 
 
 func apply_purchase(id: String, effect: Dictionary) -> void:
@@ -127,8 +225,10 @@ func use_coupon(key: String) -> bool:
 
 
 ## 打死王:等級 / 擊殺 / 連勝;回傳這次是不是里程碑(背包 +1)
-func king_slain(new_streak: int, logic: KingLogic) -> bool:
+func king_slain(new_streak: int, logic: KingLogic, perfect: bool = false) -> bool:
     king_kills += 1
+    if perfect:
+        king_perfects += 1
     king_level = logic.clamp_level(king_level + 1)
     king_streak = maxi(new_streak, 0)
     var milestone := logic.is_milestone(king_kills)
@@ -238,9 +338,9 @@ func upgrade_bonus(key: String) -> int:
     return int(round(per * float(upgrade_level(key))))
 
 
-## 背包容量加成總和(capacity 牌 + 熊王里程碑)
+## 背包容量加成總和(capacity 牌 + 熊王里程碑 + 背包火種)
 func total_capacity_bonus() -> int:
-    return capacity_bonus + king_capacity_bonus
+    return capacity_bonus + king_capacity_bonus + int(round(legacy_bonus("capacity")))
 
 
 ## 升級倍率 = 1 + 每級加成(game.json upgrades.<key>.perLevel)× 等級
@@ -288,6 +388,7 @@ func to_dict() -> Dictionary:
         "king_capacity_bonus": king_capacity_bonus,
         "rarefish": rarefish, "map_pieces": map_pieces, "orders_done": orders_done, "orders_cash": orders_cash,
         "story": story.duplicate(true),
+        "bears_fled": bears_fled, "king_perfects": king_perfects, "legacy": legacy.duplicate(true),
     }
 
 
@@ -340,6 +441,10 @@ func from_dict(d: Dictionary) -> void:
     orders_cash = maxi(int(d.get("orders_cash", 0)), 0)
     var sd = d.get("story", {})
     story = sd.duplicate(true) if typeof(sd) == TYPE_DICTIONARY else {}
+    bears_fled = maxi(int(d.get("bears_fled", 0)), 0)
+    king_perfects = maxi(int(d.get("king_perfects", 0)), 0)
+    var lg = d.get("legacy", {})
+    legacy = lg.duplicate(true) if typeof(lg) == TYPE_DICTIONARY else {}
     changed.emit()
 
 

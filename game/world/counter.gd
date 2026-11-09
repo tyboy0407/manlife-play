@@ -105,7 +105,8 @@ func apply_expansion(n: int) -> void:
 
 
 func apply_upgrades() -> void:
-    logic.stock_cap = maxi(int(round(float(base_stock_cap) * GameState.upgrade_mult("pile_cap"))), 1)
+    logic.stock_cap = maxi(int(round(float(base_stock_cap) * GameState.upgrade_mult("pile_cap") * GameState.legacy_mult("pile_cap"))), 1)
+    logic.price_mult = GameState.legacy_mult("price")
 
 
 func refresh_pile() -> void:

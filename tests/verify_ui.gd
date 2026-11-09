@@ -90,6 +90,25 @@ func _ready() -> void:
     _check(hud.order_text() == "Order: fillet 2/6", "訂單一行")
     hud.set_order("")
     _check(hud.order_text() == "", "沒訂單就藏起來")
+    # 傳承 / 過冬面板
+    var acted2: Array[String] = []
+    hud.action.connect(func(id: String) -> void: acted2.append(id))
+    hud.show_legacy({"generation": 2, "points": 3, "gain": 2, "low": true, "score": {"income": 100, "build": 200, "battle": 50, "story": 100, "total": 450},
+        "perks": [{"id": "start_cash", "level": 1, "max": 5, "cost": 2, "per": 200.0, "affordable": true}, {"id": "price", "level": 5, "max": 5, "cost": -1, "per": 0.04, "affordable": false}]})
+    await get_tree().process_frame
+    var lt := hud.legacy_text()
+    _check(hud.legacy_open() and not hud.menu_panel.visible and hud.legacy_perk_count() == 2 and lt.contains(tr("LEGACY_BODY") % [2, 3, 100, 200, 50, 100, 450, 2])
+            and lt.contains(tr("LEGACY_PERK_ROW") % [tr("LEGACY_PERK_start_cash"), 1, 5, "+$200", "+$200", 2]) and lt.contains(tr("LEGACY_PERK_MAX") % [tr("LEGACY_PERK_price"), 5, 5, "+20%"]) and lt.contains(tr("LEGACY_LOW"))
+            and lt.contains(tr("LEGACY_REBIRTH") % 2), "過冬面板:分數明細、兩列火種(一列已滿)、點數少的提醒、過冬鈕寫 +2 點")
+    hud.legacy_action(0)
+    _check(acted2.has("legacy_buy:start_cash"), "按火種列發 action legacy_buy:<id>")
+    hud.panel_action("legacy_rebirth")
+    _check(hud.legacy_open() and hud.confirming_rebirth() and not acted2.has("legacy_rebirth") and hud.legacy_text().contains(tr("LEGACY_REBIRTH_CONFIRM")), "過冬鈕第一下只是確認")
+    hud.panel_action("legacy_rebirth")
+    _check(not hud.legacy_open() and acted2.has("legacy_rebirth") and not hud.confirming_rebirth(), "第二下才發 action legacy_rebirth 並關面板")
+    hud.menu_action("toggle")
+    hud.menu_action("legacy")
+    _check(acted2.has("legacy_open") and not hud.menu_panel.visible, "選單「火種 / 過冬」發 action legacy_open 並關選單")
     hud.free()
     if _fails == 0:
         print("VERIFY UI: ALL OK")

@@ -331,6 +331,22 @@
       }
     ]
   },
+  "legacy": {
+    "cashPerPoint": 100,
+    "pointsDiv": 10,
+    "lowPoints": 3,
+    "score": {"expansion": 300, "tower": 50, "station": 30, "counter": 30, "belt": 20, "bear": 5, "kingBase": 200, "kingMaxLevel": 5, "perfect": 100, "chapter": 100, "ending": 1000, "freeStations": 1, "freeCounters": 1, "freeChapters": 1},
+    "perks": [
+      {"id": "start_cash", "perLevel": 200, "costs": [1, 2, 3, 4, 5]},
+      {"id": "worker_speed", "perLevel": 0.05, "costs": [1, 2, 3, 4, 5]},
+      {"id": "helper_speed", "perLevel": 0.05, "costs": [1, 2, 3, 4, 5]},
+      {"id": "pile_cap", "perLevel": 0.1, "costs": [1, 2, 3, 4, 5]},
+      {"id": "bear_delay", "perLevel": 30, "costs": [1, 2, 3, 4, 5]},
+      {"id": "price", "perLevel": 0.04, "costs": [1, 2, 3, 4, 5]},
+      {"id": "offline_max", "perLevel": 3600, "costs": [1, 2, 3, 4, 5]},
+      {"id": "capacity", "perLevel": 1, "costs": [1, 2, 3, 4, 5]}
+    ]
+  },
   "upgrades": {
     "worker_speed": {
       "perLevel": 0.5

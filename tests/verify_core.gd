@@ -34,6 +34,7 @@ func _ready() -> void:
     _test_input()
     _test_save()
     _test_state()
+    _test_legacy()
     if _fails == 0:
         print("VERIFY CORE: ALL OK")
     else:
@@ -1343,3 +1344,78 @@ func _test_sfx() -> void:
     _check(Sfx.play("goal") and Sfx.played_total == before + 1 and int(Sfx.played.get("goal", 0)) >= 1, "Sfx.play 有播(headless 用 Dummy 音訊)")
     _check(not Sfx.play("goal"), "同一音效太密集不重播")
     _check(not Sfx.play("nope"), "沒有的音效不播")
+
+
+## 傳承 / 過冬:評分四項與點數換算、火種價格與加成、GameState 買火種 / 重生保留什麼、售價倍率、離線上限加成
+func _test_legacy() -> void:
+    var l := LegacyLogic.from_config(GameData.section("legacy"))
+    _check(l.perks.size() == 8 and l.perk_ids()[0] == "start_cash" and l.max_level("worker_speed") == 5 and l.perk_cost("worker_speed", 0) == 1
+            and l.perk_cost("worker_speed", 4) == 5 and l.perk_cost("worker_speed", 5) == -1 and l.perk_cost("nope", 0) == -1 and l.low_points() == 3,
+            "game.json legacy:八項火種、五級 1 ~ 5 點、滿級 / 沒這項回 -1、低於 3 點提醒")
+    _check(l.king_score(0) == 0 and l.king_score(1) == 200 and l.king_score(3) == 1200 and l.king_score(7) == 200 * (1 + 2 + 3 + 4 + 5 + 6 + 6),
+            "打死王的分:每次 200 × (等級 + 1),第 6 級起封頂")
+    var sc := l.score({"cash_earned": 20050, "expansions": 3, "towers": 4, "stations": 5, "counters": 4, "belts": 2, "bears_fled": 50, "king_kills": 2,
+            "king_perfects": 1, "chapters": 5, "ending": false})
+    _check(int(sc["income"]) == 200 and int(sc["build"]) == 900 + 200 + 120 + 90 + 40 and int(sc["battle"]) == 250 + 100 + 600 and int(sc["story"]) == 400
+            and int(sc["total"]) == 200 + 1350 + 950 + 400, "評分四項:收入 200、建設 1350(起始的切魚台 / 櫃台不算)、戰績 950、故事 400(第一章不算)= %d" % int(sc["total"]))
+    var sc2 := l.score({"cash_earned": 200000, "expansions": 7, "chapters": 7, "ending": true, "king_kills": 10})
+    _check(int(sc2["story"]) == 1600 and int(sc2["battle"]) == 9000 and l.points_for(int(sc["total"])) == 5 and l.points_for(int(sc2["total"])) == 12
+            and l.points_for(0) == 0 and l.points_for(99) == 0 and l.points_for(100) == 1 and int(l.score({})["total"]) == 0,
+            "結局 1000 分、王 10 次 9000 分;點數 = sqrt(總分) / 10 取整(2900 -> 5、14700 -> 12、100 -> 1)")
+    _near(l.bonus("worker_speed", 2), 0.10, "工人速度火種:每級 +5%,兩級 0.10", 0.0001)
+    _check(is_equal_approx(l.bonus("start_cash", 3), 600.0) and is_equal_approx(l.bonus("capacity", 9), 5.0) and is_equal_approx(l.bonus("nope", 3), 0.0)
+            and l.can_buy(1, "price", 0) and not l.can_buy(1, "price", 1) and not l.can_buy(99, "price", 5),
+            "加成 = perLevel × 等級(夾在滿級內);買得起看該級價格、滿級買不了")
+    # GameState:買火種、重生
+    GameState.reset()
+    _check(GameState.generation() == 1 and GameState.legacy_points() == 0 and GameState.legacy_level("price") == 0 and is_equal_approx(GameState.legacy_mult("price"), 1.0)
+            and GameState.legacy_total_levels() == 0, "新狀態:第 1 代、0 點、沒火種")
+    GameState.legacy = {"generation": 2, "points": 4, "perks": {"worker_speed": 1}}
+    _check(GameState.buy_perk("start_cash", l) and GameState.legacy_points() == 3 and GameState.buy_perk("start_cash", l) and GameState.legacy_points() == 1
+            and GameState.legacy_level("start_cash") == 2 and not GameState.buy_perk("start_cash", l) and GameState.legacy_points() == 1
+            and is_equal_approx(GameState.legacy_mult("worker_speed"), 1.05) and is_equal_approx(GameState.legacy_bonus("start_cash"), 400.0)
+            and GameState.legacy_total_levels() == 3, "買火種:起始資金 1 點 + 2 點 -> Lv2(剩 1 點),第三級 3 點買不起;倍率 / 加成")
+    GameState.legacy["perks"]["capacity"] = 2
+    GameState.capacity_bonus = 4
+    _check(GameState.total_capacity_bonus() == 6, "背包火種算進容量加成(4 + 2)")
+    GameState.wallet = 500
+    GameState.cash_earned = 1000
+    GameState.bears_fled = 4
+    GameState.king_perfects = 1
+    GameState.weapon_level = 3
+    GameState.hired = {"fisher": 2}
+    GameState.hints_on = false
+    GameState.story = {"chapters": ["ch0", "ch1"], "journal": ["j01"], "landmarks": ["rock"], "flags": {"bear_seen": true}}
+    GameState.rebirth(6, {"gen": 2, "total": 3600, "points": 6})
+    _check(GameState.generation() == 3 and GameState.legacy_points() == 7 and GameState.legacy_level("start_cash") == 2 and GameState.wallet == 400
+            and GameState.hired_total() == 0 and GameState.weapon_level == 0 and GameState.cash_earned == 0 and GameState.bears_fled == 0 and GameState.king_perfects == 0
+            and GameState.story_list("chapters").size() == 2 and GameState.story_list("journal").size() == 1 and GameState.story_list("landmarks").is_empty()
+            and not GameState.story_flag("bear_seen") and GameState.tutorial_step == GuideLogic.tutorial_steps() and not GameState.hints_on
+            and bool(GameState.legacy.get("intro", false)) and (GameState.legacy.get("history", []) as Array).size() == 1,
+            "重生:第 3 代、點數 1 + 6、火種與錢包 $400(起始資金 Lv2)留下、幫手 / 武器 / 統計歸零、章節與日誌留著但地標 / 旗標清掉、教學跳過、設定留著、intro 旗標")
+    _check(GameState.clear_legacy_intro() and not GameState.clear_legacy_intro() and not GameState.legacy.has("intro"), "intro 旗標只清一次")
+    GameState.bears_fled = 9
+    GameState.king_perfects = 2
+    var d := GameState.to_dict()
+    GameState.reset()
+    _check(GameState.generation() == 1 and GameState.legacy.is_empty(), "reset(新遊戲)連傳承也清掉")
+    GameState.from_dict(d)
+    _check(GameState.generation() == 3 and GameState.legacy_points() == 7 and GameState.legacy_level("start_cash") == 2 and GameState.bears_fled == 9
+            and GameState.king_perfects == 2 and (GameState.legacy.get("history", []) as Array).size() == 1, "傳承 / 戰績統計存檔來回")
+    GameState.reset()
+    # 售價倍率、離線上限加成
+    var c := CounterLogic.new()
+    c.price = 5
+    c.add_stock(3)
+    c.price_mult = 1.2
+    var r := c.serve(2)
+    var c2 := CounterLogic.new()
+    c2.price = 2
+    c2.add_stock(5)
+    c2.price_mult = 1.04
+    _check(int(r["sold"]) == 2 and int(r["cash"]) == 12 and int(c2.serve(1)["cash"]) == 2 and int(c2.serve(3)["cash"]) == 6, "售價倍率:整筆四捨五入(10 × 1.2 = 12;$2 的 +4% 一件 2、三件 6)")
+    var o := OfflineLogic.from_config(GameData.section("offline"))
+    o.bonus_sec = 3600.0
+    _check(o.counted_seconds(40000.0) == 28800 + 3600 and o.earnings(1.0, 40000.0) == int(floor(32400.0 * 0.5)) and is_equal_approx(o.cap_sec(), 32400.0),
+            "離線上限火種:8 小時 + 1 小時")
+
