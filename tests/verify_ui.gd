@@ -104,11 +104,40 @@ func _ready() -> void:
     _check(acted2.has("legacy_buy:start_cash"), "按火種列發 action legacy_buy:<id>")
     hud.panel_action("legacy_rebirth")
     _check(hud.legacy_open() and hud.confirming_rebirth() and not acted2.has("legacy_rebirth") and hud.legacy_text().contains(tr("LEGACY_REBIRTH_CONFIRM")), "過冬鈕第一下只是確認")
+    _check(UiTheme.button_kind(hud._legacy_rebirth_btn) == "danger" and UiTheme.button_kind(hud._legacy_buttons[0]) == "row"
+            and (hud._legacy_buttons[0].get_node("Row/Cost") as Label).text == tr("LEGACY_ROW_COST") % 2
+            and (hud._legacy_buttons[1].get_node("Row/Cost") as Label).text == tr("LEGACY_ROW_MAXED"),
+            "確認狀態的過冬鈕變紅;火種列是兩欄(右邊 2 點 / 已滿)")
     hud.panel_action("legacy_rebirth")
     _check(not hud.legacy_open() and acted2.has("legacy_rebirth") and not hud.confirming_rebirth(), "第二下才發 action legacy_rebirth 並關面板")
     hud.menu_action("toggle")
     hud.menu_action("legacy")
     _check(acted2.has("legacy_open") and not hud.menu_panel.visible, "選單「火種 / 過冬」發 action legacy_open 並關選單")
+    # UI 整理:選單分組(四格開關 / 六格頁面 / 紅色重新開始)、統計自己的面板、面板樣式、提示淡出、toast
+    var pages := hud.menu_panel.get_node_or_null("Box/Pages")
+    var toggles := hud.menu_panel.get_node_or_null("Box/Toggles")
+    _check(pages != null and pages.get_child_count() == 6 and toggles != null and toggles.get_child_count() == 4
+            and UiTheme.button_kind(hud._hints_btn) == "toggle_on" and hud._hints_btn.text.begins_with(tr("MENU_T_HINTS"))
+            and UiTheme.button_kind(hud._new_game_btn) == "danger" and UiTheme.button_kind(hud.menu_button) == "secondary",
+            "選單:四格開關(提示開著是綠底)、六格頁面、重新開始紅色")
+    hud.menu_action("toggle")
+    hud.menu_action("stats")
+    _check(hud.stats_open() and not hud.menu_panel.visible and hud.stats_tab_count() == 3, "選單「統計」開自己的面板(三個分頁)")
+    hud.panel_action("stats_close")
+    _check(not hud.stats_open(), "關閉統計")
+    var sb := hud.legacy_panel.get_theme_stylebox("panel")
+    _check(sb is StyleBoxFlat and (sb as StyleBoxFlat).bg_color == UiTheme.PANEL_BG and hud.offline_panel.get_theme_stylebox("panel") is StyleBoxFlat
+            and hud.legacy_panel.get_child(0).get_child(1) is ColorRect, "面板共用深底樣式、標題下有分隔線")
+    _check(hud.hint_visible(), "開局底部操作提示看得到")
+    hud._hint_timer = 0.5
+    hud._process(1.0)
+    _check(not hud.hint_visible(), "30 秒後(測試撥快)操作提示淡出")
+    hud._show_notice_now("toast")
+    _check(hud._toast.modulate.a > 0.99 and hud._toast_panel.get_theme_stylebox("panel") is StyleBoxFlat and hud.notice_text() == "toast", "通知是置中的深底 toast")
+    _check(hud._hud_box != null and hud._res_chips.size() == 4 and hud._order_card != null and not hud._order_card.visible, "左上角 HUD 區塊:四個資源小籤、訂單小卡(沒訂單藏著)")
+    hud.set_order("Order: fillet 2/6")
+    _check(hud._order_card.visible and hud.order_text() == "Order: fillet 2/6", "有訂單小卡才出現")
+    hud.set_order("")
     hud.free()
     if _fails == 0:
         print("VERIFY UI: ALL OK")

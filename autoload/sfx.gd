@@ -4,10 +4,10 @@ extends Node
 ## 純表現層:headless 測試時照常呼叫(Dummy 音訊驅動),用 played 計數驗證。
 
 const SFX_DIR := "res://assets/sfx/"
-const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "hit", "arrow", "crash", "warn", "chest", "card", "ambient_waves"]
-const MIN_GAP := {"coin": 0.05, "pay": 0.05, "drop": 0.04, "pick": 0.04, "catch": 0.06, "sale": 0.1, "roar": 0.5, "chomp": 0.3, "hit": 0.1, "arrow": 0.08, "crash": 0.4}
+const NAMES := ["catch", "drop", "pick", "sale", "coin", "pay", "unlock", "hire", "trash", "goal", "roar", "chomp", "hit", "arrow", "crash", "warn", "chest", "card", "tap", "ambient_waves"]
+const MIN_GAP := {"coin": 0.05, "pay": 0.05, "drop": 0.04, "pick": 0.04, "catch": 0.06, "sale": 0.1, "roar": 0.5, "chomp": 0.3, "hit": 0.1, "arrow": 0.08, "crash": 0.4, "tap": 0.05}
 const VOLUMES := {"coin": -6.0, "pay": -8.0, "drop": -4.0, "pick": -6.0, "catch": -3.0, "trash": -4.0, "roar": -2.0, "chomp": -2.0, "hit": -3.0, "arrow": -9.0, "crash": -2.0,
-    "ambient_waves": -16.0}
+    "tap": -12.0, "ambient_waves": -16.0}
 const POOL := 10
 
 var enabled := true

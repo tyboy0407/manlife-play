@@ -79,6 +79,17 @@ var _stat_pages: Array[Label] = []
 var _confirm_new_game := false
 var _fps_timer := 0.0
 var _stats_timer := 0.0
+var _hud_box: PanelContainer               # 左上角 HUD 區塊(半透明底):錢包 / 背包 / 資源小籤 / 訂單小卡
+var _res_chips := {}                       # 資源小籤 pelt / tooth / rarefish / weapon -> Label
+var _order_card: PanelContainer
+var _toast: CenterContainer                # 通知 toast(置中深底圓角),淡出用它的 modulate
+var _toast_panel: PanelContainer
+var _hint_timer := HINT_SEC                # 底部操作提示開局 HINT_SEC 秒後淡出(玩法說明裡還看得到)
+var _pulse_t := 0.0                        # 守衛塔「升級」鈕的脈動
+var stats_panel: PanelContainer = null     # 統計頁(從選單搬出來):三個分頁 + 關閉
+
+const HINT_SEC := 30.0
+const CHIP_COLORS := {"pelt": Color(0.72, 0.46, 0.26), "tooth": Color(0.92, 0.9, 0.8), "rarefish": Color(1.0, 0.8, 0.2), "weapon": Color(0.6, 0.72, 0.9)}
 
 
 func _ready() -> void:
@@ -86,33 +97,31 @@ func _ready() -> void:
     joystick = TouchJoystick.new()
     joystick.name = "Joystick"
     add_child(joystick)
-    _wallet = _make_label(26, Color(1.0, 0.88, 0.45))
-    _wallet.position = Vector2(14, 10)
-    add_child(_wallet)
-    _info = _make_label(16, Color(0.95, 0.97, 1.0))
-    _info.position = Vector2(14, 48)
-    add_child(_info)
-    _order = _make_label(15, Color(0.75, 0.9, 1.0))
-    _order.position = Vector2(14, 92)
-    _order.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _order.custom_minimum_size = Vector2(300, 0)
-    _order.visible = false
-    add_child(_order)
+    _build_hud_box()
     _fps = _make_label(15, Color(0.6, 1.0, 0.6))
-    _fps.position = Vector2(14, 132)
+    _fps.position = Vector2(14, 164)
     _fps.visible = Settings.show_fps
     add_child(_fps)
     _objective = _make_label(20, Color(1.0, 0.9, 0.55))
-    _wide(_objective, 136, 96)
+    _wide(_objective, 150, 96)
     _objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     add_child(_objective)
-    _notice = _make_label(22, Color(1.0, 0.92, 0.6))
-    _wide(_notice, 210, 14)
+    _toast = CenterContainer.new()
+    _toast.name = "Toast"
+    _wide(_toast, 236, 14)
+    _toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _toast.modulate.a = 0.0
+    add_child(_toast)
+    _toast_panel = PanelContainer.new()
+    _toast_panel.add_theme_stylebox_override("panel", UiTheme.toast_style())
+    _toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _toast.add_child(_toast_panel)
+    _notice = _make_label(19, Color(1.0, 0.94, 0.7))
     _notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _notice.modulate.a = 0.0
-    add_child(_notice)
+    _notice.custom_minimum_size = Vector2(300, 0)
+    _toast_panel.add_child(_notice)
     _hint = _make_label(14, Color(0.8, 0.85, 0.95))
     _hint.anchor_left = 0.0
     _hint.anchor_right = 1.0
@@ -127,7 +136,7 @@ func _ready() -> void:
     _hint.text = tr("HUD_HINT_TOUCH") if is_touch_device() else tr("HUD_HINT")
     add_child(_hint)
     _warning = _make_label(20, Color(1.0, 0.45, 0.4))
-    _wide(_warning, 176, 14)
+    _wide(_warning, 200, 14)
     _warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _warning.visible = false
@@ -142,10 +151,11 @@ func _ready() -> void:
     _build_journal_panel()
     _build_tower_panel()
     _build_legacy_panel()
+    _build_stats_panel()
     _upgrade_btn = Button.new()
     _upgrade_btn.name = "UpgradeButton"
     _upgrade_btn.text = tr("MENU_UPGRADE_TOWER")
-    _upgrade_btn.add_theme_font_size_override("font_size", 22)
+    UiTheme.style_button(_upgrade_btn, "primary", 22)
     _upgrade_btn.anchor_left = 0.5
     _upgrade_btn.anchor_right = 0.5
     _upgrade_btn.anchor_top = 1.0
@@ -159,9 +169,73 @@ func _ready() -> void:
     _upgrade_btn.visible = false
     _upgrade_btn.pressed.connect(panel_action.bind("tower_upgrade_open"))
     add_child(_upgrade_btn)
-    joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel, map_panel, help_panel, changelog_panel, story_panel, journal_panel, tower_panel, _upgrade_btn]
+    joystick.exclusions = [menu_button, menu_panel, offline_panel, choice_panel, map_panel, help_panel, changelog_panel, story_panel, journal_panel, tower_panel,
+        legacy_panel, stats_panel, _upgrade_btn]
     EventBus.notice.connect(show_notice)
     EventBus.items_moved.connect(_on_items_moved)
+    UiTheme.attach_press_fx(self)   # 所有按鈕:按下縮一下 + tap 音效(之後動態生的卡片 / 清單列自己接)
+
+
+## 左上角 HUD 區塊:錢包大字、背包一行、四個資源小籤、訂單小卡;整塊半透明深底,不再和 3D 標籤打架
+func _build_hud_box() -> void:
+    _hud_box = PanelContainer.new()
+    _hud_box.name = "HudBox"
+    _hud_box.position = Vector2(10, 10)
+    _hud_box.add_theme_stylebox_override("panel", UiTheme.hud_style())
+    _hud_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    add_child(_hud_box)
+    var box := VBoxContainer.new()
+    box.name = "Box"
+    box.add_theme_constant_override("separation", 4)
+    box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _hud_box.add_child(box)
+    _wallet = _make_label(28, UiTheme.GOLD)
+    _wallet.name = "Wallet"
+    box.add_child(_wallet)
+    _info = _make_label(15, UiTheme.TEXT)
+    _info.name = "Carry"
+    box.add_child(_info)
+    var chips := HBoxContainer.new()
+    chips.name = "Chips"
+    chips.add_theme_constant_override("separation", 6)
+    chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    box.add_child(chips)
+    for kind in CHIP_COLORS:
+        var c := UiTheme.chip("", CHIP_COLORS[kind])
+        c.name = "Chip_" + str(kind)
+        chips.add_child(c)
+        _res_chips[kind] = c
+    _order_card = PanelContainer.new()
+    _order_card.name = "OrderCard"
+    _order_card.add_theme_stylebox_override("panel", UiTheme.card_style(Color(0.45, 0.7, 1.0)))
+    _order_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _order_card.visible = false
+    box.add_child(_order_card)
+    _order = _make_label(14, Color(0.82, 0.93, 1.0))
+    _order.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _order.custom_minimum_size = Vector2(280, 0)
+    _order_card.add_child(_order)
+
+
+## 面板裡的一般文字(沒有描邊;描邊的 _make_label 是給疊在 3D 畫面上的 HUD 文字)
+func _plain(font_size: int, color: Color) -> Label:
+    var l := Label.new()
+    l.add_theme_font_size_override("font_size", font_size)
+    l.add_theme_color_override("font_color", color)
+    l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    return l
+
+
+## 背包那行 + 四個資源小籤(測試用)
+func info_text() -> String:
+    var parts: Array[String] = [_info.text]
+    for k in _res_chips:
+        parts.append((_res_chips[k] as Label).text)
+    return "\n".join(parts)
+
+
+func hint_visible() -> bool:
+    return _hint.modulate.a > 0.05
 
 
 ## 手機 / 平板 / 觸控螢幕:提示文字講觸控,不講鍵盤
@@ -206,73 +280,116 @@ func _make_label(font_size: int, color: Color) -> Label:
     return l
 
 
-func _make_button(text: String, id: String) -> Button:
+func _make_button(text: String, id: String, width: float = 240.0, font_size: int = 18) -> Button:
     var b := Button.new()
     b.text = text
-    b.custom_minimum_size = Vector2(236, 50)   # 十一顆鈕 + 統計分頁要塞進 960 高的直式畫面
-    b.add_theme_font_size_override("font_size", 20)
+    b.custom_minimum_size = Vector2(width, UiTheme.BUTTON_H)
+    UiTheme.style_button(b, "secondary", font_size)
     b.pressed.connect(menu_action.bind(id))
     return b
 
 
-## 右上角選單鈕 + 面板(提示箭頭 / 音效 / 重新開始 / 關閉)
+## 選單上排的方格開關:兩行字(名稱 / 狀態),開著綠底、關著灰底
+func _toggle_button(id: String) -> Button:
+    var b := Button.new()
+    b.name = "Toggle_" + id
+    b.custom_minimum_size = Vector2(54, 56)
+    UiTheme.style_button(b, "toggle_off", 13)
+    b.pressed.connect(menu_action.bind(id))
+    return b
+
+
+func _set_toggle(b: Button, label: String, on: bool, state: String) -> void:
+    b.text = "%s\n%s" % [label, state]
+    UiTheme.style_button(b, "toggle_on" if on else "toggle_off", 13)
+
+
+## 右上角選單鈕 + 面板:上排四格開關(提示箭頭 / 音效 / 畫質 / FPS)、中間 2 × 3 頁面格(地圖 / 說明 / 日誌 / 統計 / 火種 / 新版)、
+## 最底「重新開始」紅色獨立一顆 + 關閉;統計搬到自己的面板
 func _build_menu() -> void:
     menu_button = Button.new()
     menu_button.name = "MenuButton"
     menu_button.text = tr("MENU_BUTTON")
-    menu_button.add_theme_font_size_override("font_size", 20)
+    UiTheme.style_button(menu_button, "secondary", 20)
     _top_right(menu_button, 76, 56, 12, 14)
     menu_button.pressed.connect(menu_action.bind("toggle"))
     add_child(menu_button)
     menu_panel = PanelContainer.new()
     menu_panel.name = "MenuPanel"
-    menu_panel.custom_minimum_size = Vector2(260, 0)   # 比按鈕寬一點,面板不用靠自動長大就放得下
-    _top_right(menu_panel, 260, 0, 80, 14)
+    menu_panel.custom_minimum_size = Vector2(268, 0)   # 比內容寬一點,面板不用靠自動長大就放得下
+    menu_panel.add_theme_stylebox_override("panel", UiTheme.panel_style())
+    _top_right(menu_panel, 268, 0, 80, 14)
     menu_panel.visible = false
     add_child(menu_panel)
     var box := VBoxContainer.new()
-    box.add_theme_constant_override("separation", 8)
+    box.name = "Box"
+    box.add_theme_constant_override("separation", 10)
     menu_panel.add_child(box)
-    # 統計分三頁(經濟 / 幫手與熊 / 王與券),手機上才不會一長串
-    _tabs = TabContainer.new()
-    _tabs.name = "StatsTabs"
-    _tabs.custom_minimum_size = Vector2(236, 0)
-    box.add_child(_tabs)
-    for key in ["TAB_economy", "TAB_helpers", "TAB_king"]:
-        var l := Label.new()
-        l.name = tr(key)
-        l.add_theme_font_size_override("font_size", 14)
-        l.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
-        l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        l.custom_minimum_size = Vector2(220, 0)
-        _tabs.add_child(l)
-        _stat_pages.append(l)
-    _stats = _stat_pages[0]
-    _hints_btn = _make_button("", "hints")
-    box.add_child(_hints_btn)
-    _sound_btn = _make_button("", "sound")
-    box.add_child(_sound_btn)
-    _quality_btn = _make_button("", "quality")
-    box.add_child(_quality_btn)
-    _fps_btn = _make_button("", "fps")
-    box.add_child(_fps_btn)
-    box.add_child(_make_button(tr("MENU_MAP"), "map"))
-    box.add_child(_make_button(tr("MENU_HELP"), "help"))
-    box.add_child(_make_button(tr("MENU_CHANGELOG"), "changelog"))
-    box.add_child(_make_button(tr("MENU_JOURNAL"), "journal"))
-    box.add_child(_make_button(tr("MENU_LEGACY"), "legacy"))
-    _new_game_btn = _make_button("", "new_game")
+    var toggles := GridContainer.new()
+    toggles.name = "Toggles"
+    toggles.columns = 4
+    toggles.add_theme_constant_override("h_separation", 8)
+    box.add_child(toggles)
+    _hints_btn = _toggle_button("hints")
+    _sound_btn = _toggle_button("sound")
+    _quality_btn = _toggle_button("quality")
+    _fps_btn = _toggle_button("fps")
+    for b in [_hints_btn, _sound_btn, _quality_btn, _fps_btn]:
+        toggles.add_child(b)
+    box.add_child(UiTheme.divider())
+    var pages := GridContainer.new()
+    pages.name = "Pages"
+    pages.columns = 2
+    pages.add_theme_constant_override("h_separation", 8)
+    pages.add_theme_constant_override("v_separation", 8)
+    box.add_child(pages)
+    for e in [["MENU_MAP", "map"], ["MENU_HELP", "help"], ["MENU_JOURNAL", "journal"], ["MENU_STATS", "stats"], ["MENU_LEGACY", "legacy"], ["MENU_CHANGELOG", "changelog"]]:
+        pages.add_child(_make_button(tr(e[0]), e[1], 116, 16))
+    box.add_child(UiTheme.divider())
+    _new_game_btn = _make_button("", "new_game", 240, 16)
+    UiTheme.style_button(_new_game_btn, "danger", 16)
     box.add_child(_new_game_btn)
-    box.add_child(_make_button(tr("MENU_CLOSE"), "close"))
+    box.add_child(_make_button(tr("MENU_CLOSE"), "close", 240, 18))
     _refresh_menu_labels()
 
 
 func _refresh_menu_labels() -> void:
-    _hints_btn.text = tr("MENU_HINTS_ON") if GameState.hints_on else tr("MENU_HINTS_OFF")
-    _sound_btn.text = tr("MENU_SOUND_ON") if Sfx.enabled else tr("MENU_SOUND_OFF")
-    _quality_btn.text = tr("MENU_QUALITY_SMOOTH") if Settings.is_smooth() else tr("MENU_QUALITY_FINE")
-    _fps_btn.text = tr("MENU_FPS_ON") if Settings.show_fps else tr("MENU_FPS_OFF")
+    _set_toggle(_hints_btn, tr("MENU_T_HINTS"), GameState.hints_on, tr("MENU_ON") if GameState.hints_on else tr("MENU_OFF"))
+    _set_toggle(_sound_btn, tr("MENU_T_SOUND"), Sfx.enabled, tr("MENU_ON") if Sfx.enabled else tr("MENU_OFF"))
+    _set_toggle(_quality_btn, tr("MENU_T_QUALITY"), not Settings.is_smooth(), tr("MENU_Q_SMOOTH") if Settings.is_smooth() else tr("MENU_Q_FINE"))
+    _set_toggle(_fps_btn, tr("MENU_T_FPS"), Settings.show_fps, tr("MENU_ON") if Settings.show_fps else tr("MENU_OFF"))
     _new_game_btn.text = tr("MENU_NEW_GAME_CONFIRM") if _confirm_new_game else tr("MENU_NEW_GAME")
+
+
+## 統計頁(從選單搬出來):三個分頁(經濟 / 幫手與熊 / 王與券),開著每 0.5 秒重算
+func _build_stats_panel() -> void:
+    var parts := _centered_panel("StatsPanel", 420, "STATS_TITLE")
+    stats_panel = parts["panel"]
+    var box: VBoxContainer = parts["box"]
+    _tabs = TabContainer.new()
+    _tabs.name = "StatsTabs"
+    _tabs.custom_minimum_size = Vector2(392, 0)
+    box.add_child(_tabs)
+    for key in ["TAB_economy", "TAB_helpers", "TAB_king"]:
+        var l := _plain(15, UiTheme.TEXT)
+        l.name = tr(key)
+        l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        l.custom_minimum_size = Vector2(380, 0)
+        _tabs.add_child(l)
+        _stat_pages.append(l)
+    _stats = _stat_pages[0]
+    box.add_child(_close_button("stats_close"))
+
+
+func show_stats() -> void:
+    _refresh_stats()
+    _stats_timer = 0.5
+    menu_panel.visible = false
+    stats_panel.visible = true
+
+
+func stats_open() -> bool:
+    return stats_panel != null and stats_panel.visible
 
 
 func menu_open() -> bool:
@@ -302,6 +419,7 @@ func _build_offline_panel() -> void:
     offline_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
     offline_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
     offline_panel.visible = false
+    offline_panel.add_theme_stylebox_override("panel", UiTheme.panel_style())
     add_child(offline_panel)
     var box := VBoxContainer.new()
     box.add_theme_constant_override("separation", 14)
@@ -321,7 +439,7 @@ func _build_offline_panel() -> void:
     claim.name = "ClaimButton"
     claim.text = tr("OFFLINE_CLAIM")
     claim.custom_minimum_size = Vector2(0, 60)
-    claim.add_theme_font_size_override("font_size", 24)
+    UiTheme.style_button(claim, "primary", 24)
     claim.pressed.connect(offline_action.bind("claim"))
     box.add_child(claim)
 
@@ -340,13 +458,7 @@ func _centered_panel(name: String, width: float, title_key: String) -> Dictionar
     panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
     panel.grow_vertical = Control.GROW_DIRECTION_BOTH
     panel.visible = false
-    var sb := StyleBoxFlat.new()   # 不透明深色底:面板疊在 3D 的標籤上才看得清
-    sb.bg_color = Color(0.08, 0.09, 0.12, 0.97)
-    sb.border_color = Color(0.35, 0.38, 0.45)
-    sb.set_border_width_all(1)
-    sb.set_corner_radius_all(10)
-    sb.set_content_margin_all(14)
-    panel.add_theme_stylebox_override("panel", sb)
+    panel.add_theme_stylebox_override("panel", UiTheme.panel_style())   # 不透明深色底:面板疊在 3D 的標籤上才看得清
     add_child(panel)
     var box := VBoxContainer.new()
     box.add_theme_constant_override("separation", 10)
@@ -357,6 +469,7 @@ func _centered_panel(name: String, width: float, title_key: String) -> Dictionar
     title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45))
     title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     box.add_child(title)
+    box.add_child(UiTheme.divider())
     return {"panel": panel, "box": box, "title": title}
 
 
@@ -364,8 +477,8 @@ func _close_button(id: String) -> Button:
     var b := Button.new()
     b.name = "CloseButton"
     b.text = tr("MENU_CLOSE")
-    b.custom_minimum_size = Vector2(0, 52)
-    b.add_theme_font_size_override("font_size", 20)
+    b.custom_minimum_size = Vector2(0, UiTheme.BUTTON_H)
+    UiTheme.style_button(b, "secondary", 18)
     b.pressed.connect(panel_action.bind(id))
     return b
 
@@ -391,7 +504,7 @@ func _build_map_panel() -> void:
     _map_home_btn.name = "MapHome"
     _map_home_btn.text = tr("MAP_HOME")
     _map_home_btn.custom_minimum_size = Vector2(0, 52)
-    _map_home_btn.add_theme_font_size_override("font_size", 20)
+    UiTheme.style_button(_map_home_btn, "primary", 20)
     _map_home_btn.pressed.connect(panel_action.bind("map_home"))
     box.add_child(_map_home_btn)
     box.add_child(_close_button("map_close"))
@@ -613,13 +726,13 @@ func _build_tower_panel() -> void:
     _tower_rate_btn = Button.new()
     _tower_rate_btn.name = "RateButton"
     _tower_rate_btn.custom_minimum_size = Vector2(0, 60)
-    _tower_rate_btn.add_theme_font_size_override("font_size", 18)
+    UiTheme.style_button(_tower_rate_btn, "primary", 18)
     _tower_rate_btn.pressed.connect(panel_action.bind("tower_up:rate"))
     box.add_child(_tower_rate_btn)
     _tower_dmg_btn = Button.new()
     _tower_dmg_btn.name = "DamageButton"
     _tower_dmg_btn.custom_minimum_size = Vector2(0, 60)
-    _tower_dmg_btn.add_theme_font_size_override("font_size", 18)
+    UiTheme.style_button(_tower_dmg_btn, "primary", 18)
     _tower_dmg_btn.pressed.connect(panel_action.bind("tower_up:damage"))
     box.add_child(_tower_dmg_btn)
     box.add_child(_close_button("tower_close"))
@@ -686,6 +799,8 @@ func panel_action(id: String) -> void:
         "legacy_close":
             legacy_panel.visible = false
             _confirm_rebirth = false
+        "stats_close":
+            stats_panel.visible = false
         "legacy_rebirth":
             if not _confirm_rebirth:
                 _confirm_rebirth = true
@@ -720,7 +835,7 @@ func _build_legacy_panel() -> void:
     _legacy_rebirth_btn = Button.new()
     _legacy_rebirth_btn.name = "RebirthButton"
     _legacy_rebirth_btn.custom_minimum_size = Vector2(0, 56)
-    _legacy_rebirth_btn.add_theme_font_size_override("font_size", 18)
+    UiTheme.style_button(_legacy_rebirth_btn, "primary", 18)
     _legacy_rebirth_btn.pressed.connect(panel_action.bind("legacy_rebirth"))
     box.add_child(_legacy_rebirth_btn)
     box.add_child(_close_button("legacy_close"))
@@ -754,12 +869,7 @@ func show_legacy(d: Dictionary) -> void:
     _legacy_body.add_theme_color_override("font_color", Color(1.0, 0.6, 0.55) if low else Color(0.95, 0.97, 1.0))
     var perks: Array = d.get("perks", [])
     while _legacy_buttons.size() < perks.size():
-        var b := Button.new()
-        b.custom_minimum_size = Vector2(0, 46)
-        b.add_theme_font_size_override("font_size", 14)
-        b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-        var idx := _legacy_buttons.size()
-        b.pressed.connect(func() -> void: legacy_action(idx))
+        var b := _legacy_row_button(_legacy_buttons.size())
         _legacy_box.add_child(b)
         _legacy_buttons.append(b)
     for i in _legacy_buttons.size():
@@ -774,10 +884,12 @@ func show_legacy(d: Dictionary) -> void:
         var cost := int(p.get("cost", -1))
         var per := float(p.get("per", 0.0))
         var pname := tr("LEGACY_PERK_%s" % id)
-        if cost >= 0:
-            b.text = tr("LEGACY_PERK_ROW") % [pname, lv, mx, legacy_fmt(id, per * float(lv)), legacy_fmt(id, per), cost]
-        else:
-            b.text = tr("LEGACY_PERK_MAX") % [pname, lv, mx, legacy_fmt(id, per * float(lv))]
+        var now_s := legacy_fmt(id, per * float(lv))
+        var row_text: String = (tr("LEGACY_PERK_ROW") % [pname, lv, mx, now_s, legacy_fmt(id, per), cost]) if cost >= 0 else (tr("LEGACY_PERK_MAX") % [pname, lv, mx, now_s])
+        b.set_meta("row_text", row_text)
+        (b.get_node("Row/Col/Name") as Label).text = tr("LEGACY_ROW_NAME") % [pname, lv, mx]
+        (b.get_node("Row/Col/Sub") as Label).text = tr("LEGACY_ROW_SUB") % [now_s, legacy_fmt(id, per)]
+        (b.get_node("Row/Cost") as Label).text = (tr("LEGACY_ROW_COST") % cost) if cost >= 0 else tr("LEGACY_ROW_MAXED")
         b.disabled = cost < 0 or not bool(p.get("affordable", false))
     _confirm_rebirth = false
     _refresh_rebirth_button()
@@ -785,8 +897,43 @@ func show_legacy(d: Dictionary) -> void:
     legacy_panel.visible = true
 
 
+## 火種清單的一列:左邊名稱 + Lv、下面目前 / 每級加成,右邊點數價;整列是按鈕,完整文字存 meta row_text 給 legacy_text
+func _legacy_row_button(idx: int) -> Button:
+    var b := Button.new()
+    b.name = "Perk%d" % idx
+    b.custom_minimum_size = Vector2(0, 54)
+    UiTheme.style_button(b, "row", 15)
+    UiTheme.press_fx(b)
+    b.pressed.connect(func() -> void: legacy_action(idx))
+    var row := HBoxContainer.new()
+    row.name = "Row"
+    row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    row.offset_left = 12
+    row.offset_right = -12
+    row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    b.add_child(row)
+    var col := VBoxContainer.new()
+    col.name = "Col"
+    col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    row.add_child(col)
+    var nm := _plain(16, UiTheme.TEXT)
+    nm.name = "Name"
+    col.add_child(nm)
+    var sub := _plain(13, UiTheme.TEXT_DIM)
+    sub.name = "Sub"
+    col.add_child(sub)
+    var cost := _plain(16, UiTheme.PRIMARY.lightened(0.25))
+    cost.name = "Cost"
+    cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    row.add_child(cost)
+    return b
+
+
 func _refresh_rebirth_button() -> void:
     _legacy_rebirth_btn.text = tr("LEGACY_REBIRTH_CONFIRM") if _confirm_rebirth else tr("LEGACY_REBIRTH") % int(_legacy_cache.get("gain", 0))
+    UiTheme.style_button(_legacy_rebirth_btn, "danger" if _confirm_rebirth else "primary", 18)   # 第二下是危險動作,換紅色
 
 
 ## 按第 i 列火種:發 action "legacy_buy:<id>"(關卡扣點數後再 show_legacy 刷新)
@@ -817,7 +964,7 @@ func legacy_text() -> String:
     var parts: Array[String] = [_legacy_body.text]
     for b in _legacy_buttons:
         if b.visible:
-            parts.append(b.text)
+            parts.append(str(b.get_meta("row_text", b.text)))
     parts.append(_legacy_rebirth_btn.text)
     return "\n".join(parts)
 
@@ -826,6 +973,7 @@ func legacy_text() -> String:
 func set_order(text: String) -> void:
     _order.text = text
     _order.visible = text != ""
+    _order_card.visible = text != ""
 
 
 func order_text() -> String:
@@ -846,6 +994,7 @@ func _build_choice_panel() -> void:
     choice_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
     choice_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
     choice_panel.visible = false
+    choice_panel.add_theme_stylebox_override("panel", UiTheme.panel_style())
     add_child(choice_panel)
     _choice_box = VBoxContainer.new()
     _choice_box.add_theme_constant_override("separation", 12)
@@ -874,6 +1023,8 @@ func show_choice(title: String, body: String, cards: Array) -> void:
         var b := Button.new()
         b.name = "Choice%d" % i
         b.custom_minimum_size = Vector2(0, 68)
+        UiTheme.style_button(b, "row", 16)
+        UiTheme.press_fx(b)
         b.pressed.connect(choice_action.bind(i))
         var row := HBoxContainer.new()
         row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1030,9 +1181,6 @@ func menu_action(id: String) -> void:
     match id:
         "toggle":
             menu_panel.visible = not menu_panel.visible
-            if menu_panel.visible:
-                _refresh_stats()
-                _stats_timer = 0.5
             _confirm_new_game = false
         "close":
             menu_panel.visible = false
@@ -1060,6 +1208,8 @@ func menu_action(id: String) -> void:
         "legacy":
             menu_panel.visible = false
             action.emit("legacy_open")
+        "stats":
+            show_stats()
         "new_game":
             if not _confirm_new_game:
                 _confirm_new_game = true
@@ -1093,7 +1243,7 @@ func show_notice(text: String) -> void:
 
 func _show_notice_now(text: String) -> void:
     _notice.text = text
-    _notice.modulate.a = 1.0
+    _toast.modulate.a = 1.0
     _notice_timer = NOTICE_SEC
 
 
@@ -1172,7 +1322,15 @@ func fps_visible() -> bool:
 func _process(delta: float) -> void:
     if _notice_timer > 0.0:
         _notice_timer -= delta
-        _notice.modulate.a = clampf(_notice_timer / 0.6, 0.0, 1.0)
+        _toast.modulate.a = clampf(_notice_timer / 0.6, 0.0, 1.0)
+    if _hint_timer > 0.0:   # 底部操作提示開局 30 秒後淡出
+        _hint_timer -= delta
+        _hint.modulate.a = clampf(_hint_timer / 1.5, 0.0, 1.0)
+    if _upgrade_btn.visible:   # 守衛塔「升級」鈕脈動,提醒旁邊有事可做
+        _pulse_t += delta
+        var ps := 1.0 + 0.04 * sin(_pulse_t * 5.0)
+        _upgrade_btn.pivot_offset = _upgrade_btn.size / 2.0
+        _upgrade_btn.scale = Vector2(ps, ps)
     if not _notice_queue.is_empty() and _notice_timer <= NOTICE_SEC - NOTICE_HOLD:
         _show_notice_now(_notice_queue.pop_front())
     if _fps.visible:
@@ -1193,8 +1351,12 @@ func _process(delta: float) -> void:
             carry = tr("HUD_CARRY") % [GameData.item_name(player.stack.item_id), player.stack.count, player.stack.capacity]
         else:
             carry = "%s(%d)" % [carry, player.stack.capacity]
-        _info.text = "%s\n%s" % [carry, tr("HUD_RES") % [GameState.pelts, GameState.teeth, GameState.rarefish, GameState.weapon_level]]
-    if menu_panel.visible:
+        _info.text = carry
+        (_res_chips["pelt"] as Label).text = tr("HUD_CHIP_pelt") % GameState.pelts
+        (_res_chips["tooth"] as Label).text = tr("HUD_CHIP_tooth") % GameState.teeth
+        (_res_chips["rarefish"] as Label).text = tr("HUD_CHIP_rarefish") % GameState.rarefish
+        (_res_chips["weapon"] as Label).text = tr("HUD_CHIP_weapon") % GameState.weapon_level
+    if stats_panel.visible:
         _stats_timer -= delta
         if _stats_timer <= 0.0:
             _stats_timer = 0.5

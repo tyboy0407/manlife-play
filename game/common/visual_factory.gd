@@ -94,4 +94,11 @@ static func label(text: String, pos: Vector3, font_size: int = 48, color: Color 
     l.no_depth_test = true
     l.pixel_size = 0.01
     l.position = pos
+    l.add_to_group("label3d")   # Harbor._fade_labels:離玩家遠的標籤淡出(meta keep 的不淡:價格牌、招牌)
+    return l
+
+
+## 標記這個 3D 標籤不隨距離淡出(價格牌、村外招牌)
+static func keep(l: Label3D) -> Label3D:
+    l.set_meta("keep", true)
     return l

@@ -41,6 +41,9 @@ func _ready() -> void:
     ring.position = Vector3(0, 0.12, 0)
     add_child(ring)
     _update_label()
+    if label != null:   # 價格牌永遠顯示但字小一號,不隨距離淡出
+        label.font_size = 36
+        VisualFactory.keep(label)
 
 
 func _update_label() -> void:

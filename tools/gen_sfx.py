@@ -139,6 +139,8 @@ def main():
                                  *[delay(tone(f, 0.35, 0.7, decay=8, harmonics=((1, 1.0), (2, 0.3))), 0.06 + 0.07 * i) for i, f in enumerate((659, 784, 988, 1319))])))
     # 選卡:乾淨的雙音「叮咚」
     write("card", normalize(mix(tone(1047, 0.12, decay=16, harmonics=((1, 1.0), (2, 0.2))), delay(tone(1568, 0.22, 0.8, decay=12), 0.09))))
+    # 按鈕按下:很短的「嗒」(高頻噪音 + 一點木頭感的低音)
+    write("tap", normalize(mix(noise(0.025, 0.7, decay=90, lowpass=0.7), tone(1100, 0.03, 0.5, decay=70, sweep_to=700))))
     write("ambient_waves", normalize(ambient(), peak=0.6))
 
 

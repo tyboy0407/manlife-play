@@ -261,7 +261,10 @@ func _run() -> void:
     level.hud.menu_action("toggle")
     await _frames(5)
     await _shot("12_menu_stats")
-    level.hud.menu_action("close")
+    level.hud.menu_action("stats")
+    await _frames(5)
+    await _shot("25_stats_panel")
+    level.hud.panel_action("stats_close")
     # 火堆 + 過冬面板(傳承):玩家站到火堆旁,面板列本輪分數與八項火種
     level.player.global_position = Harbor.BONFIRE_SPOT + Vector3(1.6, 0, 0.6)
     await _frames(30)

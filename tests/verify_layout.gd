@@ -221,6 +221,15 @@ func _ready() -> void:
     _check(Harbor.customer_door(0) == Vector3(14.1, 0, 10.2) and Harbor.customer_door(3) == Vector3(70.3, 0, 10.2)
             and Harbor.area_of_x(12.0) == 0 and Harbor.area_of_x(13.0) == 1 and Harbor.area_of_x(60.0) == 3, "顧客門座標與分區")
     # 魚群上限按水面面積:主村 16 × 7 = 18 條,擴建區 11 × 7 = 12 條
+    # 3D 標籤降噪:玩家附近的格子標籤全亮、遠處的淡到 0、價格牌(字小一號)與招牌不淡
+    _level._fade_labels()
+    var far_label := _label_of(_level.station_at("station_3"))
+    var near_label: Label3D = _level.money_pad.label
+    var pad_label: Label3D = (_level.price_pads["hire_fisher"] as PricePad).label
+    _check(far_label != null and is_zero_approx(far_label.modulate.a) and near_label != null and is_equal_approx(near_label.modulate.a, 1.0)
+            and pad_label != null and is_equal_approx(pad_label.modulate.a, 1.0) and pad_label.font_size == 36 and pad_label.has_meta("keep")
+            and _level.shop_sign.has_meta("keep") and is_equal_approx(_level.shop_sign.modulate.a, 1.0),
+            "3D 標籤:擴建區切魚台的標籤淡到 0、錢格的全亮、價格牌字 36 且不淡、武器店招牌不淡")
     _check(_level.fish_areas.size() == 5 and _level.fish_areas[0].max_fish == 18 and _level.fish_areas[1].max_fish == 12 and _level.fish_areas[3].max_fish == 12
             and _level.fish_areas[4].max_fish == 14 and _level.fish_areas[4].rect == Harbor.SOUTH_WATER_RECT and _level.nearest_fish_area(Vector3(-8, 0, 36)) == _level.fish_areas[4],
             "魚群上限按面積:主村 %d、擴建區 %d、南塊水區 %d(南塊的切魚台最近的水區是它)" % [_level.fish_areas[0].max_fish, _level.fish_areas[1].max_fish, _level.fish_areas[4].max_fish])
@@ -257,3 +266,14 @@ func _ready() -> void:
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     get_tree().quit(1 if _fails > 0 else 0)
+
+
+## 節點底下第一個 Label3D(工作站 / 櫃台的名牌)
+func _label_of(n: Node) -> Label3D:
+    if n == null:
+        return null
+    for c in n.get_children():
+        if c is Label3D:
+            return c as Label3D
+    return null
+

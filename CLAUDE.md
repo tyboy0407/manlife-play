@@ -221,6 +221,15 @@
   過冬面板(Hud.show_legacy:分數明細 + 八列火種鈕 + 過冬鈕按兩次,不暫停)從選單「火種 / 過冬」或站主村東側走道的火堆 BONFIRE_SPOT (10.8, 2.9)(烤魚攤傳送帶牌東邊、堆疊上限牌北邊)滿 1 秒開;低於 3 點標紅提醒。
   我定的配套:存檔不升版(舊檔沒 legacy 當第 1 代);過冬寫 {state, world: {}}(restore_world 空字典直接回)再 reload_current_scene;新一代開局用章節面板彈「第 N 代」(legacy.intro 旗標只彈一次);
   統計「王與券」頁多一行;GameState 多 bears_fled / king_perfects 統計;F9 新遊戲連傳承也清掉。
+- 2026-11-09(UI/UX 整理,使用者:「全部都做,照你的順序」;樣式集中在 game/ui/ui_theme.gd UiTheme):1 左上角 HUD 改成半透明區塊(Hud._build_hud_box):錢包 28 金字、
+  背包一行、四個資源小籤(UiTheme.chip,左邊代表色)、訂單小卡(_order_card);info_text() 給測試。2 選單重整:上排四格開關 _toggle_button(提示 / 音效 / 畫質 / FPS,兩行字,
+  開著 toggle_on 綠底)、2 × 3 頁面格(地圖 / 玩法說明 / 日誌 / 統計 / 火種 / 新版內容)、「重新開始」danger 紅色獨立、關閉;統計搬到 stats_panel(show_stats / stats_open,
+  三分頁照舊)。3 面板樣式統一:_centered_panel 用 UiTheme.panel_style + 標題下 divider;按鈕身分 style_button(primary 暖橘:領取 / 過冬 / 塔升級 / 回村 / 升級鈕,
+  secondary 灰框:關閉 / 選單頁,danger:重新開始 / 過冬第二下,row:寶箱卡片 / 火種列);火種列改兩欄(Row/Col/Name + Sub、Row/Cost,完整文字存 meta row_text 給 legacy_text)。
+  4 3D 標籤降噪:VisualFactory.label 全進群組 label3d,Harbor._fade_labels 每 0.15 秒依玩家距離淡出(7.5 內全亮、11.5 外全暗;meta keep 不淡:價格牌(字 36)、
+  村外招牌 VisualFactory.keep)。5 底部操作提示 30 秒後淡出(HINT_SEC,hint_visible());通知改置中 toast(_toast CenterContainer + 深底 PanelContainer,淡出用 _toast.modulate);
+  目標文字 / 警告 / toast 位置 150 / 200 / 236 錯開。6 觸控回饋:UiTheme.press_fx 按下縮 96% + tap 音效(assets/sfx/tap.wav,gen_sfx 新增),attach_press_fx 掃整個 HUD;
+  守衛塔「升級」鈕脈動。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式
@@ -281,8 +290,11 @@
   王:king / king_next_sec,play_time 到 king.atSec 自動 spawn_king,打死後 respawnSec 再來;spawn(prefer) / spawn_pack(n) / spawn_king() 強制出現、
   enabled 給測試關掉;snapshot / restore 記冷卻秒數(熊在場時存 8 秒)與 kingNextSec)
 - `game/camera/follow_camera.gd`:跟隨相機(從 +Z 側俯視,螢幕上 = 世界 -Z);直式(高 >= 寬)KEEP_WIDTH、fov 40、偏移 (0, 13.5, 9.5),橫式 KEEP_HEIGHT、fov 42、偏移 (0, 17, 11.5),視窗轉向時重算
-- `game/ui/hud.gd`:Hud(class_name):訂單一行 set_order / order_text;地圖頁 show_map / map_open / map_home_visible(map_source 由關卡給 map_data,_draw_map 畫;panel_action map_home / map_close)、
+- `game/ui/hud.gd`:Hud(class_name):左上角 HUD 區塊 _build_hud_box(錢包 / 背包 / 資源小籤 _chips / 訂單小卡 _order_card,info_text())、選單四格開關 + 六格頁面 + 紅色重新開始、
+  統計面板 stats_panel(show_stats / stats_open)、toast 通知 _toast、操作提示淡出 hint_visible()、火種兩欄列 _legacy_row_button;訂單一行 set_order / order_text;地圖頁 show_map / map_open / map_home_visible(map_source 由關卡給 map_data,_draw_map 畫;panel_action map_home / map_close)、
   玩法說明 show_help / help_open / help_tab_count、新版內容 show_changelog / changelog_open / changelog_text(panel_action help_close / changelog_close);選單多 map / help / changelog;三選一卡片面板(show_choice(title, body, [{title, desc, color}]) / choice_action(i) 發 action "choice:<i>" / choice_open / choice_count / choice_title)、統計分頁 stats_pages / stats_text / stats_tab_count、set_warning 紅字警告、通知排隊(show_notice 上一則不到 0.9 秒就排隊、同類只留最新)、離線收益面板(show_offline(cash, 離線秒, 算進的秒) 半透明遮罩 + 置中面板 + 領取鈕,offline_action("claim") 發 action "offline_claim";offline_open / offline_cash、income_rate 給統計)、錢包 / 背包內容 / 統計(HUD_STATS 九個參數)/ 上方目標文字(set_objective,Guide 餵)/ 通知 / 操作提示(觸控裝置用 HUD_HINT_TOUCH);右上角選單鈕 + 面板(menu_action:toggle / hints / sound / new_game 兩次確認 / close,hints 與 new_game 用 action 訊號交給關卡);聽 items_moved "cash" 畫 2D 的 $ 飛向錢包
+- `game/ui/ui_theme.gd`:UiTheme(靜態樣式:顏色 token、panel_style / hud_style / toast_style / card_style、style_button(b, kind) primary / secondary / danger / toggle_on / toggle_off / row、
+  button_kind(b) 讀身分、chip(text, accent) 資源小籤、divider、press_fx / attach_press_fx 按下回饋)
 - `game/ui/touch_joystick.gd`:TouchJoystick(鋪滿畫面最底層、mouse_filter IGNORE;_unhandled_input 收 ScreenTouch / ScreenDrag,按下點為中心、RADIUS 90、只跟第一根手指、exclusions 範圍不算;handle_event 給測試)
 - `game/ui/guide.gd`:Guide(Node3D,掛在關卡下):每 0.1 秒把關卡狀態餵 GuideLogic,推進教學(GameState.tutorial_step)、解析目標座標、畫玩家頭上箭頭 + 目標彈跳箭頭、餵 HUD 文字;toggle_hints(H)
 - `game/levels/harbor.gd` + `harbor.tscn`(主場景):SOUTH_RECT / SOUTH_RECTS 四塊 / south_walls / south_block / south_blocks / south_block_walls / _build_south_block(i) / south_door_z(i) / south_end() 第四 ~ 七次擴建(往南疊)、MAX_EXPANSIONS 7、TOWER_AREAS(南塊塔的分區查表)、EXPLORE_RECT / EXIT_* / LANDMARKS / _build_exploration / _set_east_exit / exit_east_walls / is_inside_village / player_outside / home_point 村外探險、_gap_segments、customer_door_for、king_logic / king_eaten / king_wrecked / _king_slain(寶箱)/ chest_opened / _claim_chest / pending_chest、trophies / _refresh_trophies、_insured 保險券回來、ALTAR_SIGN 祭壇、offline(OfflineLogic,聽 sale_made 記收入;snapshot 多 income_rate、_load_save 算 _offline_pending 與 offline_sec,_ready 最後 _show_offline 暫停、_claim_offline 領取;_exit_tree 解除暫停)、星港漁市,座標常數 STATION_SPOTS / STATION_DEFS / COUNTER_SPOTS / PAD_SPOTS / UNLOCKS;_on_purchased 生幫手與解鎖建築;porter_dests / porter_sources 餵 PorterPlanner,find_porter_job / find_dest_for / find_station_* 給幫手找目標;snapshot / restore_world / save_now / _load_save / new_game;

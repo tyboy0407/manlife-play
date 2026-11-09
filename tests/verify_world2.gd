@@ -545,7 +545,7 @@ func _king_section() -> void:
     var gone := await _wait_until(func() -> bool: return not bs.has_king(), 900)
     _check(gone and not is_instance_valid(king) and bs.king_next_sec >= GameState.play_time + bs.logic.king_respawn_sec() - 5.0 and bs.king_next_sec < INF,
             "王逃走消失,下一隻 %.0f 秒後" % (bs.king_next_sec - GameState.play_time))
-    _check(str(_level.hud.objective_text()) != "" and _level.hud.stats_text().contains(":") and _level.hud._info.text.contains("Lv"), "HUD:左上只剩資源 / 武器,統計收進選單(有遊戲時間)")
+    _check(str(_level.hud.objective_text()) != "" and _level.hud.stats_text().contains(":") and _level.hud.info_text().contains("Lv"), "HUD:左上只剩資源 / 武器,統計收進選單(有遊戲時間)")
     if t1_alive:
         t1.restore({"state": "alive", "hp": t1.hp_max})
     bs.enabled = false

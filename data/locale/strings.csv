@@ -365,3 +365,21 @@ LEGACY_INTRO_TITLE,Generation %d,第 %d 代
 LEGACY_INTRO_TEXT,The last generation scored %d and left %d legacy points. You hold %d points: spend them at the bonfire. The village is snow again but the embers still burn.,前一代評分 %d，留下 %d 點傳承。你手上共有 %d 點，可以在火堆旁把火種分給這一代。村子又回到一片雪白，但火種還燒著。
 NOTICE_LEGACY_PERK,Ember kindled: %s,火種點亮：%s
 HUD_LEGACY_LINE,Generation %d | legacy points %d | embers Lv%d,第 %d 代｜傳承點數 %d｜火種合計 Lv%d
+MENU_T_HINTS,Hints,提示
+MENU_T_SOUND,Sound,音效
+MENU_T_QUALITY,Quality,畫質
+MENU_T_FPS,FPS,幀數
+MENU_ON,On,開
+MENU_OFF,Off,關
+MENU_Q_SMOOTH,Smooth,流暢
+MENU_Q_FINE,Fine,精細
+MENU_STATS,Stats,統計
+STATS_TITLE,Stats,統計
+HUD_CHIP_pelt,Pelts %d,毛皮 %d
+HUD_CHIP_tooth,King teeth %d,熊王牙 %d
+HUD_CHIP_rarefish,Golden fish %d,金魚 %d
+HUD_CHIP_weapon,Weapon Lv%d,武器 Lv%d
+LEGACY_ROW_NAME,%s Lv%d/%d,%s Lv%d/%d
+LEGACY_ROW_SUB,now %s | per level %s,目前 %s｜每級 %s
+LEGACY_ROW_COST,%d pts,%d 點
+LEGACY_ROW_MAXED,Maxed,已滿

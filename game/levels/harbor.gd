@@ -214,6 +214,10 @@ var loaded_from_save := false
 var offline: OfflineLogic               # 離線收益:在線記收入速率、讀檔時算離線收益
 var king_logic: KingLogic               # 北極熊王獎勵循環
 var legacy: LegacyLogic                 # 傳承 / 過冬(評分、點數、火種)
+var _label_timer := 0.0                 # 3D 標籤淡出每 LABEL_FADE_SEC 秒算一次
+const LABEL_FADE_NEAR := 7.5            # 玩家這個距離內的格子 / 建築標籤全亮
+const LABEL_FADE_FAR := 11.5            # 超過這個距離全暗(價格牌與招牌 meta keep 不淡)
+const LABEL_FADE_SEC := 0.15
 var bonfire: BonfirePad = null          # 火堆:玩家站滿 1 秒開過冬面板
 var south_walls: Array[Node3D] = []     # 主村南牆(隱形牆 + 柵欄),往南擴建時拆
 var south_block: StaticBatch = null     # 第一塊南塊布景(蓋了才有)
@@ -436,11 +440,11 @@ func _build_outside() -> void:
     scenery.add_box(Vector3(4.8, 0.3, 3.2), Color(0.55, 0.18, 0.15), WEAPON_SHOP + Vector3(0, 2.55, 0))
     scenery.add_box(Vector3(3.2, 0.9, 0.6), fence, Vector3(WEAPON_SHOP.x, 0.45, 1.5))
     scenery.add_box(Vector3(3.4, 0.08, 0.8), sand, Vector3(WEAPON_SHOP.x, 0.94, 1.5))
-    shop_sign = VisualFactory.label(tr("SIGN_WEAPON_SHOP"), WEAPON_SHOP + Vector3(0, 3.3, 0), 48, Color(1.0, 0.9, 0.7))
+    shop_sign = VisualFactory.keep(VisualFactory.label(tr("SIGN_WEAPON_SHOP"), WEAPON_SHOP + Vector3(0, 3.3, 0), 48, Color(1.0, 0.9, 0.7)))
     world.add_child(shop_sign)
     # 熊王祭壇:石台 + 招牌,牌子(altar_insurance / altar_ice)在旁邊
     scenery.add_box(Vector3(1.4, 0.5, 1.0), Color(0.6, 0.6, 0.65), ALTAR_SIGN + Vector3(0, 0.25, 0))
-    world.add_child(VisualFactory.label(tr("SIGN_ALTAR"), ALTAR_SIGN + Vector3(0, 1.4, 0), 40, Color(1.0, 0.95, 0.8)))
+    world.add_child(VisualFactory.keep(VisualFactory.label(tr("SIGN_ALTAR"), ALTAR_SIGN + Vector3(0, 1.4, 0), 40, Color(1.0, 0.95, 0.8))))
     trophies = Node3D.new()
     trophies.name = "Trophies"
     world.add_child(trophies)
@@ -471,7 +475,7 @@ func _build_dock() -> void:
     scenery.add_cylinder(0.12, 3.6, wood, BOAT_SPOT + Vector3(0.4, 2.9, 0))                               # 桅杆
     scenery.add_box(Vector3(2.0, 1.8, 0.1), sail, BOAT_SPOT + Vector3(0.4, 2.8, 0.2))                     # 帆
     scenery.add_box(Vector3(0.6, 0.3, 0.06), Color(0.55, 0.18, 0.15), BOAT_SPOT + Vector3(0.7, 4.5, 0))   # 旗
-    dock_sign = VisualFactory.label(tr("SIGN_DOCK"), BOAT_SPOT + Vector3(0, 5.2, 0), 44, Color(1.0, 0.95, 0.8))
+    dock_sign = VisualFactory.keep(VisualFactory.label(tr("SIGN_DOCK"), BOAT_SPOT + Vector3(0, 5.2, 0), 44, Color(1.0, 0.95, 0.8)))
     world.add_child(dock_sign)
     # 船長(破冰者):站在甲板上,只有外觀,故事的泡泡掛在他頭上
     captain = Node3D.new()
@@ -499,7 +503,7 @@ func _build_merchant_camp() -> void:
     scenery.add_box(Vector3(0.5, 0.5, 0.5), Color(0.9, 0.6, 0.3), c + Vector3(3.5, 0.45, 1.5))   # 火
     scenery.add_box(Vector3(0.9, 0.2, 0.2), wood, c + Vector3(3.5, 0.25, 1.5))
     scenery.add_box(Vector3(1.4, 0.8, 0.8), wood, c + Vector3(-3.0, 0.4, 1.2))     # 貨箱
-    world.add_child(VisualFactory.label(tr("SIGN_MERCHANT"), c + Vector3(0, 3.2, 0), 44, Color(1.0, 0.95, 0.8)))
+    world.add_child(VisualFactory.keep(VisualFactory.label(tr("SIGN_MERCHANT"), c + Vector3(0, 3.2, 0), 44, Color(1.0, 0.95, 0.8))))
     merchant = Node3D.new()
     merchant.name = "Merchant"
     merchant.position = MERCHANT_SPOT
@@ -526,7 +530,7 @@ func _build_shrine() -> void:
         var a := TAU * float(i) / 6.0
         var h := 1.6 + float(i % 2) * 0.9
         shrine.add_child(VisualFactory.box(Vector3(0.35, h, 0.35), ice, Vector3(cos(a) * 2.6, h / 2.0, sin(a) * 2.6)))
-    shrine.add_child(VisualFactory.label(tr("SIGN_SHRINE"), Vector3(0, 3.6, 0), 44, Color(0.85, 0.9, 1.0)))
+    shrine.add_child(VisualFactory.keep(VisualFactory.label(tr("SIGN_SHRINE"), Vector3(0, 3.6, 0), 44, Color(0.85, 0.9, 1.0))))
     shrine.visible = false
 
 
@@ -2176,6 +2180,10 @@ func _physics_process(delta: float) -> void:
     GameState.play_time += delta
     hud.income_rate = offline.rate(GameState.play_time)
     _update_tower_button()
+    _label_timer -= delta
+    if _label_timer <= 0.0:
+        _label_timer = LABEL_FADE_SEC
+        _fade_labels()
     _tick_orders(delta)
     if not _insured.is_empty() and GameState.play_time >= float(_insured[0].get("at", 0.0)):
         var e: Dictionary = _insured.pop_front()
@@ -2189,6 +2197,33 @@ func _physics_process(delta: float) -> void:
 func _notification(what: int) -> void:
     if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
         save_now()   # 網頁版切到背景 / 自動更新重新整理前也存
+
+
+## 3D 標籤降噪:格子 / 建築 / 人物頭上的 Label3D 只在玩家 LABEL_FADE_NEAR 內全亮,到 LABEL_FADE_FAR 淡到看不見;
+## 價格牌、村外招牌(meta keep)永遠顯示。第一次看到的標籤記下原本的透明度(meta base_a)
+func _fade_labels() -> void:
+    if player == null or not is_instance_valid(player):
+        return
+    var pp := player.global_position
+    for n in get_tree().get_nodes_in_group("label3d"):
+        var l := n as Label3D
+        if l == null or not l.is_inside_tree():
+            continue
+        if not l.has_meta("base_a"):
+            l.set_meta("base_a", l.modulate.a)
+            l.set_meta("base_oa", l.outline_modulate.a)
+        var base_a := float(l.get_meta("base_a"))
+        var a := 1.0
+        if not l.has_meta("keep"):
+            var d := Vector2(l.global_position.x - pp.x, l.global_position.z - pp.z).length()
+            a = clampf((LABEL_FADE_FAR - d) / (LABEL_FADE_FAR - LABEL_FADE_NEAR), 0.0, 1.0)
+        l.modulate.a = base_a * a
+        l.outline_modulate.a = float(l.get_meta("base_oa")) * a
+
+
+## 標籤目前的透明度(測試用)
+func label_alpha(l: Label3D) -> float:
+    return l.modulate.a
 
 
 ## --- 傳承 / 過冬(規則 LegacyLogic,數值 game.json legacy)---

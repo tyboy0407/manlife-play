@@ -775,7 +775,7 @@ func _rare_fish_section() -> void:
     await _go(Vector3(0.6, 0, -6.0), 400)
     var caught := await _wait_until(func() -> bool: return GameState.rarefish == rare0 + 1, 240)
     await _step(2)
-    _check(caught and not fa.has_rare() and fa.rare_caught_total == 1 and _count("moved_loot") >= 1 and _level.hud._info.text.contains("1"),
+    _check(caught and not fa.has_rare() and fa.rare_caught_total == 1 and _count("moved_loot") >= 1 and _level.hud.info_text().contains("1"),
             "站滿 2 秒抓到:稀有魚 +1(不佔背包)、金魚消失、通知 [%s]" % _level.hud.notice_text())
     await _empty_hands()
     await _go(Vector3(0, 0, 7))
