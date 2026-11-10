@@ -249,6 +249,11 @@
   mml.py --rate 22050 算完再去 DC / 30 Hz 高通 / 8 ms 淡入淡出 / -12 dBFS),Sfx._start_loop 與環境音同一套循環播放(VOLUMES -20,music_playing() 給測試),音效總開關一起關。
   5 create-game-assets(awesome-gamedev):notes/art_direction_brief.md(遊戲框架 / 視覺系統含色票 / 技術合約 / 現況與缺口)、notes/asset-manifest.json(每個資產的來源 / 授權 / 狀態 / 候選替換),
   asset_report.py 檢查四個圖示與啟動畫面(尺寸 / alpha 全 PASS);沒有影像生成工具所以不產新圖,熊 / 食物模型與圖示重畫列為候選。
+- 2026-11-09(使用者:平衡報告 notes/balance_pass_2026-11-09.md 的八條全部採用):1 僱用牌 hire_fisher / porter / cashier costMult 1.8 → 1.3(修理工不動);
+  2 第四次擴建 expand_village_4 $20000 → $12000(價格單調:1k / 2k / 8k / 12k / 16k / 32k / 64k);3 廚房 processSec 5 → 2;4 毛衣櫃台 $200 → $350;
+  5 離線收益上限 maxSec 28800 → 14400(4 小時;rateMult 0.5 不動,離線火種每級 +1 小時照舊);6 GameState.expansion_times 記每次擴建的 play_time(存檔、統計經濟頁 HUD_EXPAND_TIMES);
+  7 第一張訂單 orders.firstDelaySec 30 → 300;8 GuideLogic 的碼頭提示只在手上的量 >= 該項還缺的量(state.order_need,Guide._order_need 餵)或人已在村外時才出,
+  否則照工作循環先賣掉(舊狀態沒 order_need 照舊指碼頭)。測試的階梯算式用 fdef costMult 1.8 保留,正式數字另外檢查 1.3。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式

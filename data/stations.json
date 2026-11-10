@@ -41,7 +41,7 @@
       "output": "soup",
       "inputCap": 12,
       "outputCap": 16,
-      "processSec": 5.0,
+      "processSec": 2.0,
       "yield": 1
     }
   ]

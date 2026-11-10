@@ -101,8 +101,8 @@ func _run() -> void:
     _check(_player.stack.item_id == pl_item and _player.stack.count == pl_count and _player.stack.capacity == 8, "重建關卡:玩家背上還原")
     var fp2: PricePad = _level.price_pads["hire_fisher"]
     var ug2: PricePad = _level.price_pads["unlock_grill"]
-    _check(fp2.logic.buys == 1 and fp2.logic.remaining == fp_rem and fp2.logic.current_cost() == 18 and fp2.visible
-            and not ug2.visible and ug2.logic.is_exhausted(), "重建關卡:價格牌進度還原(漁夫牌第二次 $18 剩 $%d、烤魚攤建地牌已用掉)(buys %d rem %d cost %d visible %s lost %d)" % [fp_rem, fp2.logic.buys, fp2.logic.remaining, fp2.logic.current_cost(), str(fp2.visible), fp2.logic.lost])
+    _check(fp2.logic.buys == 1 and fp2.logic.remaining == fp_rem and fp2.logic.current_cost() == 13 and fp2.visible
+            and not ug2.visible and ug2.logic.is_exhausted(), "重建關卡:價格牌進度還原(漁夫牌第二次 $13 剩 $%d、烤魚攤建地牌已用掉)(buys %d rem %d cost %d visible %s lost %d)" % [fp_rem, fp2.logic.buys, fp2.logic.remaining, fp2.logic.current_cost(), str(fp2.visible), fp2.logic.lost])
     var cashier2 := _find_helper("cashier")
     _check(cashier2 != null and cashier2.assigned_counter != null and is_equal_approx(st2.logic.speed_mult, 1.5), "重建關卡:收銀員指派(八座櫃台裡的一座)、升級套回")
     _check(GameState.weapon_level == weapon_saved and GameState.helpers_lost == lost_saved and _player.weapon_prop != null
@@ -333,8 +333,8 @@ func _third_expansion(ev3: PricePad, hf: PricePad, hpp: PricePad, hc: PricePad) 
             and _level.station_at("grill_7") != null and tailor != null and tailor.logic.input_id == "pelt" and tailor.logic.output_id == "sweater"
             and tailor.logic.input_per == 5, "第三塊:兩座烤魚攤 + 服飾店(毛皮 -> 毛衣,一批 5 張)(工作站 %d / %d、櫃台 %d / %d)"
             % [_level.stations.size(), stations2 + 3, _level.counters.size(), counters2 + 1])
-    _check(sc != null and sc.logic.item_id == "sweater" and sc.logic.price == 200 and sc.want_weights.size() == 1 and int(sc.want_weights[0]) == 1
-            and CounterLogic.roll_want(sc.want_weights, 0.99) == 1, "毛衣櫃台 $200、顧客一次只買一件(權重 %s)" % str(sc.want_weights))
+    _check(sc != null and sc.logic.item_id == "sweater" and sc.logic.price == 350 and sc.want_weights.size() == 1 and int(sc.want_weights[0]) == 1
+            and CounterLogic.roll_want(sc.want_weights, 0.99) == 1, "毛衣櫃台 $350、顧客一次只買一件(權重 %s)" % str(sc.want_weights))
     _check(_level.annex_east_walls[1].is_empty() and not _level.annex_east_walls[2].is_empty(), "第二塊的東牆拆掉、第三塊的東牆還在")
     _check((_level.price_pads["tower_19"] as PricePad).visible and (_level.price_pads["tower_24"] as PricePad).visible
             and (_level.price_pads["tower_24"] as PricePad).global_position.x > 60.0
@@ -372,8 +372,8 @@ func _third_expansion(ev3: PricePad, hf: PricePad, hpp: PricePad, hc: PricePad) 
     await _go(sc.service_pad.global_position, 600)
     var sold := await _wait_until(func() -> bool: return not _sale_after(sales0, "sweater").is_empty(), 900)
     var sale := _sale_after(sales0, "sweater")
-    _check(stocked and sold and int(sale[1]) == 1 and int(sale[2]) == 200 and _level.money_pad.cash >= cash0 + 200,
-            "毛衣上架、顧客一次買一件 $200(錢格 %d -> %d;上架 %s、庫存 %d、手上 %s ×%d、成品 %d、顧客 %d、收銀員 %s、拿貨 %s、玩家 (%.1f, %.1f))"
+    _check(stocked and sold and int(sale[1]) == 1 and int(sale[2]) == 350 and _level.money_pad.cash >= cash0 + 350,
+            "毛衣上架、顧客一次買一件 $350(錢格 %d -> %d;上架 %s、庫存 %d、手上 %s ×%d、成品 %d、顧客 %d、收銀員 %s、拿貨 %s、玩家 (%.1f, %.1f))"
             % [cash0, _level.money_pad.cash, str(stocked), sc.logic.stock, _player.stack.item_id, _player.stack.count, tailor.logic.output_count,
             sc.customers.size(), str(sc.cashier != null), str(_player.takes_output), _player.global_position.x, _player.global_position.z])
     await _go(Vector3(59.5, 0, 5.0), 600)
@@ -953,9 +953,9 @@ func _south_section() -> void:
     var hf: PricePad = _level.price_pads["hire_fisher"]
     var hp: PricePad = _level.price_pads["hire_porter"]
     var max0 := hf.logic.max_buys
-    _check(pad.visible and pad.logic.current_cost() == 20000 and not _level.has_south_block() and _level.south_walls.size() >= 3
+    _check(pad.visible and pad.logic.current_cost() == 12000 and not _level.has_south_block() and _level.south_walls.size() >= 3
             and _level.tower_by_id("tower_25") != null and not (_level.price_pads["tower_25"] as PricePad).visible,
-            "第三次擴建後主村南牆邊出現 $20000 的牌;南塊還沒有、塔 25 的牌藏著")
+            "第三次擴建後主村南牆邊出現 $12000 的牌;南塊還沒有、塔 25 的牌藏著")
     GameState.add_wallet(20000)
     await _go(Vector3(-6.5, 0, 9.0))
     var bought := await _pay_pad(pad)
@@ -966,7 +966,7 @@ func _south_section() -> void:
             and sc.logic.price == 15 and (_level.price_pads["tower_25"] as PricePad).visible and (_level.price_pads["tower_26"] as PricePad).visible
             and hf.logic.max_buys == max0 + 3 and hp.logic.max_buys == 18 and _level.bears.logic.entries(4).size() == 3
             and _level.is_inside_village(Vector3(0, 0, 25)) and not pad.visible,
-            "付清 $20000:南塊蓋好(南牆拆掉)、廚房 + 魚湯櫃台 $15、塔 25 / 26 的牌出現、僱用名額 %d / %d、熊多一個南入口" % [hf.logic.max_buys, hp.logic.max_buys])
+            "付清 $12000:南塊蓋好(南牆拆掉)、廚房 + 魚湯櫃台 $15、塔 25 / 26 的牌出現、僱用名額 %d / %d、熊多一個南入口" % [hf.logic.max_buys, hp.logic.max_buys])
     _check(kitchen.logic.is_multi_input() and kitchen.input_pads.size() == 2 and kitchen.input_pad_for("grilled") != kitchen.input_pad_for("fillet")
             and (_level.price_pads["belt_kitchen"] as PricePad).visible, "廚房兩個輸入格(魚片 / 烤魚)、傳送帶牌出現")
     var fc := _level.counter_by_id("fillet_counter")
@@ -975,7 +975,7 @@ func _south_section() -> void:
             "顧客成長:擴建四次後主村櫃台 10 位、擴建區 8 位、每人至少 5 件、間隔 %.2f 秒" % fc.spawn_interval)
     var second_row := await _wait_until(func() -> bool: return sc.customers.size() >= 7, 60 * 25)   # 魚湯櫃台還沒貨,顧客只進不出
     _check(second_row and (sc.customers[6] as Customer).target.z < sc.slot_position(0).z - 1.0, "第 7 位顧客排到第二排(北側)")
-    # 只放魚片不做;再放烤魚就做(5 秒一碗);搬運工先定住,不然他們會往廚房補料讓數量對不上
+    # 只放魚片不做;再放烤魚就做(2 秒一碗);搬運工先定住,不然他們會往廚房補料讓數量對不上
     for h in _level.helpers:
         if h.role == "porter":
             h.set_physics_process(false)

@@ -106,7 +106,12 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
         # 背的貨正是碼頭訂單要的:先送去交貨格(賺兩倍)
         var wanted = state.get("order_items", [])
         if typeof(wanted) == TYPE_ARRAY and wanted.has(item):
-            return {"kind": "dock", "target": "", "text": "HINT_order"}
+            # 只在手上的量夠把這項交齊(order_need[item])、或人已經在村外時才指碼頭;不然照工作循環先賣掉,
+            # 免得背著兩片魚片就被拐去村外碼頭(試玩機器人前 6 分鐘有 4 分鐘在跑碼頭)。沒給 order_need 的舊狀態照舊指碼頭
+            var need_map = state.get("order_need", {})
+            var need := int(need_map.get(item, 0)) if typeof(need_map) == TYPE_DICTIONARY else 0
+            if need <= 0 or count >= need or bool(state.get("outside", false)):
+                return {"kind": "dock", "target": "", "text": "HINT_order"}
         var ct := _counter_with_space(state, item)
         if not ct.is_empty():
             # 櫃台放不下整疊、又沒人收銀:先站收銀格賣到放得下再上架。不然每賣一件提示就在上架格 / 收銀格之間翻一次,

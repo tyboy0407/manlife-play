@@ -190,8 +190,8 @@ func _run() -> void:
             and cashier != null and GameState.hired_count("cashier") == 1, "僱到收銀員")
     _check(cashier != null and cashier.assigned_counter == cnt and cnt.cashier == cashier and cashier.can_serve
             and not cashier.takes_output and not cashier.collects_cash, "收銀員指派到魚片櫃台")
-    _check(hc.visible and hc.logic.buys == 1 and hc.logic.current_cost() == 36 and hc.logic.remaining == 36,
-            "收銀員牌可再買一次:第二次 $36(付清後站著不會接著付,剩 $%d)" % hc.logic.remaining)
+    _check(hc.visible and hc.logic.buys == 1 and hc.logic.current_cost() == 26 and hc.logic.remaining == 26,
+            "收銀員牌可再買一次:第二次 $26(20 × 1.3;付清後站著不會接著付,剩 $%d)" % hc.logic.remaining)
     _check(_player.stack.is_empty() and GameState.wallet >= 0, "錢不佔背包:買完後背包仍空、錢包 $%d" % GameState.wallet)
     await _step(8)
     _check(GameState.tutorial_step == 7 and not g.in_tutorial and _count("tut_done") == 1 and _count("tut_step") == 7
@@ -275,8 +275,8 @@ func _run() -> void:
     await _pay_pad(_level.price_pads["hire_fisher"])
     await _step(3)
     var fisher_pad: PricePad = _level.price_pads["hire_fisher"]
-    _check(_count("hired_fisher") == 1 and fisher_pad.visible and fisher_pad.logic.buys == 1 and fisher_pad.logic.remaining == 18
-            and GameState.hired_total() == 3, "僱到漁夫,牌子留著、第二次 $18")
+    _check(_count("hired_fisher") == 1 and fisher_pad.visible and fisher_pad.logic.buys == 1 and fisher_pad.logic.remaining == 13
+            and GameState.hired_total() == 3, "僱到漁夫,牌子留著、第二次 $13")
     # 增建烤魚攤(從錢格斜穿過擴充背包牌過去,一樣不該付到它)
     _level.money_pad.add_cash(120)
     var bought := await _pay_pad(_level.price_pads["unlock_grill"])
@@ -528,8 +528,8 @@ func _bear_section(g: Guide, fisher_pad: PricePad) -> void:
     var rebought := await _pay_pad(fisher_pad)
     await _step(3)
     _check(rebought and _find_helper("fisher") != null and GameState.hired_count("fisher") == hired_fisher and _level.helpers.size() == GameState.hired_total()
-            and fisher_pad.logic.buys == fisher_buys and fisher_pad.logic.lost == 0 and not fisher_pad.logic.is_rebuy() and fisher_pad.logic.remaining == 18,
-            "花 $15 買回漁夫:幫手回來、名額補回、下一次回到正常的 $18(買成 %s、漁夫 %d / %d、幫手 %d / %d、buys %d / %d、lost %d、剩 %d)"
+            and fisher_pad.logic.buys == fisher_buys and fisher_pad.logic.lost == 0 and not fisher_pad.logic.is_rebuy() and fisher_pad.logic.remaining == 13,
+            "花 $15 買回漁夫:幫手回來、名額補回、下一次回到正常的 $13(買成 %s、漁夫 %d / %d、幫手 %d / %d、buys %d / %d、lost %d、剩 %d)"
             % [str(rebought), GameState.hired_count("fisher"), hired_fisher, _level.helpers.size(), helpers_before, fisher_pad.logic.buys, fisher_buys, fisher_pad.logic.lost, fisher_pad.logic.remaining])
     # 升到 Lv3:看到玩家就逃
     _level.money_pad.add_cash(200)
@@ -788,7 +788,7 @@ func _rare_fish_section() -> void:
 func _order_section() -> void:
     await _empty_hands()
     var o := _level.orders
-    _check(o != null and o.first_delay() == 30.0 and not o.has_order() and _level.hud.order_text() == "", "教學後碼頭還沒貼訂單(30 秒後才貼)")
+    _check(o != null and o.first_delay() == 300.0 and not o.has_order() and _level.hud.order_text() == "", "教學後碼頭還沒貼訂單(5 分鐘後才貼)")
     o.next_in = 0.1
     await _step(12)
     var posted := o.has_order()
@@ -805,9 +805,13 @@ func _order_section() -> void:
     _check(od["lines"].has("fillet") and o.need_of("fillet") == 6 and int(od["reward"]) == 24, "貼一張只要 6 片魚片的訂單(獎勵 $24)")
     await _go(Vector3(0, 0, 7))   # 先離開垃圾桶
     _player.stack.clear()   # 直接給 6 片(從輸出格拿會被傳送帶 / 工人的產出干擾數量)
-    for i in 6:
-        _player.stack.push("fillet")
     var g: Guide = _level.guide
+    for i in 3:
+        _player.stack.push("fillet")
+    await _step(10)
+    _check(str(g.current.get("kind", "")) != "dock", "只背 3 片(訂單要 6):提示不指碼頭,照工作循環(kind %s)" % str(g.current.get("kind", "")))
+    for i in 3:
+        _player.stack.push("fillet")
     var dock_hint := await _wait_until(func() -> bool: return str(g.current.get("kind", "")) == "dock", 60)   # Guide 每 0.1 秒才重算
     _check(_player.stack.count >= 6 and dock_hint and g.target_pos.distance_to(_level.dock.global_position) < 0.1
             and _level.hud.objective_text().contains(tr("HINT_order").substr(0, 4)), "背著訂單要的魚片:提示指碼頭(kind %s、背 %s ×%d、訂單要 %s、提示 [%s])"

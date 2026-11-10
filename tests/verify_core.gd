@@ -79,7 +79,7 @@ func _test_data() -> void:
     var costs: Array = []
     for p in shop:
         costs.append(int(p["cost"]))
-    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 80, 50, 60, 35, 1000, 2000, 8000, 20000]
+    var costs_expected: Array = [10, 30, 20, 25, 20, 20, 80, 50, 60, 35, 1000, 2000, 8000, 12000]
     for i in 8:
         costs_expected.append(40)
     for i in 4:
@@ -129,9 +129,9 @@ func _test_data() -> void:
             "搬運工容量牌三級 ×2;捕熊夾 / 誘餌 / 傳送帶牌的效果型別")
     var tl := GameData.station("tailor")
     _check(str(tl.get("input", "")) == "pelt" and str(tl.get("output", "")) == "sweater" and int(tl.get("inputPer", 0)) == 5
-            and int(GameData.counter("sweater_counter").get("price", 0)) == 200 and str(GameData.counter("sweater_counter").get("item", "")) == "sweater"
+            and int(GameData.counter("sweater_counter").get("price", 0)) == 350 and str(GameData.counter("sweater_counter").get("item", "")) == "sweater"
             and GameData.item_name("sweater") != "ITEM_sweater" and GameData.item_color("sweater") != GameData.item_color("pelt"),
-            "服飾店:5 張毛皮 -> 1 件毛衣;毛衣櫃台 $200;毛衣有名字與顏色")
+            "服飾店:5 張毛皮 -> 1 件毛衣;毛衣櫃台 $350;毛衣有名字與顏色")
     _check(int(GameData.purchase("hire_fisher").get("expandBuys", 0)) == 3 and int(GameData.purchase("hire_porter").get("expandBuys", 0)) == 4
             and int(GameData.purchase("hire_cashier").get("expandBuys", 0)) == 2 and not GameData.purchase("capacity_1").has("expandBuys"),
             "擴建後多開放的名額:漁夫 +2、搬運工 +4、收銀員 +2")
@@ -323,6 +323,7 @@ func _test_purchase() -> void:
     # 可重複購買
     var fdef := GameData.purchase("hire_fisher").duplicate()   # 下面的階梯 / 買回算式照舊用「最多 3 次」的版本(正式牌子現在 5 次)
     fdef["maxBuys"] = 3
+    fdef["costMult"] = 1.8   # 階梯算式的測試照舊用 1.8(正式牌子 2026-11-09 起 1.3)
     var r := PurchaseLogic.from_def(fdef)
     _check(r.repeatable and r.max_buys == 3 and r.current_cost() == 10 and r.remaining == 10, "漁夫牌(3 次版):可買 3 次、第一次 $10")
     r.pay(10)
@@ -371,18 +372,20 @@ func _test_purchase() -> void:
     _check(r4.buys == 1 and r4.lost == 1 and r4.current_cost() == 27 and r4.remaining == 27, "存檔還原:帶著待買回的名額")
     # 擴建村莊多開放名額:漁夫牌 +2(3 -> 5),買滿消失的牌重新開放、價格是下一級;只加一次
     var r5 := PurchaseLogic.from_def(GameData.purchase("hire_fisher"))
+    _check(is_equal_approx(r5.cost_mult, 1.3) and is_equal_approx(PurchaseLogic.from_def(GameData.purchase("hire_porter")).cost_mult, 1.3)
+            and is_equal_approx(PurchaseLogic.from_def(GameData.purchase("hire_cashier")).cost_mult, 1.3), "僱用牌階梯 1.3(26 位漁夫最後一位約 $7,000)")
     r5.restore(5, 0)
     _check(r5.is_exhausted() and r5.expand_buys == 3 and r5.expand() and not r5.is_exhausted() and r5.max_buys == 8 and r5.buys == 5
-            and r5.remaining == r5.current_cost() and r5.current_cost() == 189 and r5.expand() and r5.max_buys == 11 and r5.expand() and r5.max_buys == 14
+            and r5.remaining == r5.current_cost() and r5.current_cost() == 37 and r5.expand() and r5.max_buys == 11 and r5.expand() and r5.max_buys == 14
             and r5.expand() and r5.max_buys == 17 and r5.expand() and r5.max_buys == 20 and r5.expand() and r5.max_buys == 23
             and r5.expand() and r5.max_buys == 26 and not r5.expand() and r5.max_buys == 26,
-            "擴建:漁夫牌 5 -> 8 次,買滿的牌重開、第六次 $%d(10 × 1.8⁵)、七次擴建最多 26 次" % r5.current_cost())
+            "擴建:漁夫牌 5 -> 8 次,買滿的牌重開、第六次 $%d(10 × 1.3⁵)、七次擴建最多 26 次" % r5.current_cost())
     var r6 := PurchaseLogic.from_def(GameData.purchase("hire_porter"))
     r6.pay(30)
     r6.complete()
     r6.pay(7)
     var rem6 := r6.remaining
-    _check(r6.expand() and r6.max_buys == 6 and r6.buys == 1 and r6.remaining == rem6 and rem6 == 54 - 7, "擴建:搬運工牌 2 -> 6 次,付到一半的進度不變")
+    _check(r6.expand() and r6.max_buys == 6 and r6.buys == 1 and r6.remaining == rem6 and rem6 == 39 - 7, "擴建:搬運工牌 2 -> 6 次,付到一半的進度不變(第二位 $39 = 30 × 1.3)")
     _check(not PurchaseLogic.from_def(GameData.purchase("capacity_1")).expand(), "沒 expandBuys 的牌 expand 回 false")
     # 捕熊夾牌:一次性 $40,用掉 lose -> 同價再買(rebuyMult 1)
     var trp := PurchaseLogic.from_def(GameData.purchase("trap_1"))
@@ -571,15 +574,15 @@ func _test_state() -> void:
 func _test_kitchen() -> void:
     var k := StationLogic.from_def(GameData.station("kitchen"))
     _check(k.inputs == ["fillet", "grilled"] and k.is_multi_input() and k.input_id == "fillet" and k.output_id == "soup" and k.input_cap == 12
-            and is_equal_approx(k.process_sec, 5.0) and k.yield_count == 1 and k.accepts("grilled") and not k.accepts("fish"),
-            "stations.json kitchen:魚片 + 烤魚 -> 魚湯,5 秒一碗")
+            and is_equal_approx(k.process_sec, 2.0) and k.yield_count == 1 and k.accepts("grilled") and not k.accepts("fish"),
+            "stations.json kitchen:魚片 + 烤魚 -> 魚湯,2 秒一碗")
     _check(k.add_input_of("fillet", 3) == 3 and k.input_count_of("fillet") == 3 and k.input_count == 3 and k.input_count_of("grilled") == 0
             and k.add_input_of("fish", 2) == 0 and k.input_space_of("grilled") == 12 and k.input_space_of("fish") == 0 and k.total_input() == 3,
             "每種原料各自一堆:魚片 3、烤魚 0;不收魚")
     _check(not k.has_enough_input() and k.missing_input() == "grilled" and k.tick(10.0) == 0 and k.output_count == 0, "只有魚片不做:缺烤魚")
     k.add_input_of("grilled", 1)
-    _check(k.has_enough_input() and k.missing_input() == "" and k.tick(2.0) == 0 and k.is_working() and k.tick(3.0) == 1 and k.output_count == 1
-            and k.input_count_of("fillet") == 2 and k.input_count_of("grilled") == 0, "兩種都有:5 秒做出一碗,各扣一個")
+    _check(k.has_enough_input() and k.missing_input() == "" and k.tick(1.0) == 0 and k.is_working() and k.tick(1.5) == 1 and k.output_count == 1
+            and k.input_count_of("fillet") == 2 and k.input_count_of("grilled") == 0, "兩種都有:2 秒做出一碗,各扣一個")
     k.input_count = 7   # 舊介面對應第一種原料
     _check(k.input_count_of("fillet") == 7 and k.input_space() == 5, "舊介面 input_count / input_space 對應第一種原料")
     var single := StationLogic.from_def(GameData.station("cutting_table"))
@@ -612,8 +615,8 @@ func _test_kitchen() -> void:
 
 func _test_offline() -> void:
     var o := OfflineLogic.from_config(GameData.section("offline"))
-    _check(is_equal_approx(o.window_sec, 300.0) and is_equal_approx(o.min_sec, 60.0) and is_equal_approx(o.max_sec, 28800.0)
-            and is_equal_approx(o.mult, 0.5), "game.json offline:視窗 5 分鐘、最短 1 分鐘、上限 8 小時、五折")
+    _check(is_equal_approx(o.window_sec, 300.0) and is_equal_approx(o.min_sec, 60.0) and is_equal_approx(o.max_sec, 14400.0)
+            and is_equal_approx(o.mult, 0.5), "game.json offline:視窗 5 分鐘、最短 1 分鐘、上限 4 小時、五折")
     o.begin(0.0)
     _near(o.rate(0.0), 0.0, "新遊戲沒賣東西:速率 0", 0.0001)
     o.record(10.0, 30)
@@ -635,8 +638,8 @@ func _test_offline() -> void:
             and OfflineLogic.offline_seconds(5000, 4600) == 0, "離線秒數 = 現在 - savedAt;沒 savedAt / 時鐘倒退回 0")
     _check(o2.earnings(2.0, 59.0) == 0 and o2.earnings(0.0, 3600.0) == 0, "不滿 60 秒 / 速率 0 -> 0")
     _check(o2.earnings(2.0, 60.0) == 60 and o2.earnings(2.0, 3600.0) == 3600, "2 $/s 離線 1 小時 × 0.5 = $3600")
-    _check(o2.earnings(2.0, 100000.0) == 28800 and o2.counted_seconds(100000.0) == 28800 and o2.counted_seconds(500.0) == 500,
-            "超過 8 小時只算 8 小時($28800)")
+    _check(o2.earnings(2.0, 100000.0) == 14400 and o2.counted_seconds(100000.0) == 14400 and o2.counted_seconds(500.0) == 500,
+            "超過 4 小時只算 4 小時($14400)")
     _check(o2.earnings(0.3, 61.0) == 9, "小數無條件捨去(0.3 × 61 × 0.5 = 9.15 -> 9)")
     var d := OfflineLogic.split_duration(3 * 3600 + 12 * 60 + 40)
     var d2 := OfflineLogic.split_duration(20.0)
@@ -1417,8 +1420,8 @@ func _test_legacy() -> void:
     _check(int(r["sold"]) == 2 and int(r["cash"]) == 12 and int(c2.serve(1)["cash"]) == 2 and int(c2.serve(3)["cash"]) == 6, "售價倍率:整筆四捨五入(10 × 1.2 = 12;$2 的 +4% 一件 2、三件 6)")
     var o := OfflineLogic.from_config(GameData.section("offline"))
     o.bonus_sec = 3600.0
-    _check(o.counted_seconds(40000.0) == 28800 + 3600 and o.earnings(1.0, 40000.0) == int(floor(32400.0 * 0.5)) and is_equal_approx(o.cap_sec(), 32400.0),
-            "離線上限火種:8 小時 + 1 小時")
+    _check(o.counted_seconds(40000.0) == 14400 + 3600 and o.earnings(1.0, 40000.0) == int(floor(18000.0 * 0.5)) and is_equal_approx(o.cap_sec(), 18000.0),
+            "離線上限火種:4 小時 + 1 小時")
 
 
 ## 打擊感規則:事件分級、trauma 距離衰減 / 累加 / 衰減、震幅平方、平滑雜訊、hit-stop 只有 medium / large

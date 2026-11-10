@@ -384,3 +384,4 @@ LEGACY_ROW_SUB,now %s | per level %s,目前 %s｜每級 %s
 LEGACY_ROW_COST,%d pts,%d 點
 LEGACY_ROW_MAXED,Maxed,已滿
 MENU_T_FX,Effects,特效
+HUD_EXPAND_TIMES,expansions at %s,擴建時間 %s

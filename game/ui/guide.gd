@@ -134,6 +134,7 @@ func build_state() -> Dictionary:
         "outmatched": level.bears != null and level.bears.logic.outmatched(GameState.weapon_level, GameState.play_time),
         "resources": {"pelt": GameState.pelts, "tooth": GameState.teeth, "rarefish": GameState.rarefish},
         "order_items": level.orders.wanted_items() if level.orders != null else [],
+        "order_need": _order_need(),
     }
 
 
@@ -223,3 +224,14 @@ func toggle_hints() -> void:
     GameState.hints_on = not GameState.hints_on
     EventBus.notice.emit(tr("NOTICE_HINTS_ON" if GameState.hints_on else "NOTICE_HINTS_OFF"))
     refresh()
+
+
+## 訂單每種貨還缺幾件 {item: n}(GuideLogic 用來決定背的量夠不夠交)
+func _order_need() -> Dictionary:
+    var out := {}
+    if level == null or level.orders == null:
+        return out
+    for it in level.orders.wanted_items():
+        out[str(it)] = level.orders.need_of(str(it))
+    return out
+

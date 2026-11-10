@@ -54,7 +54,7 @@
       "id": "sweater_counter",
       "name": "COUNTER_sweater",
       "item": "sweater",
-      "price": 200,
+      "price": 350,
       "stockCap": 10,
       "wantWeights": [
         1

@@ -1173,7 +1173,7 @@ func stats_pages() -> Array[String]:
     var t := "%d:%02d" % [int(GameState.play_time) / 60, int(GameState.play_time) % 60]
     return [
         tr("HUD_STATS_ECON") % [GameState.cash_earned, int(round(income_rate * 60.0)), GameState.offline_earned, GameState.fish_caught,
-                GameState.items_sold, GameState.items_trashed, t],
+                GameState.items_sold, GameState.items_trashed, t] + "\n" + tr("HUD_EXPAND_TIMES") % _expansion_times_text(),
         tr("HUD_STATS_HELPERS") % [GameState.hired_count("fisher"), GameState.hired_count("porter"), GameState.hired_count("cashier"), GameState.hired_count("repairman"),
                 GameState.hired_count("guard"),
                 GameState.upgrade_level("worker_speed"), GameState.upgrade_level("pile_cap"), GameState.upgrade_level("porter_cap"),
@@ -1183,6 +1183,17 @@ func stats_pages() -> Array[String]:
                 + "\n" + tr("HUD_STATS_MORE") % [GameState.orders_done, GameState.orders_cash, GameState.rarefish, GameState.map_pieces, GameState.MAP_PIECES]
                 + "\n" + tr("HUD_LEGACY_LINE") % [GameState.generation(), GameState.legacy_points(), GameState.legacy_total_levels()],
     ]
+
+
+## 每次擴建在第幾分幾秒("-" = 還沒擴建)
+func _expansion_times_text() -> String:
+    if GameState.expansion_times.is_empty():
+        return "-"
+    var parts: Array[String] = []
+    for v in GameState.expansion_times:
+        var sec := int(v)
+        parts.append("%d:%02d" % [sec / 60, sec % 60])
+    return " / ".join(parts)
 
 
 ## 三頁合起來(給測試 / 除錯)

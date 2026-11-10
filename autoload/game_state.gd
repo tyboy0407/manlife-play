@@ -39,6 +39,7 @@ var orders_cash := 0           # 訂單賺的錢
 var story := {}                # 故事進度:chapters / journal / landmarks(id 清單)、flags {name: true}(Story 寫,存檔)
 var bears_fled := 0            # 打跑的一般熊數(傳承評分的戰績分)
 var king_perfects := 0         # 王 perfect 擊殺次數(傳承評分)
+var expansion_times: Array = []   # 每次擴建發生在遊戲時間第幾秒(平衡遙測,存檔)
 var legacy := {}               # 傳承(過冬後留下):generation / points / perks {id: 等級} / history [{gen, total, points, playTime, cash}] / intro(新一代剛開局,HUD 彈一次)
 
 var _legacy_logic: LegacyLogic = null
@@ -86,6 +87,7 @@ func reset() -> void:
     orders_cash = 0
     bears_fled = 0
     king_perfects = 0
+    expansion_times = []
     legacy = {}
     changed.emit()
 
@@ -187,6 +189,8 @@ func apply_purchase(id: String, effect: Dictionary) -> void:
             hired[role] = int(hired.get(role, 0)) + 1
         "unlock":
             unlocked[str(effect.get("target", id))] = true
+            if str(effect.get("target", "")).begins_with("village_"):
+                expansion_times.append(snappedf(play_time, 0.1))   # 遙測:第幾秒擴建(平衡報告建議 6)
         "upgrade":
             var key := str(effect.get("key", ""))
             if key != "":
@@ -388,7 +392,7 @@ func to_dict() -> Dictionary:
         "king_capacity_bonus": king_capacity_bonus,
         "rarefish": rarefish, "map_pieces": map_pieces, "orders_done": orders_done, "orders_cash": orders_cash,
         "story": story.duplicate(true),
-        "bears_fled": bears_fled, "king_perfects": king_perfects, "legacy": legacy.duplicate(true),
+        "bears_fled": bears_fled, "king_perfects": king_perfects, "legacy": legacy.duplicate(true), "expansion_times": expansion_times.duplicate(),
     }
 
 
@@ -445,6 +449,11 @@ func from_dict(d: Dictionary) -> void:
     king_perfects = maxi(int(d.get("king_perfects", 0)), 0)
     var lg = d.get("legacy", {})
     legacy = lg.duplicate(true) if typeof(lg) == TYPE_DICTIONARY else {}
+    expansion_times = []
+    var et = d.get("expansion_times", [])
+    if typeof(et) == TYPE_ARRAY:
+        for v in et:
+            expansion_times.append(float(v))
     changed.emit()
 
 
