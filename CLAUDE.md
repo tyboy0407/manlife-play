@@ -254,6 +254,10 @@
   5 離線收益上限 maxSec 28800 → 14400(4 小時;rateMult 0.5 不動,離線火種每級 +1 小時照舊);6 GameState.expansion_times 記每次擴建的 play_time(存檔、統計經濟頁 HUD_EXPAND_TIMES);
   7 第一張訂單 orders.firstDelaySec 30 → 300;8 GuideLogic 的碼頭提示只在手上的量 >= 該項還缺的量(state.order_need,Guide._order_need 餵)或人已在村外時才出,
   否則照工作循環先賣掉(舊狀態沒 order_need 照舊指碼頭)。測試的階梯算式用 fdef costMult 1.8 保留,正式數字另外檢查 1.3。
+- 2026-11-10(使用者:跑試玩機器人看改完前後的數字,順便修收錢提示的 bug;對照表在 notes/balance_pass_2026-11-09.md §11):
+  機器人(seed 7、4 倍速)6 分鐘收入 $138 → $510、卡住 113 → 2 次、碼頭提示 237 → 0 秒。發現的 bug:GuideLogic 的「錢格 + 錢包買得起牌、錢包自己不夠 → 先收錢」
+  用 _cheapest_pad(state, wallet) 判斷「錢包買不起任何牌」,毛皮夠時武器店升級牌(currency pelt)算買得起,整條規則失靈(錢包 $0、錢格 $514 沒人提醒)
+  → _cheapest_pad 加 cash_only 參數,收錢那條只看現金牌。機器人補:process_mode ALWAYS + 寶箱三選一自動選第一張(之前王被打死後遊戲暫停,機器人停到逾時)。
 - 使用者習慣:每個系統先開放三個問題、以編號回答,確認後再實作;每個里程碑跑全部測試再 commit。
 
 ## 工作方式

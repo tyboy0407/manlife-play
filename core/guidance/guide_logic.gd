@@ -140,7 +140,9 @@ static func _work_hint(state: Dictionary, allow_pads: bool) -> Dictionary:
     # 錢格堆到幾百塊也沒人叫他去收(試玩紀錄:錢包 $0、錢格 $464),熊來了就買不起武器
     var on_pad := int(state.get("money_on_pad", 0))
     var wallet := int(state.get("wallet", 0))
-    if allow_pads and on_pad >= 1 and _cheapest_pad(state, wallet).is_empty() and not _cheapest_pad(state, wallet + on_pad).is_empty():
+    # 只看現金牌:收毛皮 / 熊王牙的牌資源夠就算「買得起」,不能拿它當作「錢包夠了不用收錢」
+    # (試玩紀錄:毛皮 15 張讓武器店升級牌一直「買得起」,錢格堆到 $514 提示都沒叫人去收)
+    if allow_pads and on_pad >= 1 and _cheapest_pad(state, wallet, true).is_empty() and not _cheapest_pad(state, wallet + on_pad, true).is_empty():
         return {"kind": "money", "target": "", "text": "HINT_money"}
     # 幫手被吃過、而且現在的武器打不過熊(BearLogic.outmatched):先存錢升級武器,不提重僱便宜的幫手送死
     # (試玩紀錄:一直重僱 $18 的漁夫,永遠存不到 $60 的武器 Lv2,20 分鐘幫手全被吃光)
@@ -293,7 +295,7 @@ static func _pad_by_id(state: Dictionary, id: String) -> Dictionary:
 
 ## 看得見、剩餘價格最低的牌;budget >= 0 時只算付得起的
 ## 最便宜且買得起的牌(budget = 錢包;-1 = 不管錢,只看現金牌)。收毛皮 / 熊王牙的牌:資源夠就當最優先(cost 0),不夠就跳過
-static func _cheapest_pad(state: Dictionary, budget: int) -> Dictionary:
+static func _cheapest_pad(state: Dictionary, budget: int, cash_only: bool = false) -> Dictionary:
     var best := {}
     var best_cost := 1 << 30
     var res = state.get("resources", {})
@@ -303,7 +305,7 @@ static func _cheapest_pad(state: Dictionary, budget: int) -> Dictionary:
         var cost := int(p.get("remaining", 0))
         var currency := str(p.get("currency", "cash"))
         if currency != "cash":
-            if budget < 0 or typeof(res) != TYPE_DICTIONARY or int(res.get(currency, 0)) < cost:
+            if cash_only or budget < 0 or typeof(res) != TYPE_DICTIONARY or int(res.get(currency, 0)) < cost:
                 continue
             cost = 0
         elif budget >= 0 and cost > budget:

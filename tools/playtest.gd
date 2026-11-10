@@ -35,6 +35,8 @@ var _real_start := 0
 var _last_stack := 0
 var _unloading := 0.0        # 背上的數量剛變少:像真人一樣先站著卸完再走
 var _hold_target := Vector3.ZERO
+var _step_off := 0.0          # 剛買了可重複牌:真人會走開再踏上(牌子付清後要離開才會再付),機器人也走開 1 秒
+var _step_off_target := Vector3.ZERO
 var _commit_t := 0.0          # 真人不會每 0.1 秒換目標:目標至少跟 1.5 秒(熊 / 到了除外),免得在價格牌排上來回站著付錢
 var _commit_target := Vector3.ZERO
 
@@ -48,6 +50,7 @@ func _ready() -> void:
     if args.size() > 2:
         seed_v = int(args[2])
     seed(seed_v)
+    process_mode = Node.PROCESS_MODE_ALWAYS   # 寶箱三選一會把遊戲暫停,機器人要在暫停中也能按卡片
     SaveManager.save_path = "user://_playtest_save_%d.json" % seed_v
     SaveManager.delete()
     GameState.reset()
@@ -70,7 +73,14 @@ func _connect_events() -> void:
         var pad: PricePad = level.price_pads.get(id, null)
         var cost := pad.logic.current_cost() if pad != null else 0
         _purchases.append("%s @%s(下一次 %s)" % [id, _t(), str(cost)])
-        _log("買了 %s(錢包剩 $%d)" % [id, GameState.wallet]))
+        _log("買了 %s(錢包剩 $%d)" % [id, GameState.wallet])
+        if pad != null and pad.logic.repeatable:
+            var away := player.global_position - pad.global_position
+            away.y = 0.0
+            if away.length() < 0.3:
+                away = Vector3(0, 0, 1)
+            _step_off_target = pad.global_position + away.normalized() * 3.0
+            _step_off = 1.0)
     EventBus.notice.connect(func(text: String) -> void: _log("通知:%s" % text))
     EventBus.bear_appeared.connect(func(_b: Node3D) -> void: _bears_seen += 1)
     EventBus.bear_defeated.connect(func(_b: Node3D, _by: Node3D) -> void: _bears_defeated += 1)
@@ -118,6 +128,13 @@ func _physics_process(delta: float) -> void:
     if GameState.play_time >= minutes * 60.0:
         _finish()
         return
+    # 北極熊王的寶箱三選一(遊戲暫停):真人會選一張,機器人選第一張(現金卡)
+    if level.hud != null and level.hud.choice_open():
+        _log("寶箱三選一:選了「%s」" % level.hud.choice_title(0))
+        level.hud.choice_action(0)
+        return
+    if get_tree().paused:
+        return
     var g: Guide = level.guide
     var kind := str(g.current.get("kind", "none")) if g != null else "none"
     _hint_sec[kind] = float(_hint_sec.get(kind, 0.0)) + delta
@@ -126,7 +143,13 @@ func _physics_process(delta: float) -> void:
         _unloading = 0.6
         _hold_target = _target
     _last_stack = cnt
-    if _unloading > 0.0:
+    if _step_off > 0.0:
+        _step_off -= delta
+        _moving = true
+        _target = _step_off_target
+        _commit_t = 0.0
+        _idle_tick(false, delta)
+    elif _unloading > 0.0:
         _unloading -= delta
         _moving = true
         _target = _hold_target
@@ -279,7 +302,9 @@ func _finish() -> void:
     SaveManager.delete()
     SaveManager.save_path = SaveManager.DEFAULT_PATH
     GameState.reset()
-    Sfx.stop_all()
+    var sfx := get_node_or_null("/root/Sfx")
+    if sfx != null:
+        sfx.stop_all()
     await get_tree().process_frame
     await get_tree().process_frame
     get_tree().quit(0)

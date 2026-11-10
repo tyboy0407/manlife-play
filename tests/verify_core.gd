@@ -887,6 +887,14 @@ func _test_guide() -> void:
     _check(h["kind"] == "money" and h["text"] == "HINT_money", "塞住但錢包 $0、錢格 $464 買得起牌:先去收錢(不然滿手來回永遠收不到)")
     state["wallet"] = 50
     _check(GuideLogic.hint(state)["kind"] == "station_output", "錢包自己就買得起:不用先收錢,照塞住規則拿成品")
+    # 收毛皮的牌資源夠了不算「錢包買得起」:錢格有錢、現金牌買不起 -> 還是要先去收錢(試玩機器人毛皮 15 張、錢格 $514 沒人收)
+    state["wallet"] = 0
+    state["pads"].append({"id": "shop_upgrade", "name": "SHOP_shop_upgrade", "remaining": 3, "visible": true, "currency": "pelt"})
+    state["resources"] = {"pelt": 15, "tooth": 0}
+    h = GuideLogic.hint(state)
+    _check(h["kind"] == "money" and h["text"] == "HINT_money", "毛皮牌買得起、錢包 $0、錢格 $464:仍先去收錢(毛皮牌不算現金)")
+    state["pads"].pop_back()
+    state.erase("resources")
     state["money_on_pad"] = 0
     state["wallet"] = 0
     _check(GuideLogic.hint(state)["kind"] == "station_output", "錢格沒錢:照塞住規則")
